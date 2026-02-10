@@ -1,0 +1,17 @@
+-- ============================================
+-- CRM CELEXIA — Seed Data (dev only)
+-- ============================================
+-- Note: This seed assumes test users have been created via Supabase Auth.
+-- After running migrations, create users in the Supabase dashboard
+-- or via the Auth API with the following emails:
+--
+--   fondateur@celexia.fr  (role: fondateur)
+--   cofondateur@celexia.fr (role: co_fondateur)
+--   commercial1@celexia.fr (role: commercial)
+--   commercial2@celexia.fr (role: commercial)
+--
+-- The handle_new_user() trigger will auto-create profile rows.
+-- Then run this seed to populate test data.
+
+-- This file intentionally left minimal.
+-- Test data will be added after users are created in Supabase Auth.
