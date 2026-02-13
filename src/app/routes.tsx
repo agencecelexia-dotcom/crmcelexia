@@ -17,6 +17,8 @@ const ClientDetailPage = lazy(() => import('@/features/clients/pages/client-deta
 const BillingListPage = lazy(() => import('@/features/billing/pages/billing-list-page').then(m => ({ default: m.BillingListPage })))
 const SettingsPage = lazy(() => import('@/features/settings/pages/settings-page').then(m => ({ default: m.SettingsPage })))
 const TeamManagementPage = lazy(() => import('@/features/settings/pages/team-management-page').then(m => ({ default: m.TeamManagementPage })))
+const CompanySettingsPage = lazy(() => import('@/features/settings/pages/company-settings-page').then(m => ({ default: m.CompanySettingsPage })))
+const TargetsPage = lazy(() => import('@/features/settings/pages/targets-page').then(m => ({ default: m.TargetsPage })))
 
 function PageLoader() {
   return (
@@ -86,6 +88,14 @@ export const router = createBrowserRouter([
               {
                 path: '/settings/team',
                 element: <LazyPage><TeamManagementPage /></LazyPage>,
+              },
+              {
+                path: '/settings/company',
+                element: <LazyPage><CompanySettingsPage /></LazyPage>,
+              },
+              {
+                path: '/settings/targets',
+                element: <LazyPage><TargetsPage /></LazyPage>,
               },
             ],
           },
