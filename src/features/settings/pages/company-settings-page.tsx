@@ -33,15 +33,24 @@ export function CompanySettingsPage() {
   const [seedProgress, setSeedProgress] = useState<SeedProgress | null>(null)
   const [seedResult, setSeedResult] = useState<{ success: boolean; message: string } | null>(null)
 
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('company_settings')
-        .select('*')
-        .limit(1)
-        .single()
-      if (data) setSettings(data as CompanySettings)
-      setLoading(false)
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('company_settings')
+          .select('*')
+          .limit(1)
+          .single()
+        if (fetchErr) throw fetchErr
+        if (data) setSettings(data as CompanySettings)
+      } catch (err) {
+        console.error('Failed to load company settings:', err)
+        setError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [])
@@ -102,6 +111,23 @@ export function CompanySettingsPage() {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold tracking-tight">Entreprise</h1>
+        <p className="text-sm text-red-600">
+          Erreur lors du chargement : {error}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Vérifiez que la migration <code>00004_company_settings.sql</code> a bien été exécutée dans Supabase.
+        </p>
+        <button className="text-sm text-primary underline" onClick={() => window.location.reload()}>
+          Réessayer
+        </button>
       </div>
     )
   }

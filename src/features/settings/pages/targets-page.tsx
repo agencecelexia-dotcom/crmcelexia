@@ -25,33 +25,44 @@ export function TargetsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
     async function load() {
-      const [profilesRes, targetsRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
-        supabase.from('commercial_targets').select('*'),
-      ])
+      try {
+        const [profilesRes, targetsRes] = await Promise.all([
+          supabase.from('profiles').select('id, full_name').eq('is_active', true).order('full_name'),
+          supabase.from('commercial_targets').select('*'),
+        ])
 
-      const profs = (profilesRes.data ?? []) as Profile[]
-      setProfiles(profs)
+        if (profilesRes.error) throw profilesRes.error
+        if (targetsRes.error) throw targetsRes.error
 
-      const tMap: Record<string, TargetRow> = {}
-      for (const t of (targetsRes.data ?? []) as TargetRow[]) {
-        tMap[t.commercial_id] = t
-      }
-      // Initialize defaults for those without targets
-      for (const p of profs) {
-        if (!tMap[p.id]) {
-          tMap[p.id] = {
-            commercial_id: p.id,
-            calls_per_day: 50,
-            rdv_per_week: 5,
-            conversions_per_month: 3,
+        const profs = (profilesRes.data ?? []) as Profile[]
+        setProfiles(profs)
+
+        const tMap: Record<string, TargetRow> = {}
+        for (const t of (targetsRes.data ?? []) as TargetRow[]) {
+          tMap[t.commercial_id] = t
+        }
+        // Initialize defaults for those without targets
+        for (const p of profs) {
+          if (!tMap[p.id]) {
+            tMap[p.id] = {
+              commercial_id: p.id,
+              calls_per_day: 50,
+              rdv_per_week: 5,
+              conversions_per_month: 3,
+            }
           }
         }
+        setTargets(tMap)
+      } catch (err) {
+        console.error('Failed to load targets:', err)
+        setError(err instanceof Error ? err.message : String(err))
+      } finally {
+        setLoading(false)
       }
-      setTargets(tMap)
-      setLoading(false)
     }
     load()
   }, [])
@@ -91,6 +102,23 @@ export function TargetsPage() {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold tracking-tight">Objectifs</h1>
+        <p className="text-sm text-red-600">
+          Erreur lors du chargement : {error}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Vérifiez que la migration <code>00005_commercial_targets.sql</code> a bien été exécutée dans Supabase.
+        </p>
+        <button className="text-sm text-primary underline" onClick={() => window.location.reload()}>
+          Réessayer
+        </button>
       </div>
     )
   }
