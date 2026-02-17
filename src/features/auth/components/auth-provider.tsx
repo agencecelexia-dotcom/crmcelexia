@@ -9,45 +9,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-    if (error) {
-      console.error('Error fetching profile:', error)
+      if (error) {
+        console.error('Error fetching profile:', error)
+        return null
+      }
+      return data as Profile
+    } catch (err) {
+      console.error('Network error fetching profile:', err)
       return null
     }
-    return data as Profile
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
-      setSession(s)
-      if (s?.user) {
-        const p = await fetchProfile(s.user.id)
-        setProfile(p)
-      }
-      setIsLoading(false)
-    })
+    let mounted = true
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, s) => {
+    // Safety timeout — if auth never resolves, stop loading after 10s
+    const timeout = setTimeout(() => {
+      if (mounted && isLoading) {
+        console.warn('Auth timeout: forcing isLoading=false after 10s')
+        setIsLoading(false)
+      }
+    }, 10_000)
+
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session: s } }) => {
+        if (!mounted) return
         setSession(s)
         if (s?.user) {
           const p = await fetchProfile(s.user.id)
-          setProfile(p)
-        } else {
-          setProfile(null)
+          if (mounted) setProfile(p)
         }
-        setIsLoading(false)
-      }
-    )
+        if (mounted) setIsLoading(false)
+      })
+      .catch((err) => {
+        console.error('getSession failed:', err)
+        if (mounted) setIsLoading(false)
+      })
 
-    return () => subscription.unsubscribe()
-  }, [fetchProfile])
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, s) => {
+      if (!mounted) return
+      setSession(s)
+      if (s?.user) {
+        const p = await fetchProfile(s.user.id)
+        if (mounted) setProfile(p)
+      } else {
+        setProfile(null)
+      }
+      if (mounted) setIsLoading(false)
+    })
+
+    return () => {
+      mounted = false
+      clearTimeout(timeout)
+      subscription.unsubscribe()
+    }
+  }, [fetchProfile])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
