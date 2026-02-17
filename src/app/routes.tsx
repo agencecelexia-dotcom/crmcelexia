@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react'
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/dashboard-page').then(m => ({ default: m.DashboardPage })))
 const ProspectsListPage = lazy(() => import('@/features/prospection/pages/prospects-list-page').then(m => ({ default: m.ProspectsListPage })))
 const ProspectDetailPage = lazy(() => import('@/features/prospection/pages/prospect-detail-page').then(m => ({ default: m.ProspectDetailPage })))
+const ProspectCreatePage = lazy(() => import('@/features/prospection/pages/prospect-create-page').then(m => ({ default: m.ProspectCreatePage })))
 const CsvImportPage = lazy(() => import('@/features/prospection/pages/csv-import-page').then(m => ({ default: m.CsvImportPage })))
 const RdvListPage = lazy(() => import('@/features/rendez-vous/pages/rdv-list-page').then(m => ({ default: m.RdvListPage })))
 const ClientsListPage = lazy(() => import('@/features/clients/pages/clients-list-page').then(m => ({ default: m.ClientsListPage })))
@@ -55,6 +56,10 @@ export const router = createBrowserRouter([
           {
             path: '/prospects',
             element: <LazyPage><ProspectsListPage /></LazyPage>,
+          },
+          {
+            path: '/prospects/new',
+            element: <LazyPage><ProspectCreatePage /></LazyPage>,
           },
           {
             path: '/prospects/import',

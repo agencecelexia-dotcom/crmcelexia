@@ -58,7 +58,7 @@ export async function importProspects(
         if (rowError) {
           skipped++
           const rowIndex = i + j + 1
-          const name = chunk[j].company_name ?? `ligne ${rowIndex}`
+          const name = (chunk[j] as Record<string, string>)['company_name'] ?? `ligne ${rowIndex}`
           errors.push(`Ligne ${rowIndex} (${name}) : ${rowError.message}`)
         } else {
           imported++

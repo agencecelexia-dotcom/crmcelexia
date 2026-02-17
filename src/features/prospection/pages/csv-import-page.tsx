@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Upload,
@@ -68,35 +69,50 @@ export function CsvImportPage() {
 
       // Auto-map columns with fuzzy matching
       const autoMapping: Record<string, string> = {}
+      function tryMap(header: string, key: string) {
+        if (!Object.values(autoMapping).includes(key)) {
+          autoMapping[header] = key
+          return true
+        }
+        return false
+      }
       for (const header of result.headers) {
         const lower = header.toLowerCase().trim()
-        for (const field of CSV_IMPORTABLE_FIELDS) {
-          const fieldLower = field.label.toLowerCase()
-          if (
-            lower === field.key ||
-            lower === fieldLower ||
-            lower.includes(field.key) ||
-            lower.includes('nom') && field.key === 'company_name' && !lower.includes('prenom') ||
-            lower.includes('phone') && field.key === 'phone' ||
-            lower.includes('téléphone') && field.key === 'phone' ||
-            lower.includes('tel') && field.key === 'phone' && !lower.includes('site') ||
-            lower.includes('mail') && field.key === 'contact_email' ||
-            lower.includes('site') && field.key === 'website' ||
-            lower.includes('web') && field.key === 'website' ||
-            lower.includes('ville') && field.key === 'city' ||
-            lower.includes('city') && field.key === 'city' ||
-            lower.includes('adresse') && field.key === 'address' ||
-            lower.includes('address') && field.key === 'address' ||
-            lower.includes('catégorie') && field.key === 'profession' ||
-            lower.includes('categorie') && field.key === 'profession' ||
-            lower.includes('métier') && field.key === 'profession' ||
-            lower.includes('google') && field.key === 'google_maps_url'
-          ) {
-            if (!Object.values(autoMapping).includes(field.key)) {
-              autoMapping[header] = field.key
-            }
-            break
-          }
+        // Exact match on key or label first
+        const exactMatch = CSV_IMPORTABLE_FIELDS.find(
+          (f) => lower === f.key || lower === f.label.toLowerCase(),
+        )
+        if (exactMatch) {
+          tryMap(header, exactMatch.key)
+          continue
+        }
+        // Fuzzy rules — order matters: more specific rules first
+        if (lower.includes('prénom') || lower.includes('prenom') || lower === 'firstname') {
+          tryMap(header, 'contact_firstname')
+        } else if ((lower.includes('nom') && lower.includes('contact')) || lower === 'contact') {
+          tryMap(header, 'contact_name')
+        } else if (lower.includes('nom') && (lower.includes('entreprise') || lower.includes('société') || lower.includes('societe') || lower.includes('enseigne'))) {
+          tryMap(header, 'company_name')
+        } else if (lower === 'nom' || lower === 'name') {
+          tryMap(header, 'company_name')
+        } else if (lower.includes('mail')) {
+          tryMap(header, 'contact_email')
+        } else if (lower.includes('google')) {
+          tryMap(header, 'google_maps_url')
+        } else if (lower.includes('site') || lower.includes('web')) {
+          tryMap(header, 'website')
+        } else if (lower.includes('téléphone') || lower.includes('telephone') || lower.includes('phone') || (lower.includes('tel') && !lower.includes('site'))) {
+          tryMap(header, 'phone')
+        } else if (lower.includes('ville') || lower.includes('city')) {
+          tryMap(header, 'city')
+        } else if (lower.includes('adresse') || lower.includes('address')) {
+          tryMap(header, 'address')
+        } else if (lower.includes('catégorie') || lower.includes('categorie') || lower.includes('métier') || lower.includes('metier')) {
+          tryMap(header, 'profession')
+        } else if (lower.includes('zone') || lower.includes('secteur')) {
+          tryMap(header, 'zone')
+        } else if (lower.includes('note') || lower.includes('commentaire')) {
+          tryMap(header, 'notes')
         }
       }
       setMapping(autoMapping)
@@ -223,6 +239,28 @@ export function CsvImportPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {parsed.errors.length > 0 && (
+              <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4 mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                  <p className="font-medium text-yellow-800">
+                    {parsed.errors.length} avertissement{parsed.errors.length > 1 ? 's' : ''} lors de la lecture du fichier
+                  </p>
+                </div>
+                <div className="max-h-[120px] overflow-auto space-y-1">
+                  {parsed.errors.slice(0, 10).map((err, i) => (
+                    <p key={i} className="text-sm text-yellow-700">
+                      {err.row !== undefined ? `Ligne ${err.row + 1} : ` : ''}{err.message}
+                    </p>
+                  ))}
+                  {parsed.errors.length > 10 && (
+                    <p className="text-sm text-yellow-600 font-medium">
+                      ... et {parsed.errors.length - 10} avertissements supplémentaires
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="overflow-auto max-h-[400px] rounded-md border">
               <Table>
                 <TableHeader>
@@ -262,7 +300,20 @@ export function CsvImportPage() {
       )}
 
       {/* Step: Mapping */}
-      {step === 'mapping' && parsed && (
+      {step === 'mapping' && parsed && (() => {
+        // Compute fields already used by other columns
+        const usedFields = new Set(
+          Object.entries(mapping)
+            .filter(([, v]) => v)
+            .map(([, v]) => v),
+        )
+        const duplicateFields = Object.values(mapping).filter((v) => v).reduce<Record<string, number>>(
+          (acc, v) => { acc[v] = (acc[v] ?? 0) + 1; return acc },
+          {},
+        )
+        const hasDuplicates = Object.values(duplicateFields).some((c) => c > 1)
+
+        return (
         <Card>
           <CardHeader>
             <CardTitle>Mapping des colonnes</CardTitle>
@@ -271,15 +322,25 @@ export function CsvImportPage() {
             <p className="text-sm text-muted-foreground">
               Associez chaque colonne du CSV à un champ du CRM. Les champs marqués * sont obligatoires.
             </p>
+            {hasDuplicates && (
+              <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />
+                <p className="text-sm text-yellow-800">
+                  Un même champ CRM ne peut pas être associé à plusieurs colonnes CSV.
+                </p>
+              </div>
+            )}
             <div className="space-y-3">
-              {parsed.headers.map((header) => (
+              {parsed.headers.map((header) => {
+                const currentValue = mapping[header] || ''
+                return (
                 <div key={header} className="flex items-center gap-4">
                   <Label className="w-48 truncate font-mono text-sm" title={header}>
                     {header}
                   </Label>
                   <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
                   <Select
-                    value={mapping[header] || '_ignore'}
+                    value={currentValue || '_ignore'}
                     onValueChange={(v) =>
                       setMapping((m) => ({ ...m, [header]: v === '_ignore' ? '' : v }))
                     }
@@ -289,15 +350,19 @@ export function CsvImportPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="_ignore">— Ignorer —</SelectItem>
-                      {CSV_IMPORTABLE_FIELDS.map((f) => (
-                        <SelectItem key={f.key} value={f.key}>
-                          {f.label} {f.required ? '*' : ''}
-                        </SelectItem>
-                      ))}
+                      {CSV_IMPORTABLE_FIELDS.map((f) => {
+                        const isUsedByOther = usedFields.has(f.key) && currentValue !== f.key
+                        return (
+                          <SelectItem key={f.key} value={f.key} disabled={isUsedByOther}>
+                            {f.label} {f.required ? '*' : ''}{isUsedByOther ? ' (déjà utilisé)' : ''}
+                          </SelectItem>
+                        )
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
-              ))}
+                )
+              })}
             </div>
             <div className="flex justify-between pt-4">
               <Button variant="outline" onClick={() => setStep('preview')}>
@@ -305,14 +370,15 @@ export function CsvImportPage() {
               </Button>
               <Button
                 onClick={goToValidation}
-                disabled={!Object.values(mapping).includes('company_name') || !Object.values(mapping).includes('phone')}
+                disabled={!Object.values(mapping).includes('company_name') || !Object.values(mapping).includes('phone') || hasDuplicates}
               >
                 Valider <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </CardContent>
         </Card>
-      )}
+        )
+      })()}
 
       {/* Step: Validation */}
       {step === 'validation' && (
