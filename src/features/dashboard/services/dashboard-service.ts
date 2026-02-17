@@ -152,63 +152,56 @@ export async function getRemindersCount(commercialId: string): Promise<{ today: 
   }
 }
 
-// Get commercial ranking for founders
+// Get commercial ranking for founders — parallel queries
 export async function getCommercialRanking(dateFrom: string, dateTo: string): Promise<CommercialRanking[]> {
-  // Get all active profiles
-  const { data: profiles, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, full_name')
-    .eq('is_active', true)
-    .in('role', ['commercial', 'co_fondateur', 'fondateur'])
+  // Run all 4 queries in parallel
+  const [profilesRes, callsRes, rdvsRes, conversionsRes] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('is_active', true)
+      .in('role', ['commercial', 'co_fondateur', 'fondateur']),
+    supabase
+      .from('calls')
+      .select('commercial_id')
+      .gte('called_at', dateFrom)
+      .lt('called_at', dateTo),
+    supabase
+      .from('rendez_vous')
+      .select('commercial_id')
+      .is('deleted_at', null)
+      .gte('scheduled_at', dateFrom)
+      .lt('scheduled_at', dateTo),
+    supabase
+      .from('prospects')
+      .select('commercial_id')
+      .eq('status', 'converti_client')
+      .gte('converted_at', dateFrom)
+      .lt('converted_at', dateTo),
+  ])
 
-  if (profileError) throw profileError
-
-  // Get call counts per commercial
-  const { data: calls, error: callError } = await supabase
-    .from('calls')
-    .select('commercial_id')
-    .gte('called_at', dateFrom)
-    .lt('called_at', dateTo)
-
-  if (callError) throw callError
-
-  // Get RDV counts per commercial
-  const { data: rdvs, error: rdvError } = await supabase
-    .from('rendez_vous')
-    .select('commercial_id')
-    .is('deleted_at', null)
-    .gte('scheduled_at', dateFrom)
-    .lt('scheduled_at', dateTo)
-
-  if (rdvError) throw rdvError
-
-  // Get conversion counts per commercial
-  const { data: conversions, error: convError } = await supabase
-    .from('prospects')
-    .select('commercial_id')
-    .eq('status', 'converti_client')
-    .gte('converted_at', dateFrom)
-    .lt('converted_at', dateTo)
-
-  if (convError) throw convError
+  if (profilesRes.error) throw profilesRes.error
+  if (callsRes.error) throw callsRes.error
+  if (rdvsRes.error) throw rdvsRes.error
+  if (conversionsRes.error) throw conversionsRes.error
 
   // Aggregate
   const callCounts: Record<string, number> = {}
-  for (const c of calls ?? []) {
+  for (const c of callsRes.data ?? []) {
     callCounts[c.commercial_id] = (callCounts[c.commercial_id] ?? 0) + 1
   }
 
   const rdvCounts: Record<string, number> = {}
-  for (const r of rdvs ?? []) {
+  for (const r of rdvsRes.data ?? []) {
     rdvCounts[r.commercial_id] = (rdvCounts[r.commercial_id] ?? 0) + 1
   }
 
   const convCounts: Record<string, number> = {}
-  for (const c of conversions ?? []) {
+  for (const c of conversionsRes.data ?? []) {
     convCounts[c.commercial_id] = (convCounts[c.commercial_id] ?? 0) + 1
   }
 
-  return (profiles ?? []).map((p) => ({
+  return (profilesRes.data ?? []).map((p) => ({
     id: p.id,
     full_name: p.full_name,
     calls_count: callCounts[p.id] ?? 0,
@@ -217,37 +210,47 @@ export async function getCommercialRanking(dateFrom: string, dateTo: string): Pr
   })).sort((a, b) => b.calls_count - a.calls_count)
 }
 
-// Weekly call stats for chart
+// Weekly call stats for chart — parallel queries
 export async function getWeeklyCallStats(params: {
   commercialId?: string
   weeks?: number
 }): Promise<{ week: string; count: number }[]> {
   const numWeeks = params.weeks ?? 8
-  const results: { week: string; count: number }[] = []
 
+  // Build all week ranges first
+  const weeks: { label: string; start: string; end: string }[] = []
   for (let i = numWeeks - 1; i >= 0; i--) {
     const weekStart = new Date()
     weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1 - i * 7)
     weekStart.setHours(0, 0, 0, 0)
     const weekEnd = new Date(weekStart)
     weekEnd.setDate(weekStart.getDate() + 7)
-
-    let query = supabase
-      .from('calls')
-      .select('id', { count: 'exact', head: true })
-      .gte('called_at', weekStart.toISOString())
-      .lt('called_at', weekEnd.toISOString())
-
-    if (params.commercialId) {
-      query = query.eq('commercial_id', params.commercialId)
-    }
-
-    const { count, error } = await query
-    if (error) throw error
-
-    const label = `${weekStart.getDate()}/${weekStart.getMonth() + 1}`
-    results.push({ week: label, count: count ?? 0 })
+    weeks.push({
+      label: `${weekStart.getDate()}/${weekStart.getMonth() + 1}`,
+      start: weekStart.toISOString(),
+      end: weekEnd.toISOString(),
+    })
   }
 
-  return results
+  // Run all queries in parallel
+  const responses = await Promise.all(
+    weeks.map((w) => {
+      let query = supabase
+        .from('calls')
+        .select('id', { count: 'exact', head: true })
+        .gte('called_at', w.start)
+        .lt('called_at', w.end)
+
+      if (params.commercialId) {
+        query = query.eq('commercial_id', params.commercialId)
+      }
+      return query
+    }),
+  )
+
+  return weeks.map((w, i) => {
+    const { count, error } = responses[i]
+    if (error) throw error
+    return { week: w.label, count: count ?? 0 }
+  })
 }
