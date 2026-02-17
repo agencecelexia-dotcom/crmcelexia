@@ -57,7 +57,10 @@ export function validateImportRows(
     const mapped: Record<string, string> = {}
     for (const [csvCol, dbField] of Object.entries(mapping)) {
       if (dbField && row[csvCol] !== undefined) {
-        mapped[dbField] = row[csvCol].trim()
+        const trimmed = row[csvCol].trim()
+        if (trimmed) {
+          mapped[dbField] = trimmed
+        }
       }
     }
 
@@ -73,8 +76,17 @@ export function validateImportRows(
       return
     }
 
-    // Clean phone
+    // Clean and validate phone
     mapped.phone = cleanPhone(mapped.phone)
+    if (!validatePhone(mapped.phone)) {
+      invalid.push({ row: index + 1, data: row, reason: `Téléphone invalide : ${mapped.phone}` })
+      return
+    }
+
+    // Clean secondary phone if present
+    if (mapped.phone_secondary) {
+      mapped.phone_secondary = cleanPhone(mapped.phone_secondary)
+    }
 
     valid.push(mapped)
   })

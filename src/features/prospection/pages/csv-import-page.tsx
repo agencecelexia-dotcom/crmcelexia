@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { parseCSVFile, validateImportRows, type ParsedCSV } from '@/lib/csv-parser'
 import { createImportRecord, importProspects } from '../services/csv-import-service'
@@ -38,6 +39,7 @@ type Step = 'upload' | 'preview' | 'mapping' | 'validation' | 'importing' | 'res
 
 export function CsvImportPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { profile } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -47,7 +49,7 @@ export function CsvImportPage() {
   const [mapping, setMapping] = useState<Record<string, string>>({})
   const [validRows, setValidRows] = useState<Record<string, string>[]>([])
   const [invalidRows, setInvalidRows] = useState<{ row: number; data: Record<string, string>; reason: string }[]>([])
-  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null)
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null)
 
   const handleFileSelect = useCallback(async (selectedFile: File) => {
     if (!selectedFile.name.endsWith('.csv')) {
@@ -123,23 +125,37 @@ export function CsvImportPage() {
     setStep('importing')
 
     try {
+      // Clean mapping: remove empty/ignored entries before saving
+      const cleanMapping: Record<string, string> = {}
+      for (const [key, value] of Object.entries(mapping)) {
+        if (value) cleanMapping[key] = value
+      }
+
       const importRecord = await createImportRecord({
         uploaded_by: profile.id,
         original_filename: file.name,
         row_count: parsed?.rowCount ?? 0,
-        column_mapping: mapping,
+        column_mapping: cleanMapping,
         assigned_commercial_id: profile.id,
       })
 
       const result = await importProspects(importRecord.id, validRows, profile.id)
       setImportResult(result)
       setStep('result')
-      toast.success(`${result.imported} prospects importés`)
-    } catch {
-      toast.error('Erreur lors de l\'import')
+
+      // Invalidate prospects cache so the list shows new data immediately
+      await queryClient.invalidateQueries({ queryKey: ['prospects'] })
+
+      if (result.imported > 0) {
+        toast.success(`${result.imported} prospects importés`)
+      }
+      if (result.skipped > 0) {
+        toast.warning(`${result.skipped} prospects ignorés (erreurs)`)
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur inconnue'
+      toast.error(`Erreur lors de l'import : ${message}`)
       setStep('validation')
-    } finally {
-      // import complete
     }
   }
 
@@ -372,15 +388,36 @@ export function CsvImportPage() {
       {step === 'result' && importResult && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 space-y-4">
-            <CheckCircle2 className="h-16 w-16 text-green-500" />
+            {importResult.imported > 0 ? (
+              <CheckCircle2 className="h-16 w-16 text-green-500" />
+            ) : (
+              <XCircle className="h-16 w-16 text-red-500" />
+            )}
             <div className="text-center">
               <p className="text-2xl font-bold">{importResult.imported} prospects importés</p>
               {importResult.skipped > 0 && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  {importResult.skipped} ignorés
+                  {importResult.skipped} ignorés (erreurs)
                 </p>
               )}
             </div>
+
+            {importResult.errors.length > 0 && (
+              <div className="w-full max-w-lg rounded-md border border-red-200 bg-red-50 p-4">
+                <p className="font-medium text-red-800 mb-2">Détail des erreurs :</p>
+                <div className="max-h-[200px] overflow-auto space-y-1">
+                  {importResult.errors.slice(0, 20).map((error, i) => (
+                    <p key={i} className="text-sm text-red-700">{error}</p>
+                  ))}
+                  {importResult.errors.length > 20 && (
+                    <p className="text-sm text-red-600 font-medium">
+                      ... et {importResult.errors.length - 20} erreurs supplémentaires
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3 pt-4">
               <Button variant="outline" onClick={() => {
                 setStep('upload')

@@ -31,7 +31,8 @@ export function formatPercentage(value: number, decimals = 1): string {
   return `${value.toFixed(decimals)} %`
 }
 
-export function formatPhone(phone: string): string {
+export function formatPhone(phone: string | null | undefined): string {
+  if (!phone) return '—'
   const cleaned = phone.replace(/\s/g, '')
   if (cleaned.length === 10 && cleaned.startsWith('0')) {
     return cleaned.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')
