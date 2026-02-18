@@ -252,11 +252,26 @@ export function ProspectDetailPage() {
     }
   }
 
-  function openCalcom() {
+  async function openCalcom() {
     if (!calcomLink || !prospect) return
     const bookingUrl = buildCalcomUrl(calcomLink, prospect)
     if (bookingUrl) {
       window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+
+      // Immediately update prospect status to rdv_pris
+      const statusesToUpdate = ['nouveau', 'appele_sans_reponse', 'messagerie', 'interesse', 'a_rappeler', 'negatif']
+      if (statusesToUpdate.includes(prospect.status)) {
+        try {
+          await updateProspect.mutateAsync({
+            id: prospect.id,
+            updates: { status: 'rdv_pris' } as Record<string, unknown> as never,
+          })
+          toast.success('Statut mis à jour → RDV pris')
+        } catch {
+          // Non-blocking: webhook will also update status
+        }
+      }
+
       toast.info('Réservez un créneau sur Cal.com — le RDV apparaîtra ici automatiquement')
       startCalcomPolling()
     }

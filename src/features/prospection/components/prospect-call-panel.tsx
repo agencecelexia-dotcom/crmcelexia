@@ -129,6 +129,9 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
         }
       }
 
+      // Also update status immediately when Cal.com button is clicked directly
+      // (the call already set the status via logCall, this is just for the Cal.com redirect case)
+
       onCallLogged?.()
     } catch {
       toast.error("Erreur lors de l'enregistrement")

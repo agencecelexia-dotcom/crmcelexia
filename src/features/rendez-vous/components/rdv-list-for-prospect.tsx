@@ -46,7 +46,7 @@ export function RdvListForProspect({ prospectId }: RdvListForProspectProps) {
   }
 
   async function handleStatusChange(rdvId: string, newStatus: RdvStatus) {
-    if (newStatus === 'fait') {
+    if (newStatus === 'show') {
       setCompletingId(rdvId)
       return
     }
@@ -64,16 +64,16 @@ export function RdvListForProspect({ prospectId }: RdvListForProspectProps) {
 
   async function handleCompleteRdv(rdvId: string) {
     if (!completionResult.trim()) {
-      toast.error('Le résultat est obligatoire pour un RDV fait')
+      toast.error('Le résultat est obligatoire')
       return
     }
     try {
       await updateRdv.mutateAsync({
         id: rdvId,
         prospect_id: prospectId,
-        updates: { status: 'fait', result: completionResult.trim() },
+        updates: { status: 'show', result: completionResult.trim() },
       })
-      toast.success('RDV marqué comme fait')
+      toast.success('RDV marqué Show')
       setCompletingId(null)
       setCompletionResult('')
     } catch {
@@ -134,15 +134,15 @@ export function RdvListForProspect({ prospectId }: RdvListForProspectProps) {
               </div>
             )}
 
-            {/* Actions for pending RDV */}
-            {rdv.status === 'prevu' && (
-              <div className="flex gap-2 pt-1">
+            {/* Actions for pending/confirmed RDV */}
+            {(rdv.status === 'prevu' || rdv.status === 'confirme') && (
+              <div className="flex gap-2 pt-1 flex-wrap">
                 {completingId === rdv.id ? (
                   <div className="flex gap-2 w-full">
                     <Input
                       value={completionResult}
                       onChange={(e) => setCompletionResult(e.target.value)}
-                      placeholder="Résultat du RDV (obligatoire)..."
+                      placeholder="Notes du RDV (obligatoire)..."
                       className="h-8 text-sm flex-1"
                     />
                     <Button size="sm" variant="default" onClick={() => handleCompleteRdv(rdv.id)}>
@@ -154,8 +154,13 @@ export function RdvListForProspect({ prospectId }: RdvListForProspectProps) {
                   </div>
                 ) : (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => handleStatusChange(rdv.id, 'fait')}>
-                      <CheckCircle2 className="h-3 w-3 mr-1" /> Fait
+                    {rdv.status === 'prevu' && (
+                      <Button size="sm" variant="outline" onClick={() => handleStatusChange(rdv.id, 'confirme')}>
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Confirmer
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => handleStatusChange(rdv.id, 'show')}>
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Show
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => handleStatusChange(rdv.id, 'no_show')}>
                       <AlertTriangle className="h-3 w-3 mr-1" /> No-show
@@ -165,6 +170,18 @@ export function RdvListForProspect({ prospectId }: RdvListForProspectProps) {
                     </Button>
                   </>
                 )}
+              </div>
+            )}
+
+            {/* Actions for Show (RDV done, need outcome) */}
+            {rdv.status === 'show' && (
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" variant="outline" className="text-purple-700" onClick={() => handleStatusChange(rdv.id, 'close')}>
+                  <CheckCircle2 className="h-3 w-3 mr-1" /> Closé
+                </Button>
+                <Button size="sm" variant="outline" className="text-red-700" onClick={() => handleStatusChange(rdv.id, 'perdu')}>
+                  <XCircle className="h-3 w-3 mr-1" /> Perdu
+                </Button>
               </div>
             )}
           </div>

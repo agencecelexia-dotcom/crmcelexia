@@ -38,14 +38,14 @@ export const PROSPECT_STATUS_COLORS: Record<ProspectStatus, string> = {
 
 // Valid status transitions
 export const PROSPECT_STATUS_TRANSITIONS: Record<ProspectStatus, ProspectStatus[]> = {
-  nouveau: ['appele_sans_reponse', 'messagerie', 'interesse', 'negatif', 'perdu'],
-  appele_sans_reponse: ['appele_sans_reponse', 'messagerie', 'interesse', 'negatif', 'a_rappeler', 'perdu'],
-  messagerie: ['appele_sans_reponse', 'messagerie', 'interesse', 'negatif', 'a_rappeler', 'perdu'],
+  nouveau: ['appele_sans_reponse', 'messagerie', 'interesse', 'negatif', 'rdv_pris', 'perdu'],
+  appele_sans_reponse: ['appele_sans_reponse', 'messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'],
+  messagerie: ['appele_sans_reponse', 'messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'],
   interesse: ['a_rappeler', 'rdv_pris', 'negatif', 'perdu'],
   a_rappeler: ['appele_sans_reponse', 'messagerie', 'interesse', 'negatif', 'rdv_pris', 'perdu'],
   rdv_pris: ['rdv_pris', 'converti_client', 'perdu', 'a_rappeler'],
-  negatif: [],
-  perdu: ['a_rappeler'],
+  negatif: ['a_rappeler', 'rdv_pris'],
+  perdu: ['a_rappeler', 'rdv_pris'],
   converti_client: [],
 }
 
@@ -94,25 +94,37 @@ export const CALL_RESULTS_REQUIRING_NOTE: CallResult[] = [
 
 export const RDV_STATUS = {
   PREVU: 'prevu',
-  FAIT: 'fait',
-  ANNULE: 'annule',
+  CONFIRME: 'confirme',
+  SHOW: 'show',
   NO_SHOW: 'no_show',
+  FAIT: 'fait',
+  CLOSE: 'close',
+  ANNULE: 'annule',
+  PERDU: 'perdu',
 } as const
 
 export type RdvStatus = (typeof RDV_STATUS)[keyof typeof RDV_STATUS]
 
 export const RDV_STATUS_LABELS: Record<RdvStatus, string> = {
-  prevu: 'Prévu',
-  fait: 'Fait',
-  annule: 'Annulé',
+  prevu: 'À venir',
+  confirme: 'Confirmé',
+  show: 'Show',
   no_show: 'No-show',
+  fait: 'Fait',
+  close: 'Closé',
+  annule: 'Annulé',
+  perdu: 'Perdu',
 }
 
 export const RDV_STATUS_COLORS: Record<RdvStatus, string> = {
   prevu: 'bg-blue-100 text-blue-800',
-  fait: 'bg-green-100 text-green-800',
-  annule: 'bg-gray-100 text-gray-800',
+  confirme: 'bg-cyan-100 text-cyan-800',
+  show: 'bg-green-100 text-green-800',
   no_show: 'bg-red-100 text-red-800',
+  fait: 'bg-emerald-100 text-emerald-800',
+  close: 'bg-purple-100 text-purple-800',
+  annule: 'bg-gray-100 text-gray-800',
+  perdu: 'bg-red-200 text-red-900',
 }
 
 export const RDV_TYPE = {

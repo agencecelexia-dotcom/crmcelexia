@@ -97,6 +97,7 @@ export interface RendezVous {
   notes: string | null
   no_show_reason: string | null
   created_from_call_id: string | null
+  external_booking_id: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null
