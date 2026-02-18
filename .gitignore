@@ -15,6 +15,9 @@ dist-ssr
 # Claude Code MCP config (contains secrets)
 .mcp.json
 
+# Supabase temp files
+supabase/.temp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
