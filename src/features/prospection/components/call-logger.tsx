@@ -97,9 +97,9 @@ export function CallLogger({ prospect, open, onOpenChange, onSuccess }: CallLogg
             <p className="text-lg font-mono font-bold text-primary">
               {formatPhone(prospect.phone)}
             </p>
-            {prospect.contact_name && (
+            {(prospect.contact_firstname || prospect.contact_name) && (
               <p className="text-sm text-muted-foreground">
-                {prospect.contact_firstname} {prospect.contact_name}
+                {[prospect.contact_firstname, prospect.contact_name].filter(Boolean).join(' ')}
               </p>
             )}
           </div>

@@ -43,7 +43,7 @@ export function ReminderForm({ prospect, open, onOpenChange }: ReminderFormProps
     }
     if (!profile) return
 
-    const remindAt = new Date(`${date}T${time}:00`).toISOString()
+    const remindAt = `${date}T${time}:00`
 
     try {
       await createReminder.mutateAsync({
@@ -78,9 +78,11 @@ export function ReminderForm({ prospect, open, onOpenChange }: ReminderFormProps
         <div className="space-y-4 py-2">
           <div className="rounded-lg bg-muted p-3">
             <p className="font-medium">{prospect.company_name}</p>
-            <p className="text-sm text-muted-foreground">
-              {prospect.contact_firstname} {prospect.contact_name}
-            </p>
+            {(prospect.contact_firstname || prospect.contact_name) && (
+              <p className="text-sm text-muted-foreground">
+                {[prospect.contact_firstname, prospect.contact_name].filter(Boolean).join(' ')}
+              </p>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

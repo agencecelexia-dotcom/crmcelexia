@@ -10,6 +10,7 @@ import type { Prospect } from '@/types'
 import type { CallResult } from '@/types/enums'
 import {
   CALL_RESULT_TO_STATUS,
+  CALL_RESULTS_REQUIRING_NOTE,
   PROSPECT_STATUS_LABELS,
   PROSPECT_STATUS_COLORS,
   CALL_RESULT_LABELS,
@@ -84,7 +85,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
   async function handleQuickCall(result: CallResult) {
     if (!profile) return
 
-    const needsNote = ['reached_not_interested', 'wrong_number', 'other'].includes(result)
+    const needsNote = CALL_RESULTS_REQUIRING_NOTE.includes(result)
     if (needsNote && !callNote.trim()) {
       toast.error('Ajoutez une note pour ce résultat')
       return
@@ -107,8 +108,10 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
       // creates the RDV card automatically with the visio link
       if (result === 'reached_rdv' && calcomLink) {
         const bookingUrl = buildCalcomUrl(calcomLink, prospect)
-        window.open(bookingUrl, '_blank', 'noopener,noreferrer')
-        toast.info('Choisissez un créneau sur Cal.com — le RDV sera créé automatiquement')
+        if (bookingUrl) {
+          window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+          toast.info('Choisissez un créneau sur Cal.com — le RDV sera créé automatiquement')
+        }
       }
 
       onCallLogged?.()
@@ -134,7 +137,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
     if (!reminderDate || !profile) return
 
     try {
-      const remindAt = new Date(`${reminderDate}T${reminderTime}`).toISOString()
+      const remindAt = `${reminderDate}T${reminderTime}:00`
       await createReminder.mutateAsync({
         prospect_id: prospect.id,
         commercial_id: profile.id,
@@ -156,11 +159,11 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
       <div className="flex items-center justify-between p-4 border-b bg-muted/30">
         <div className="min-w-0">
           <h2 className="font-bold text-lg truncate">{prospect.company_name}</h2>
-          {prospect.contact_firstname || prospect.contact_name ? (
+          {(prospect.contact_firstname || prospect.contact_name) && (
             <p className="text-sm text-muted-foreground truncate">
-              {prospect.contact_firstname} {prospect.contact_name}
+              {[prospect.contact_firstname, prospect.contact_name].filter(Boolean).join(' ')}
             </p>
-          ) : null}
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Link

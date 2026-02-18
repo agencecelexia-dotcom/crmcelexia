@@ -34,27 +34,32 @@ export function buildCalcomUrl(
 ): string {
   if (!calcomLink) return ''
 
-  // Clean and normalise the link
-  let base = calcomLink.trim()
-  // Strip markdown-style angle brackets and duplicated protocol prefixes
-  base = base.replace(/^<+|>+$/g, '')
-  base = base.replace(/^https?:\/\/\s*<?\s*https?:\/\//, 'https://')
-  if (!base.startsWith('http')) base = `https://${base}`
+  try {
+    // Clean and normalise the link
+    let base = calcomLink.trim()
+    // Strip markdown-style angle brackets and duplicated protocol prefixes
+    base = base.replace(/^<+|>+$/g, '')
+    base = base.replace(/^https?:\/\/\s*<?https?:\/\//, 'https://')
+    if (!base.startsWith('http')) base = `https://${base}`
 
-  const url = new URL(base)
+    const url = new URL(base)
 
-  // Pre-fill name
-  const name = [prospect.contact_firstname, prospect.contact_name].filter(Boolean).join(' ')
-  if (name) url.searchParams.set('name', name)
+    // Pre-fill name
+    const name = [prospect.contact_firstname, prospect.contact_name].filter(Boolean).join(' ')
+    if (name) url.searchParams.set('name', name)
 
-  // Pre-fill email
-  if (prospect.contact_email) {
-    url.searchParams.set('email', prospect.contact_email)
+    // Pre-fill email
+    if (prospect.contact_email) {
+      url.searchParams.set('email', prospect.contact_email)
+    }
+
+    // Pass prospect_id as metadata so the webhook can match
+    url.searchParams.set('metadata[prospect_id]', prospect.id)
+    url.searchParams.set('metadata[company]', prospect.company_name)
+
+    return url.toString()
+  } catch {
+    console.error('Invalid Cal.com URL:', calcomLink)
+    return ''
   }
-
-  // Pass prospect_id as metadata so the webhook can match
-  url.searchParams.set('metadata[prospect_id]', prospect.id)
-  url.searchParams.set('metadata[company]', prospect.company_name)
-
-  return url.toString()
 }

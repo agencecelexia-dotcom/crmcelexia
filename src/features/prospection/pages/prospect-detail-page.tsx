@@ -105,14 +105,13 @@ export function ProspectDetailPage() {
 
   function handleCallSuccess(callId: string) {
     setLastCallId(callId)
-    // After a call that results in rdv_pris, open Cal.com booking page
-    // so the webhook automatically creates the RDV card with visio link
-    setTimeout(() => {
-      if (calcomLink && (prospect!.status === 'rdv_pris' || prospect!.status === 'interesse')) {
-        const bookingUrl = buildCalcomUrl(calcomLink, prospect!)
+    // Open Cal.com booking page — the webhook will create the RDV automatically
+    if (calcomLink) {
+      const bookingUrl = buildCalcomUrl(calcomLink, prospect!)
+      if (bookingUrl) {
         window.open(bookingUrl, '_blank', 'noopener,noreferrer')
       }
-    }, 500)
+    }
   }
 
   const field = (key: string, label: string) => (
@@ -141,7 +140,7 @@ export function ProspectDetailPage() {
           <div>
             <h1 className="text-2xl font-bold">{prospect.company_name}</h1>
             <p className="text-sm text-muted-foreground">
-              {prospect.contact_firstname} {prospect.contact_name}
+              {[prospect.contact_firstname, prospect.contact_name].filter(Boolean).join(' ')}
               {prospect.profession && ` · ${prospect.profession}`}
               {prospect.city && ` · ${prospect.city}`}
             </p>
@@ -318,7 +317,7 @@ export function ProspectDetailPage() {
                   Voir sur Google Maps
                 </a>
               )}
-              {prospect.website && (
+              {prospect.website && !prospect.website.toLowerCase().startsWith('javascript:') && (
                 <a
                   href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`}
                   target="_blank"
