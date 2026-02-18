@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Save, Building2, Database, Trash2 } from 'lucide-react'
+import { Loader2, Save, Building2, Database, Trash2, Calendar, Copy, Check } from 'lucide-react'
 import { seedTestData, clearTestData, type SeedProgress } from '@/lib/seed-data'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -18,6 +18,7 @@ interface CompanySettings {
   phone: string
   email: string
   website: string
+  calcom_link: string
 }
 
 export function CompanySettingsPage() {
@@ -71,11 +72,13 @@ export function CompanySettingsPage() {
           phone: settings.phone,
           email: settings.email,
           website: settings.website,
+          calcom_link: settings.calcom_link,
           updated_at: new Date().toISOString(),
         })
         .eq('id', settings.id)
       if (error) throw error
       setSaved(true)
+      queryClient.invalidateQueries({ queryKey: ['company-settings'] })
       setTimeout(() => setSaved(false), 3000)
     } finally {
       setSaving(false)
@@ -251,6 +254,9 @@ export function CompanySettingsPage() {
         </Card>
       )}
 
+      {/* Cal.com Integration */}
+      {settings && <CalcomSettingsCard settings={settings} onUpdate={update} />}
+
       {/* Dev Tools - Seed Data */}
       <Card className="max-w-2xl border-dashed border-orange-300">
         <CardHeader>
@@ -315,5 +321,74 @@ export function CompanySettingsPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function CalcomSettingsCard({
+  settings,
+  onUpdate,
+}: {
+  settings: CompanySettings
+  onUpdate: (field: keyof CompanySettings, value: string) => void
+}) {
+  const [copied, setCopied] = useState(false)
+  const webhookUrl = `https://zsbrhftzjqqqbwbboyqe.supabase.co/functions/v1/calcom-webhook`
+
+  function handleCopy() {
+    navigator.clipboard.writeText(webhookUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <Card className="max-w-2xl">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Calendar className="h-5 w-5 text-primary" />
+          Integration Cal.com
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Connectez Cal.com pour creer automatiquement des RDV dans le CRM quand un call est booke.
+        </p>
+
+        <div className="space-y-2">
+          <Label htmlFor="calcom_link">Lien Cal.com</Label>
+          <Input
+            id="calcom_link"
+            value={settings.calcom_link}
+            onChange={(e) => onUpdate('calcom_link', e.target.value)}
+            placeholder="cal.com/votre-nom/30min"
+          />
+          <p className="text-xs text-muted-foreground">
+            Le lien de votre page de booking Cal.com. Il apparaitra comme bouton "Booker un RDV" dans le panneau prospect.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>URL Webhook (a configurer dans Cal.com)</Label>
+          <div className="flex gap-2">
+            <Input
+              value={webhookUrl}
+              readOnly
+              className="font-mono text-xs bg-muted"
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleCopy}
+              className="shrink-0"
+            >
+              {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Dans Cal.com : Settings → Webhooks → Add → collez cette URL.
+            Selectionnez les evenements : Booking Created, Booking Rescheduled, Booking Cancelled.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

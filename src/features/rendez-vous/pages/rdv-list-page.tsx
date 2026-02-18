@@ -404,7 +404,19 @@ export function RdvListPage() {
                                   </a>
                                 )}
                               </div>
-                              {rdv.notes && (
+                              {rdv.meeting_url && rdv.status === 'prevu' && (
+                                <a
+                                  href={rdv.meeting_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Video className="h-3 w-3" />
+                                  Rejoindre la visio
+                                </a>
+                              )}
+                              {rdv.notes && !rdv.notes.startsWith('[cal.com') && (
                                 <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{rdv.notes}</p>
                               )}
                               {rdv.result && rdv.status === 'fait' && (
