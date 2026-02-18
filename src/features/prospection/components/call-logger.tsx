@@ -34,7 +34,7 @@ interface CallLoggerProps {
   prospect: Prospect
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess?: (callId: string) => void
+  onSuccess?: (callId: string, result: CallResult) => void
 }
 
 export function CallLogger({ prospect, open, onOpenChange, onSuccess }: CallLoggerProps) {
@@ -74,7 +74,7 @@ export function CallLogger({ prospect, open, onOpenChange, onSuccess }: CallLogg
       toast.success('Appel enregistré')
       reset()
       onOpenChange(false)
-      onSuccess?.(callId)
+      onSuccess?.(callId, result as CallResult)
     } catch {
       toast.error('Erreur lors de l\'enregistrement')
     }

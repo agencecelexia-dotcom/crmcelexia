@@ -9,13 +9,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { PROSPECT_STATUS_LABELS, PROSPECT_STATUS_COLORS } from '@/types/enums'
+import { PROSPECT_STATUS_LABELS, PROSPECT_STATUS_COLORS, type CallResult } from '@/types/enums'
 import { CallLogger } from '../components/call-logger'
 import { CallHistory } from '../components/call-history'
 import { ReminderForm } from '../components/reminder-form'
 import { ReminderList } from '../components/reminder-list'
 import { RdvForm } from '@/features/rendez-vous/components/rdv-form'
 import { RdvListForProspect } from '@/features/rendez-vous/components/rdv-list-for-prospect'
+import { useCreateRdv } from '@/features/rendez-vous/hooks/use-rdv'
 import { formatDate } from '@/lib/format'
 import { ArrowLeft, Phone, Clock, Globe, MapPin, Pencil, Save, X, CalendarDays } from 'lucide-react'
 import { useState } from 'react'
@@ -25,9 +26,10 @@ import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
 export function ProspectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isFounder } = useAuth()
+  const { isFounder, profile } = useAuth()
   const { data: prospect, isLoading, error } = useProspect(id)
   const updateProspect = useUpdateProspect()
+  const createRdv = useCreateRdv()
   const { data: calcomLink } = useCalcomLink()
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, string>>({})
@@ -103,13 +105,39 @@ export function ProspectDetailPage() {
     }
   }
 
-  function handleCallSuccess(callId: string) {
+  async function handleCallSuccess(callId: string, result: CallResult) {
     setLastCallId(callId)
-    // Open Cal.com booking page — the webhook will create the RDV automatically
+
+    // Only create RDV and open Cal.com when result is "RDV pris"
+    if (result !== 'reached_rdv' || !profile) return
+
+    // Create a placeholder RDV so the card appears immediately
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    tomorrow.setHours(10, 0, 0, 0)
+    const placeholderDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}T10:00:00`
+
+    try {
+      await createRdv.mutateAsync({
+        prospect_id: prospect!.id,
+        commercial_id: profile.id,
+        scheduled_at: placeholderDate,
+        duration_minutes: 30,
+        type: 'visio',
+        meeting_url: calcomLink || null,
+        notes: '[en attente Cal.com]',
+        created_from_call_id: callId,
+      })
+    } catch {
+      console.error('Failed to create placeholder RDV')
+    }
+
+    // Open Cal.com so the user can pick a real time slot
     if (calcomLink) {
       const bookingUrl = buildCalcomUrl(calcomLink, prospect!)
       if (bookingUrl) {
         window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+        toast.info('Choisissez un créneau sur Cal.com — le RDV sera mis à jour')
       }
     }
   }
