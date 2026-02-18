@@ -206,7 +206,7 @@ async function handleBookingCreated(
       .maybeSingle()
 
     if (existing) {
-      // Already exists — update it (handles both CREATED retries and RESCHEDULED)
+      // Already exists — update it (handles RESCHEDULED and retries)
       await supabase
         .from('rendez_vous')
         .update({
@@ -221,39 +221,6 @@ async function handleBookingCreated(
         .eq('id', existing.id)
 
       return { ok: true, action: 'updated', rdvId: existing.id }
-    }
-  }
-
-  // Check for a pending placeholder RDV created locally (before Cal.com booking)
-  {
-    const { data: pending } = await supabase
-      .from('rendez_vous')
-      .select('id')
-      .eq('prospect_id', prospectId)
-      .eq('status', 'prevu')
-      .like('notes', '%[en attente Cal.com]%')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (pending) {
-      // Update the placeholder with real Cal.com data
-      const notes = bookingId ? `[cal.com:${bookingId}]` : `[cal.com] ${title}`
-      await supabase
-        .from('rendez_vous')
-        .update({
-          scheduled_at: startTime,
-          duration_minutes: durationMinutes,
-          meeting_url: meetingUrl,
-          location: rdvType === 'presentiel' ? location : null,
-          type: rdvType,
-          notes,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', pending.id)
-
-      return { ok: true, action: 'updated_placeholder', rdvId: pending.id }
     }
   }
 

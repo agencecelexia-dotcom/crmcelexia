@@ -53,9 +53,10 @@ export function buildCalcomUrl(
       url.searchParams.set('email', prospect.contact_email)
     }
 
-    // Pass prospect_id as metadata so the webhook can match
+    // Pass prospect info as metadata so the webhook can match
     url.searchParams.set('metadata[prospect_id]', prospect.id)
     url.searchParams.set('metadata[company]', prospect.company_name)
+    if (prospect.phone) url.searchParams.set('metadata[phone]', prospect.phone)
 
     return url.toString()
   } catch {
