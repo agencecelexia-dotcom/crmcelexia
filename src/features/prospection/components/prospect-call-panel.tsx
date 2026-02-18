@@ -6,7 +6,6 @@ import { useCreateReminder } from '../hooks/use-reminders'
 import { useRdvForProspect } from '@/features/rendez-vous/hooks/use-rdv'
 import { useCallsForProspect } from '../hooks/use-calls'
 import { useRemindersForProspect, useCompleteReminder } from '../hooks/use-reminders'
-import { RdvForm } from '@/features/rendez-vous/components/rdv-form'
 import type { Prospect } from '@/types'
 import type { CallResult } from '@/types/enums'
 import {
@@ -77,8 +76,6 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
   const [reminderDate, setReminderDate] = useState('')
   const [reminderTime, setReminderTime] = useState('09:00')
   const [reminderNote, setReminderNote] = useState('')
-  const [rdvFormOpen, setRdvFormOpen] = useState(false)
-  const [lastCallId, setLastCallId] = useState<string | null>(null)
 
   const recentCalls = calls?.slice(0, 5) ?? []
   const pendingReminders = reminders?.filter((r) => !r.is_completed) ?? []
@@ -96,7 +93,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
     const newStatus = CALL_RESULT_TO_STATUS[result]
 
     try {
-      const callId = await logCall.mutateAsync({
+      await logCall.mutateAsync({
         prospect_id: prospect.id,
         commercial_id: profile.id,
         result,
@@ -106,13 +103,15 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
       toast.success(`Appel enregistré — ${PROSPECT_STATUS_LABELS[newStatus]}`)
       setCallNote('')
 
-      // When result is "RDV pris", auto-open the RDV form pre-filled with Cal.com link
-      if (result === 'reached_rdv') {
-        setLastCallId(callId)
-        setRdvFormOpen(true)
-      } else {
-        onCallLogged?.()
+      // When result is "RDV pris", open Cal.com booking page so the webhook
+      // creates the RDV card automatically with the visio link
+      if (result === 'reached_rdv' && calcomLink) {
+        const bookingUrl = buildCalcomUrl(calcomLink, prospect)
+        window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+        toast.info('Choisissez un créneau sur Cal.com — le RDV sera créé automatiquement')
       }
+
+      onCallLogged?.()
     } catch {
       toast.error("Erreur lors de l'enregistrement")
     }
@@ -445,18 +444,6 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
           )}
         </div>
       </div>
-      {/* RDV Form Dialog — auto-opens after "RDV pris" */}
-      <RdvForm
-        prospect={prospect}
-        open={rdvFormOpen}
-        onOpenChange={(open) => {
-          setRdvFormOpen(open)
-          if (!open) onCallLogged?.()
-        }}
-        callId={lastCallId}
-        defaultType="visio"
-        defaultMeetingUrl={calcomLink ? buildCalcomUrl(calcomLink, prospect) : undefined}
-      />
     </div>
   )
 }

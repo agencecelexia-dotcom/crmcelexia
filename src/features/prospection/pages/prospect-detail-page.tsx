@@ -105,11 +105,12 @@ export function ProspectDetailPage() {
 
   function handleCallSuccess(callId: string) {
     setLastCallId(callId)
-    // Auto-open RDV form after a call that results in rdv_pris
+    // After a call that results in rdv_pris, open Cal.com booking page
+    // so the webhook automatically creates the RDV card with visio link
     setTimeout(() => {
-      // Re-check prospect status after query invalidation
-      if (prospect!.status === 'rdv_pris' || prospect!.status === 'interesse') {
-        setRdvFormOpen(true)
+      if (calcomLink && (prospect!.status === 'rdv_pris' || prospect!.status === 'interesse')) {
+        const bookingUrl = buildCalcomUrl(calcomLink, prospect!)
+        window.open(bookingUrl, '_blank', 'noopener,noreferrer')
       }
     }, 500)
   }
