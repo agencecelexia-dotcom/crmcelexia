@@ -276,18 +276,23 @@ async function handleFetchSirene({
   for (const etab of etablissements) {
     const ul = etab.uniteLegale || {}
     const addr = etab.adresseEtablissement || {}
-    const periodes = ul.periodesUniteLegale || []
-    const periode = periodes[0] || {}
 
     const siret = etab.siret || ''
     if (!siret || seenSirets.has(siret)) continue
     seenSirets.add(siret)
 
-    const nom_societe =
-      periode.denominationUniteLegale ||
-      periode.denominationUsuelle1UniteLegale ||
+    // v3.11: denomination is directly on uniteLegale, not in periodesUniteLegale
+    const prenom = ul.prenomUsuelUniteLegale || ul.prenom1UniteLegale || ''
+    const nom = ul.nomUniteLegale || ''
+    let nom_societe =
+      ul.denominationUniteLegale ||
+      ul.denominationUsuelle1UniteLegale ||
       ''
-    if (!nom_societe || nom_societe === '[ND]') continue
+    // For individual entrepreneurs, build name from prenom + nom
+    if (!nom_societe || nom_societe === '[ND]') {
+      nom_societe = [prenom, nom].filter(Boolean).join(' ')
+    }
+    if (!nom_societe) continue
 
     const ville = addr.libelleCommuneEtablissement || ''
     if (!ville) continue
@@ -301,11 +306,10 @@ async function handleFetchSirene({
       .join(' ')
 
     leads.push({
-      prenom:
-        ul.prenomUsuelUniteLegale || ul.prenom1UniteLegale || '',
-      nom: ul.nomUniteLegale || '',
+      prenom,
+      nom,
       nom_societe,
-      code_naf: periode.activitePrincipaleUniteLegale || '',
+      code_naf: ul.activitePrincipaleUniteLegale || '',
       date_creation: ul.dateCreationUniteLegale || '',
       forme_juridique: ul.categorieJuridiqueUniteLegale || '',
       siret,
