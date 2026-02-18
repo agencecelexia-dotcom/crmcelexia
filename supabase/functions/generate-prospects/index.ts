@@ -444,6 +444,102 @@ async function handleCleanupNoPhone(): Promise<{ deleted: number }> {
   return { deleted: Array.isArray(data) ? data.length : 0 }
 }
 
+// --- Diagnostic handler ---
+
+async function handleDiagnostic() {
+  const results: Record<string, unknown> = {
+    timestamp: new Date().toISOString(),
+    env: {
+      SIRENE_API_KEY_set: !!Deno.env.get('SIRENE_API_KEY'),
+      SIRENE_API_KEY_value: SIRENE_API_KEY ? `${SIRENE_API_KEY.slice(0, 8)}...` : 'MISSING',
+      MAPPY_API_KEY_set: !!Deno.env.get('MAPPY_API_KEY'),
+      SUPABASE_URL_set: !!Deno.env.get('SUPABASE_URL'),
+      SUPABASE_SERVICE_ROLE_KEY_set: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+    },
+    sirene: { status: 'pending' },
+    mappy: { status: 'pending' },
+    annuaire: { status: 'pending' },
+  }
+
+  // Test SIRENE API
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+    const response = await fetch(
+      `https://api.insee.fr/api-sirene/3.11/siret?q=activitePrincipaleUniteLegale:"43.21A" AND etablissementSiege:true AND etatAdministratifUniteLegale:A&nombre=1`,
+      {
+        headers: {
+          'X-INSEE-Api-Key-Integration': SIRENE_API_KEY,
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
+      },
+    )
+    clearTimeout(timeout)
+    const text = await response.text()
+    results.sirene = {
+      status: response.ok ? 'OK' : 'ERROR',
+      httpStatus: response.status,
+      body: text.slice(0, 300),
+    }
+  } catch (err) {
+    results.sirene = {
+      status: 'ERROR',
+      message: err instanceof Error ? err.message : 'Unknown error',
+    }
+  }
+
+  // Test Mappy API
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+    const response = await fetch(
+      `https://api-search.mappy.net/search/1.1/find?q=plombier+paris&max_results=1&favorite_country=250&language=fr`,
+      {
+        headers: {
+          apikey: MAPPY_API_KEY,
+          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+          Origin: 'https://fr.mappy.com',
+          Referer: 'https://fr.mappy.com/',
+        },
+        signal: controller.signal,
+      },
+    )
+    clearTimeout(timeout)
+    results.mappy = {
+      status: response.ok ? 'OK' : 'ERROR',
+      httpStatus: response.status,
+    }
+  } catch (err) {
+    results.mappy = {
+      status: 'ERROR',
+      message: err instanceof Error ? err.message : 'Unknown error',
+    }
+  }
+
+  // Test Annuaire API
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10000)
+    const response = await fetch(
+      `https://recherche-entreprises.api.gouv.fr/search?q=test&mtm_campaign=diagnostic`,
+      { signal: controller.signal },
+    )
+    clearTimeout(timeout)
+    results.annuaire = {
+      status: response.ok ? 'OK' : 'ERROR',
+      httpStatus: response.status,
+    }
+  } catch (err) {
+    results.annuaire = {
+      status: 'ERROR',
+      message: err instanceof Error ? err.message : 'Unknown error',
+    }
+  }
+
+  return results
+}
+
 // --- Main handler ---
 
 Deno.serve(async (req) => {
@@ -480,6 +576,9 @@ Deno.serve(async (req) => {
         break
       case 'cleanup_no_phone':
         result = await handleCleanupNoPhone()
+        break
+      case 'diagnostic':
+        result = await handleDiagnostic()
         break
       default:
         return new Response(
