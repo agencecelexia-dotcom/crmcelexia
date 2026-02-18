@@ -354,7 +354,6 @@ export function ProspectDetailPage() {
         onOpenChange={setRdvFormOpen}
         callId={lastCallId}
         defaultType={lastCallId ? 'visio' : undefined}
-        defaultMeetingUrl={lastCallId && calcomLink ? buildCalcomUrl(calcomLink, prospect) : undefined}
       />
     </div>
   )
