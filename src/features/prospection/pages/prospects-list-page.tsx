@@ -43,8 +43,10 @@ import {
   Filter,
   PhoneCall,
   AlertTriangle,
+  Sparkles,
 } from 'lucide-react'
 import { exportToCsv } from '@/lib/export-csv'
+import { ProspectGenerationModal } from '../components/prospect-generation-modal'
 
 const STATUS_OPTIONS = Object.entries(PROSPECT_STATUS_LABELS) as [ProspectStatus, string][]
 
@@ -66,6 +68,7 @@ export function ProspectsListPage() {
 
   // Side panel state
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null)
+  const [showGeneration, setShowGeneration] = useState(false)
 
   const debouncedCity = useDebounce(cityFilter, DEBOUNCE_MS)
   const debouncedProfession = useDebounce(professionFilter, DEBOUNCE_MS)
@@ -142,6 +145,14 @@ export function ProspectsListPage() {
               </p>
             </div>
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowGeneration(true)}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                Générer
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -435,6 +446,12 @@ export function ProspectsListPage() {
           />
         </div>
       )}
+
+      {/* Generation Modal */}
+      <ProspectGenerationModal
+        open={showGeneration}
+        onOpenChange={setShowGeneration}
+      />
     </div>
   )
 }
