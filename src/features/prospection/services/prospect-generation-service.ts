@@ -10,18 +10,11 @@ export interface SubNiche {
 export interface NicheCategory {
   label: string
   subNiches: SubNiche[]
-  allCodes: string[]
 }
 
 export const NICHE_CATEGORIES: NicheCategory[] = [
   {
     label: 'Artisan Batiment',
-    allCodes: [
-      '43.21A', '43.21B', '43.22A', '43.22B', '43.34Z', '43.31Z',
-      '43.32A', '43.32B', '43.33Z', '43.39Z', '43.91B', '43.91A',
-      '43.99C', '43.29A', '43.12A', '43.12B', '43.11Z', '43.99A',
-      '43.99B', '43.13Z', '43.29B',
-    ],
     subNiches: [
       { label: 'Couvreur', codes: ['43.91B'] },
       { label: 'Charpentier', codes: ['43.91A'] },
@@ -46,7 +39,6 @@ export const NICHE_CATEGORIES: NicheCategory[] = [
   },
   {
     label: 'Beaute / Coiffure / Bien-etre',
-    allCodes: ['96.02A', '96.02B', '96.04Z', '96.09Z'],
     subNiches: [
       { label: 'Coiffure', codes: ['96.02A'] },
       { label: 'Soins de beauté', codes: ['96.02B'] },
@@ -56,8 +48,14 @@ export const NICHE_CATEGORIES: NicheCategory[] = [
   },
 ]
 
-// Flat list of all niche names for backward compat
-export const AVAILABLE_NICHES = NICHE_CATEGORIES.map((c) => c.label)
+// Compute allCodes dynamically from sub-niches (avoids manual sync issues)
+function getAllCodes(category: NicheCategory): string[] {
+  const codes = new Set<string>()
+  for (const sub of category.subNiches) {
+    for (const code of sub.codes) codes.add(code)
+  }
+  return Array.from(codes)
+}
 
 export interface GenerationProgress {
   phase: 'collecting' | 'enriching' | 'done' | 'error'
@@ -128,6 +126,18 @@ export async function deleteProspectsWithoutPhone(): Promise<number> {
   return data.deleted || 0
 }
 
+/**
+ * Get the NAF codes for a category, optionally filtered by sub-niche index.
+ * If subNicheIndex is -1, returns all codes from all sub-niches.
+ */
+export function getNafCodes(categoryIndex: number, subNicheIndex: number): string[] {
+  const category = NICHE_CATEGORIES[categoryIndex]
+  if (!category) return []
+  if (subNicheIndex < 0) return getAllCodes(category)
+  const sub = category.subNiches[subNicheIndex]
+  return sub ? sub.codes : []
+}
+
 export async function generateProspects(
   nicheName: string,
   nafCodes: string[],
@@ -142,6 +152,8 @@ export async function generateProspects(
   let sireneExhausted = false
   let totalCollected = 0
   let totalEnriched = 0
+  let rateLimitRetries = 0
+  const MAX_RATE_LIMIT_RETRIES = 10
 
   onProgress({
     phase: 'collecting',
@@ -153,7 +165,7 @@ export async function generateProspects(
     inserted: 0,
   })
 
-  // --- Interleaved loop: fetch SIRENE page → enrich → repeat until target ---
+  // --- Interleaved loop: fetch SIRENE page -> enrich -> repeat until target ---
   while (phoneLeads.length < quantity && !sireneExhausted) {
     if (abortSignal?.aborted) throw new Error('Annulé')
 
@@ -161,9 +173,14 @@ export async function generateProspects(
     const data = await invokeFunction('fetch_sirene', { codes: nafCodes, cursor })
 
     if (data.rateLimited) {
+      rateLimitRetries++
+      if (rateLimitRetries >= MAX_RATE_LIMIT_RETRIES) {
+        throw new Error('SIRENE API indisponible (trop de requêtes). Réessayez dans quelques minutes.')
+      }
       await sleep(5000)
       continue
     }
+    rateLimitRetries = 0 // reset on success
 
     const rawLeads = data.leads as RawLead[]
     cursor = data.nextCursor
@@ -182,7 +199,7 @@ export async function generateProspects(
     totalCollected += freshLeads.length
 
     onProgress({
-      phase: 'collecting',
+      phase: phoneLeads.length > 0 ? 'enriching' : 'collecting',
       collected: totalCollected,
       enriched: totalEnriched,
       withPhone: phoneLeads.length,

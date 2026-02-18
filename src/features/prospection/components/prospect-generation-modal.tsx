@@ -4,9 +4,9 @@ import { useAuth } from '@/features/auth/hooks/use-auth'
 import {
   generateProspects,
   deleteProspectsWithoutPhone,
+  getNafCodes,
   NICHE_CATEGORIES,
   type GenerationProgress,
-  type NicheCategory,
 } from '../services/prospect-generation-service'
 import {
   Dialog,
@@ -43,25 +43,25 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
   const [isCleaning, setIsCleaning] = useState(false)
   const [progress, setProgress] = useState<GenerationProgress | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  // Guard against double-start: track if an async generation is still in flight
+  const generationInFlightRef = useRef(false)
 
-  const selectedCategory: NicheCategory = NICHE_CATEGORIES[categoryIndex]
+  const selectedCategory = NICHE_CATEGORIES[categoryIndex]
 
-  const { nicheName, nafCodes } = useMemo(() => {
-    if (subNicheIndex < 0) {
-      return {
-        nicheName: selectedCategory.label,
-        nafCodes: selectedCategory.allCodes,
-      }
-    }
+  const nicheName = useMemo(() => {
+    if (subNicheIndex < 0) return selectedCategory.label
     const sub = selectedCategory.subNiches[subNicheIndex]
-    return {
-      nicheName: `${selectedCategory.label} > ${sub.label}`,
-      nafCodes: sub.codes,
-    }
+    return `${selectedCategory.label} > ${sub.label}`
   }, [selectedCategory, subNicheIndex])
+
+  const nafCodes = useMemo(
+    () => getNafCodes(categoryIndex, subNicheIndex),
+    [categoryIndex, subNicheIndex],
+  )
 
   const handleStart = useCallback(async () => {
     if (!profile) return
+    if (generationInFlightRef.current) return // prevent double-start
     if (quantity < 1 || quantity > 5000) {
       toast.error('Le nombre doit être entre 1 et 5000')
       return
@@ -69,6 +69,7 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
 
     setIsRunning(true)
     setProgress(null)
+    generationInFlightRef.current = true
     abortControllerRef.current = new AbortController()
 
     try {
@@ -102,6 +103,7 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
         toast.error(`Erreur: ${message}`)
       }
     } finally {
+      generationInFlightRef.current = false
       setIsRunning(false)
       abortControllerRef.current = null
     }
@@ -109,8 +111,9 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
 
   const handleCancel = useCallback(() => {
     abortControllerRef.current?.abort()
-    setIsRunning(false)
-    toast.info('Génération annulée')
+    // Don't set isRunning=false here — let the finally block handle it
+    // to prevent race condition where user could start a new generation
+    toast.info('Annulation en cours...')
   }, [])
 
   const handleCleanup = useCallback(async () => {
@@ -137,13 +140,19 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
   )
 
   // Progress based on phone leads found vs target
-  const progressPercent =
-    progress && progress.quantity > 0
-      ? Math.min(
-          Math.round((progress.withPhone / progress.quantity) * 100),
-          100,
-        )
-      : 0
+  const progressPercent = useMemo(() => {
+    if (!progress || progress.quantity === 0) return 0
+    if (progress.phase === 'done') return 100
+    // Show collecting progress as 0-20%, enriching as 20-100%
+    if (progress.phase === 'collecting' && progress.collected > 0) {
+      return Math.min(Math.round((progress.collected / (progress.quantity * 3)) * 20), 20)
+    }
+    // Enriching: based on phone leads vs target (20-100%)
+    return Math.min(
+      20 + Math.round((progress.withPhone / progress.quantity) * 80),
+      100,
+    )
+  }, [progress])
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -210,7 +219,7 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
                 max={5000}
                 value={quantity}
                 onChange={(e) =>
-                  setQuantity(parseInt(e.target.value) || 0)
+                  setQuantity(Math.max(1, parseInt(e.target.value) || 1))
                 }
                 disabled={isRunning}
               />

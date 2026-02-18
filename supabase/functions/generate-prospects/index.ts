@@ -4,21 +4,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const SIRENE_API_KEY = 'fb76cf7e-e820-461a-b6cf-7ee820d61a92'
-const MAPPY_API_KEY = 'f2wjQp1eFdTe26YcAP3K92m7d9cV8x1Z'
-
-const NICHES: Record<string, string[]> = {
-  'Artisan Batiment': [
-    '43.21A', '43.22A', '43.22B', '43.34Z', '43.31Z',
-    '43.32A', '43.32B', '43.33Z', '43.39Z', '43.91B',
-    '43.99C', '43.29A', '43.12A', '43.11Z', '43.91A',
-    '43.99A', '43.99B', '43.12B', '43.13Z', '43.21B',
-    '43.29B',
-  ],
-  'Beaute / Coiffure / Bien-etre': [
-    '96.02A', '96.02B', '96.04Z', '96.09Z',
-  ],
-}
+const SIRENE_API_KEY = Deno.env.get('SIRENE_API_KEY') || 'fb76cf7e-e820-461a-b6cf-7ee820d61a92'
+const MAPPY_API_KEY = Deno.env.get('MAPPY_API_KEY') || 'f2wjQp1eFdTe26YcAP3K92m7d9cV8x1Z'
 
 interface RawLead {
   prenom: string
@@ -70,7 +57,7 @@ function cleanCompanyName(name: string): string {
 async function domainExists(domain: string): Promise<boolean> {
   try {
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 500)
+    const timeout = setTimeout(() => controller.abort(), 800)
     await fetch(`http://${domain}`, {
       method: 'HEAD',
       signal: controller.signal,
@@ -134,14 +121,15 @@ async function enrichMappy(
 
     const poi = pois[0]
 
-    // Verify match
+    // Verify match - use words > 2 chars to avoid skipping short company names
     const townMatch =
       poi.town && ville.toLowerCase().includes(poi.town.toLowerCase())
     const nameWords = nomSociete
       .split(/\s+/)
-      .filter((w: string) => w.length > 3)
+      .filter((w: string) => w.length > 2)
     const nameMatch =
       poi.name &&
+      nameWords.length > 0 &&
       nameWords.some((w: string) =>
         poi.name.toLowerCase().includes(w.toLowerCase()),
       )
@@ -216,19 +204,28 @@ async function enrichAnnuaire(
   return result
 }
 
+// --- Auth helper ---
+
+function verifyAuth(req: Request): void {
+  const authHeader = req.headers.get('authorization') || ''
+  if (!authHeader.startsWith('Bearer ')) {
+    throw new Error('Non autorisé')
+  }
+  // The Supabase client always sends the user's JWT or anon key.
+  // Edge functions are only callable with a valid apikey, which Supabase
+  // enforces at the gateway level. This is sufficient for our use case.
+}
+
 // --- SIRENE handler ---
 
 async function handleFetchSirene({
-  niche,
-  codes: passedCodes,
+  codes,
   cursor,
 }: {
-  niche?: string
-  codes?: string[]
+  codes: string[]
   cursor: string
 }) {
-  const codes = passedCodes || (niche ? NICHES[niche] : null)
-  if (!codes || codes.length === 0) throw new Error('Niche ou codes NAF requis')
+  if (!codes || codes.length === 0) throw new Error('Codes NAF requis')
 
   const sixMonthsAgo = new Date()
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
@@ -283,14 +280,12 @@ async function handleFetchSirene({
     if (!siret || seenSirets.has(siret)) continue
     seenSirets.add(siret)
 
-    // v3.11: denomination is directly on uniteLegale, not in periodesUniteLegale
     const prenom = ul.prenomUsuelUniteLegale || ul.prenom1UniteLegale || ''
     const nom = ul.nomUniteLegale || ''
     let nom_societe =
       ul.denominationUniteLegale ||
       ul.denominationUsuelle1UniteLegale ||
       ''
-    // For individual entrepreneurs, build name from prenom + nom
     if (!nom_societe || nom_societe === '[ND]') {
       nom_societe = [prenom, nom].filter(Boolean).join(' ')
     }
@@ -307,6 +302,11 @@ async function handleFetchSirene({
       .filter(Boolean)
       .join(' ')
 
+    // DOM-TOM: department codes are 3 digits (971, 972, etc.)
+    const dept = code_postal.length >= 3 && code_postal.startsWith('97')
+      ? code_postal.slice(0, 3)
+      : code_postal.slice(0, 2)
+
     leads.push({
       prenom,
       nom,
@@ -319,7 +319,7 @@ async function handleFetchSirene({
       adresse,
       code_postal,
       ville,
-      departement: code_postal.slice(0, 2),
+      departement: dept,
     })
   }
 
@@ -390,8 +390,9 @@ async function handleCleanupNoPhone(): Promise<{ deleted: number }> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
+  // phone column is NOT NULL, so we only need to check for empty string
   const response = await fetch(
-    `${supabaseUrl}/rest/v1/prospects?deleted_at=is.null&or=(phone.is.null,phone.eq.)`,
+    `${supabaseUrl}/rest/v1/prospects?deleted_at=is.null&phone=eq.`,
     {
       method: 'PATCH',
       headers: {
@@ -421,6 +422,8 @@ Deno.serve(async (req) => {
   }
 
   try {
+    verifyAuth(req)
+
     const body = await req.json()
     const { action, ...params } = body
 
@@ -428,16 +431,13 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case 'fetch_sirene':
-        result = await handleFetchSirene(params as { niche?: string; codes?: string[]; cursor: string })
+        result = await handleFetchSirene(params as { codes: string[]; cursor: string })
         break
       case 'enrich_batch':
         result = await handleEnrichBatch(params as { leads: RawLead[]; niche: string })
         break
       case 'cleanup_no_phone':
         result = await handleCleanupNoPhone()
-        break
-      case 'get_niches':
-        result = { niches: Object.keys(NICHES) }
         break
       default:
         return new Response(
