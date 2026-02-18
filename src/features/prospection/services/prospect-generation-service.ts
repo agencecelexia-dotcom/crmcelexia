@@ -100,6 +100,37 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function extractErrorDetail(error: any, data: any): string {
+  // In Supabase SDK v2, FunctionsHttpError stores the parsed JSON body
+  // in error.context as a plain object (NOT a Response).
+  const ctx = error?.context
+
+  if (ctx && typeof ctx === 'object') {
+    // Edge function errors: { error: "..." }
+    if ('error' in ctx && ctx.error) return String(ctx.error)
+    // Gateway errors (401 JWT): { code: 401, message: "Invalid JWT" }
+    if ('message' in ctx && ctx.message) return String(ctx.message)
+    // Stringified fallback
+    if ('msg' in ctx && ctx.msg) return String(ctx.msg)
+  }
+
+  // Some SDK versions populate data even on error
+  if (data && typeof data === 'object') {
+    if ('error' in data && data.error) return String(data.error)
+    if ('message' in data && data.message) return String(data.message)
+  }
+
+  // error.context might be a Response in very old SDK versions
+  if (ctx && typeof ctx.json === 'function') {
+    // Can't await here, but this path is unlikely
+  }
+
+  // error.context might be a string
+  if (typeof ctx === 'string' && ctx.length > 0) return ctx
+
+  return error?.message || 'Erreur inconnue'
+}
+
 async function invokeFunction(
   action: string,
   params: Record<string, unknown>,
@@ -113,36 +144,23 @@ async function invokeFunction(
 
     if (!error) return data
 
-    // Extract the real error message.
-    // In Supabase SDK v2, FunctionsHttpError stores the parsed JSON body
-    // in error.context (it's a plain object, NOT a Response).
-    let detail = ''
-
-    // Method 1: error.context is the parsed response body { error: "..." }
-    const ctx = (error as any).context
-    if (ctx && typeof ctx === 'object' && 'error' in ctx) {
-      detail = ctx.error
-    }
-
-    // Method 2: data might contain the error in some SDK versions
-    if (!detail && data && typeof data === 'object' && 'error' in (data as any)) {
-      detail = (data as { error: string }).error
-    }
-
-    // Method 3: error.context might be a Response (older SDK versions)
-    if (!detail && ctx && typeof ctx.json === 'function') {
-      try {
-        const body = await ctx.json()
-        if (body?.error) detail = body.error
-      } catch { /* body already consumed */ }
-    }
-
-    // Fallback to SDK error message
-    if (!detail) {
-      detail = error.message || 'Erreur inconnue'
-    }
+    const detail = extractErrorDetail(error, data)
 
     console.error(`[${action}] attempt ${attempt + 1}/${retries + 1}: ${detail}`)
+
+    // On JWT/auth errors, refresh the session and retry once
+    const isAuthError =
+      detail.includes('Invalid JWT') ||
+      detail.includes('JWT expired') ||
+      detail.includes('Non autorisé') ||
+      (error?.context?.code === 401)
+
+    if (isAuthError && attempt < retries) {
+      console.warn(`[${action}] Auth error, refreshing session...`)
+      await supabase.auth.refreshSession()
+      await sleep(500)
+      continue
+    }
 
     // Retry on transient errors (network, 500, relay errors)
     const isTransient =
