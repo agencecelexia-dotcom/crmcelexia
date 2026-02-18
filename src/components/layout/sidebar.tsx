@@ -11,6 +11,13 @@ import {
   Settings,
   LogOut,
   Target,
+  CalendarDays,
+  TrendingUp,
+  FileCheck,
+  CreditCard,
+  BarChart3,
+  RefreshCcw,
+  Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -23,16 +30,53 @@ interface NavItem {
   founderOnly?: boolean
 }
 
-const navItems: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
-  { to: '/prospects', label: 'Prospects', icon: <Phone className="h-4 w-4" /> },
-  { to: '/rdv', label: 'Rendez-vous', icon: <Calendar className="h-4 w-4" /> },
-  { to: '/clients', label: 'Clients', icon: <Building2 className="h-4 w-4" />, founderOnly: true },
-  { to: '/billing', label: 'Devis & Facturation', icon: <FileText className="h-4 w-4" />, founderOnly: true },
-  { to: '/settings/team', label: 'Équipe', icon: <Users className="h-4 w-4" />, founderOnly: true },
-  { to: '/settings/company', label: 'Entreprise', icon: <Building2 className="h-4 w-4" />, founderOnly: true },
-  { to: '/settings/targets', label: 'Objectifs', icon: <Target className="h-4 w-4" />, founderOnly: true },
-  { to: '/settings', label: 'Paramètres', icon: <Settings className="h-4 w-4" /> },
+interface NavSection {
+  title: string
+  items: NavItem[]
+}
+
+const navSections: NavSection[] = [
+  {
+    title: '',
+    items: [
+      { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
+    ],
+  },
+  {
+    title: 'Commercial',
+    items: [
+      { to: '/prospects', label: 'Prospects', icon: <Phone className="h-4 w-4" /> },
+      { to: '/rdv', label: 'Rendez-vous', icon: <Calendar className="h-4 w-4" /> },
+      { to: '/calendar', label: 'Calendrier', icon: <CalendarDays className="h-4 w-4" /> },
+      { to: '/opportunities', label: 'Opportunités', icon: <Zap className="h-4 w-4" /> },
+    ],
+  },
+  {
+    title: 'Gestion',
+    items: [
+      { to: '/clients', label: 'Clients', icon: <Building2 className="h-4 w-4" />, founderOnly: true },
+      { to: '/contracts', label: 'Contrats', icon: <FileCheck className="h-4 w-4" />, founderOnly: true },
+      { to: '/billing', label: 'Devis & Facturation', icon: <FileText className="h-4 w-4" />, founderOnly: true },
+      { to: '/payments', label: 'Paiements', icon: <CreditCard className="h-4 w-4" />, founderOnly: true },
+    ],
+  },
+  {
+    title: 'Analytics',
+    items: [
+      { to: '/performance', label: 'Performance', icon: <BarChart3 className="h-4 w-4" /> },
+      { to: '/objectives', label: 'Objectifs', icon: <Target className="h-4 w-4" /> },
+      { to: '/followup', label: 'Suivi long terme', icon: <RefreshCcw className="h-4 w-4" />, founderOnly: true },
+    ],
+  },
+  {
+    title: 'Configuration',
+    items: [
+      { to: '/settings/team', label: 'Équipe', icon: <Users className="h-4 w-4" />, founderOnly: true },
+      { to: '/settings/company', label: 'Entreprise', icon: <Building2 className="h-4 w-4" />, founderOnly: true },
+      { to: '/settings/targets', label: 'Cibles appels', icon: <TrendingUp className="h-4 w-4" />, founderOnly: true },
+      { to: '/settings', label: 'Paramètres', icon: <Settings className="h-4 w-4" /> },
+    ],
+  },
 ]
 
 interface SidebarProps {
@@ -41,10 +85,6 @@ interface SidebarProps {
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const { profile, isFounder, signOut } = useAuth()
-
-  const visibleItems = navItems.filter(
-    (item) => !item.founderOnly || isFounder
-  )
 
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
@@ -55,26 +95,43 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       </div>
       <Separator className="bg-sidebar-border" />
       <ScrollArea className="flex-1 px-3 py-4">
-        <nav className="space-y-1">
-          {visibleItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/settings'}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-                )
-              }
-              onClick={onNavigate}
-            >
-              {item.icon}
-              {item.label}
-            </NavLink>
-          ))}
+        <nav className="space-y-4">
+          {navSections.map((section) => {
+            const visibleItems = section.items.filter(
+              (item) => !item.founderOnly || isFounder
+            )
+            if (visibleItems.length === 0) return null
+            return (
+              <div key={section.title || 'main'}>
+                {section.title && (
+                  <p className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
+                    {section.title}
+                  </p>
+                )}
+                <div className="space-y-0.5">
+                  {visibleItems.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.to === '/settings'}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                          isActive
+                            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                        )
+                      }
+                      onClick={onNavigate}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </nav>
       </ScrollArea>
       <Separator className="bg-sidebar-border" />

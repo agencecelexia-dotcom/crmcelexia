@@ -11,6 +11,8 @@ import {
 } from '../hooks/use-dashboard'
 import { useMyReminders } from '@/features/prospection/hooks/use-reminders'
 import { useMyUpcomingRdv } from '@/features/rendez-vous/hooks/use-rdv'
+import { usePerformanceStats } from '@/features/analytics/hooks/use-analytics'
+import { AlertsPanel } from '@/features/alerts/components/alerts-panel'
 import { StatCard } from '@/components/shared/stat-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -24,10 +26,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useNavigate } from 'react-router-dom'
-import { Phone, CalendarDays, Clock, AlertTriangle, TrendingUp, Users, Target, BarChart3 } from 'lucide-react'
+import { Phone, CalendarDays, Clock, AlertTriangle, TrendingUp, Users, Target, BarChart3, DollarSign } from 'lucide-react'
 import { PROSPECT_STATUS_LABELS, PROSPECT_STATUS_COLORS, RDV_TYPE_LABELS } from '@/types/enums'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { formatDate } from '@/lib/format'
+import { formatDate, formatCurrency } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -80,6 +82,7 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
   const { data: todayReminders } = useMyReminders(commercialId, { todayOnly: true })
   const { data: overdueReminders } = useMyReminders(commercialId, { overdueOnly: true })
   const { data: weeklyStats } = useWeeklyCallStats(commercialId)
+  const { data: perfStats } = usePerformanceStats(commercialId)
 
   const funnelPieData = funnel ? [
     { name: 'Nouveau', value: funnel.nouveau, color: FUNNEL_COLORS.nouveau },
@@ -94,7 +97,13 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
   return (
     <>
       {/* KPI cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <StatCard
+          title="CA ce mois"
+          value={perfStats ? formatCurrency(perfStats.ca_this_month) : '...'}
+          icon={DollarSign}
+          className="border-primary/30 bg-primary/5"
+        />
         <StatCard
           title="Appels aujourd'hui"
           value={loadingCalls ? '...' : callsToday ?? 0}
@@ -120,6 +129,9 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
           icon={Target}
         />
       </div>
+
+      {/* Smart Alerts */}
+      <AlertsPanel />
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Overdue reminders */}
@@ -314,6 +326,7 @@ function FounderDashboard() {
   const { data: funnel } = useFunnelStats()
   const { data: ranking, isLoading: loadingRanking } = useCommercialRanking()
   const { data: weeklyStats } = useWeeklyCallStats()
+  const { data: perfStats } = usePerformanceStats()
 
   const funnelBarData = funnel ? [
     { name: 'Nouveau', value: funnel.nouveau, fill: FUNNEL_COLORS.nouveau },
@@ -338,7 +351,14 @@ function FounderDashboard() {
   return (
     <>
       {/* Global KPIs */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <StatCard
+          title="CA ce mois"
+          value={perfStats ? formatCurrency(perfStats.ca_this_month) : '...'}
+          subtitle={perfStats ? `MRR: ${formatCurrency(perfStats.mrr_generated)}` : ''}
+          icon={DollarSign}
+          className="border-primary/30 bg-primary/5"
+        />
         <StatCard
           title="Appels aujourd'hui"
           value={callsToday ?? 0}
@@ -364,6 +384,9 @@ function FounderDashboard() {
           icon={Users}
         />
       </div>
+
+      {/* Smart Alerts */}
+      <AlertsPanel />
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Funnel bar chart */}
@@ -501,6 +524,15 @@ function FounderDashboard() {
         </Button>
         <Button variant="outline" size="sm" onClick={() => navigate('/clients')}>
           Voir les clients
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => navigate('/calendar')}>
+          Calendrier
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => navigate('/opportunities')}>
+          Opportunités
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => navigate('/performance')}>
+          Performance
         </Button>
       </div>
     </>
