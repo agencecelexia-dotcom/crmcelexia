@@ -70,15 +70,27 @@ async function handleBookingCreated(
   // Extract cal.com booking data
   const startTime = payload.startTime as string
   const endTime = payload.endTime as string
-  const meetingUrl = (payload.metadata as Record<string, unknown>)?.videoCallUrl as string | undefined
+
+  // Cal.com sends the video call URL in different places depending on version/config
+  const metadata = payload.metadata as Record<string, unknown> | undefined
+  const videoCallData = payload.videoCallData as { url?: string } | undefined
+  const meetingUrl =
+    videoCallData?.url
+    || metadata?.videoCallUrl as string | undefined
     || payload.meetingUrl as string | undefined
+    || (typeof payload.location === 'string' && payload.location.startsWith('http') ? payload.location : null)
     || null
+
   const location = payload.location as string | undefined || null
   const title = payload.title as string || 'RDV'
   const bookingId = String(payload.uid || payload.bookingId || '')
   const attendees = (payload.attendees as Array<{ email?: string; name?: string; phone?: string }>) || []
   const responses = payload.responses as Record<string, { value?: string }> | undefined
   const organizer = payload.organizer as { email?: string; name?: string } | undefined
+
+  console.log('Webhook payload keys:', Object.keys(payload))
+  console.log('Meeting URL resolved:', meetingUrl)
+  console.log('Metadata:', JSON.stringify(metadata))
 
   // Compute duration
   let durationMinutes = 30
@@ -100,14 +112,17 @@ async function handleBookingCreated(
   }
   if (meetingUrl) rdvType = 'visio'
 
-  // Try to find prospect by attendee email or phone
-  const attendeeEmail = attendees[0]?.email || null
-  const attendeePhone = responses?.phone?.value || attendees[0]?.phone || null
-  const attendeeName = attendees[0]?.name || null
-
+  // Try to find the prospect — prioritise metadata.prospect_id (set by CRM button)
   let prospectId: string | null = null
 
-  // Match by email
+  if (metadata?.prospect_id) {
+    prospectId = metadata.prospect_id as string
+  }
+
+  // Fallback: match by attendee email or phone
+  const attendeeEmail = attendees[0]?.email || null
+  const attendeePhone = responses?.phone?.value || attendees[0]?.phone || null
+
   if (attendeeEmail && !prospectId) {
     const { data } = await supabase
       .from('prospects')
@@ -119,9 +134,7 @@ async function handleBookingCreated(
     if (data) prospectId = data.id
   }
 
-  // Match by phone
   if (attendeePhone && !prospectId) {
-    // Normalize phone: remove spaces, dashes, dots
     const normalized = attendeePhone.replace(/[\s\-\.]/g, '')
     const { data } = await supabase
       .from('prospects')
@@ -131,12 +144,6 @@ async function handleBookingCreated(
       .limit(1)
       .maybeSingle()
     if (data) prospectId = data.id
-  }
-
-  // If we can't find the prospect, check metadata for prospect_id (set from CRM button)
-  const metadata = payload.metadata as Record<string, unknown> | undefined
-  if (!prospectId && metadata?.prospect_id) {
-    prospectId = metadata.prospect_id as string
   }
 
   if (!prospectId) {
