@@ -378,27 +378,28 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
           )}
 
           {/* Actions */}
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-3">
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleCleanup}
                 disabled={isRunning || isCleaning}
-                className="text-destructive hover:text-destructive"
+                className="text-destructive hover:text-destructive flex-1 sm:flex-none"
               >
                 {isCleaning ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                 )}
-                Supprimer sans tél.
+                <span className="truncate">Sans tél.</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleDiagnostic}
                 disabled={isRunning || isDiagnosing}
+                className="flex-1 sm:flex-none"
               >
                 {isDiagnosing ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -409,7 +410,7 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
               </Button>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 justify-end">
               {isRunning ? (
                 <Button variant="destructive" size="sm" onClick={handleCancel}>
                   Annuler
@@ -424,7 +425,7 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
                     Fermer
                   </Button>
                   <Button size="sm" onClick={handleStart}>
-                    Lancer la génération
+                    Lancer
                   </Button>
                 </>
               )}

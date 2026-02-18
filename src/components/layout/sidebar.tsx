@@ -35,7 +35,11 @@ const navItems: NavItem[] = [
   { to: '/settings', label: 'Paramètres', icon: <Settings className="h-4 w-4" /> },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void
+}
+
+export function Sidebar({ onNavigate }: SidebarProps) {
   const { profile, isFounder, signOut } = useAuth()
 
   const visibleItems = navItems.filter(
@@ -65,6 +69,7 @@ export function Sidebar() {
                     : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
                 )
               }
+              onClick={onNavigate}
             >
               {item.icon}
               {item.label}

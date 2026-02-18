@@ -40,6 +40,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
+import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
 
 interface ProspectCallPanelProps {
   prospect: Prospect
@@ -66,6 +67,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
   const { data: calls } = useCallsForProspect(prospect.id)
   const { data: reminders } = useRemindersForProspect(prospect.id)
   const { data: rdvs } = useRdvForProspect(prospect.id)
+  const { data: calcomLink } = useCalcomLink()
 
   const [callNote, setCallNote] = useState('')
   const [prospectNotes, setProspectNotes] = useState(prospect.notes ?? '')
@@ -249,6 +251,19 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
               className="text-sm"
             />
           </div>
+
+          {/* Book via Cal.com */}
+          {calcomLink && (
+            <a
+              href={buildCalcomUrl(calcomLink, prospect)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-sm font-medium text-primary transition-colors"
+            >
+              <CalendarPlus className="h-4 w-4" />
+              Booker un RDV (Cal.com)
+            </a>
+          )}
         </div>
 
         {/* Prospect Notes */}

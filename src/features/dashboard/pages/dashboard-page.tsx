@@ -492,14 +492,14 @@ function FounderDashboard() {
       </div>
 
       {/* Quick access */}
-      <div className="flex gap-3">
-        <Button onClick={() => navigate('/prospects')}>
+      <div className="flex gap-2 sm:gap-3 flex-wrap">
+        <Button size="sm" onClick={() => navigate('/prospects')}>
           Voir les prospects
         </Button>
-        <Button variant="outline" onClick={() => navigate('/rdv')}>
+        <Button variant="outline" size="sm" onClick={() => navigate('/rdv')}>
           Voir les RDV
         </Button>
-        <Button variant="outline" onClick={() => navigate('/clients')}>
+        <Button variant="outline" size="sm" onClick={() => navigate('/clients')}>
           Voir les clients
         </Button>
       </div>

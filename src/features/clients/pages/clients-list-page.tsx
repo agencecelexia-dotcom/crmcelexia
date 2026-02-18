@@ -104,6 +104,7 @@ export function ClientsListPage() {
               </p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -141,6 +142,7 @@ export function ClientsListPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

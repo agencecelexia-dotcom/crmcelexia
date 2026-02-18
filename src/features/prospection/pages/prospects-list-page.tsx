@@ -135,23 +135,23 @@ export function ProspectsListPage() {
       {/* Main List Area */}
       <div className={`flex-1 min-w-0 flex flex-col transition-all ${selectedProspect ? '' : ''}`}>
         {/* Header */}
-        <div className="px-4 pt-4 pb-2 shrink-0">
-          <div className="flex items-center justify-between">
+        <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2 shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-              <h1 className="text-2xl font-bold">Prospects</h1>
+              <h1 className="text-xl sm:text-2xl font-bold">Prospects</h1>
               <p className="text-sm text-muted-foreground">
                 {totalCount} prospect{totalCount !== 1 ? 's' : ''}
                 {isFetching && !isLoading && ' (mise à jour...)'}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 sm:gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowGeneration(true)}
               >
-                <Sparkles className="mr-2 h-4 w-4" />
-                Générer
+                <Sparkles className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Générer</span>
               </Button>
               <Button
                 variant="outline"
@@ -173,18 +173,18 @@ export function ProspectsListPage() {
                 }}
                 disabled={prospects.length === 0}
               >
-                <Download className="mr-2 h-4 w-4" />
-                Export
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Export</span>
               </Button>
               <Button variant="outline" size="sm" asChild>
                 <Link to="/prospects/import">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import
+                  <Upload className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Import</span>
                 </Link>
               </Button>
               <Button size="sm" onClick={() => navigate('/prospects/new')}>
-                <Plus className="mr-2 h-4 w-4" />
-                Nouveau
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Nouveau</span>
               </Button>
             </div>
           </div>
@@ -192,7 +192,7 @@ export function ProspectsListPage() {
           {/* Filters bar */}
           <div className="space-y-2 mt-3">
             <div className="flex gap-2 flex-wrap">
-              <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <div className="relative flex-1 min-w-[160px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Rechercher..."
@@ -266,7 +266,7 @@ export function ProspectsListPage() {
         </div>
 
         {/* Table */}
-        <div className="flex-1 overflow-auto px-4">
+        <div className="flex-1 overflow-auto px-3 sm:px-4">
           <div className="rounded-md border">
             <Table>
               <TableHeader>
@@ -407,7 +407,7 @@ export function ProspectsListPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-2 shrink-0 border-t">
+          <div className="flex items-center justify-between px-3 sm:px-4 py-2 shrink-0 border-t">
             <p className="text-sm text-muted-foreground">
               Page {page} sur {totalPages}
             </p>
@@ -437,7 +437,7 @@ export function ProspectsListPage() {
 
       {/* Side Panel */}
       {selectedProspect && (
-        <div className="w-[380px] shrink-0 animate-in slide-in-from-right-5 duration-200">
+        <div className="fixed inset-0 z-30 bg-background lg:relative lg:inset-auto lg:z-auto lg:w-[380px] shrink-0 animate-in slide-in-from-right-5 duration-200">
           <ProspectCallPanel
             key={selectedProspect.id}
             prospect={selectedProspect}

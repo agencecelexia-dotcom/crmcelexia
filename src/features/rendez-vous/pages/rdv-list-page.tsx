@@ -280,12 +280,12 @@ export function RdvListPage() {
 
       {/* Tabs + Type filter */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex rounded-lg border bg-muted/30 p-0.5">
+        <div className="flex rounded-lg border bg-muted/30 p-0.5 overflow-x-auto max-w-full">
           {TABS.map((t) => (
             <button
               key={t.value}
               onClick={() => { setTab(t.value); setPage(1) }}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              className={`px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md transition-colors whitespace-nowrap ${
                 tab === t.value
                   ? 'bg-background shadow-sm font-medium'
                   : 'text-muted-foreground hover:text-foreground'
@@ -293,7 +293,7 @@ export function RdvListPage() {
             >
               {t.label}
               {t.count !== undefined && t.count > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center bg-primary/10 text-primary text-xs rounded-full px-1.5 min-w-[18px]">
+                <span className="ml-1 sm:ml-1.5 inline-flex items-center justify-center bg-primary/10 text-primary text-xs rounded-full px-1.5 min-w-[18px]">
                   {t.count}
                 </span>
               )}
@@ -356,9 +356,9 @@ export function RdvListPage() {
                       }`}
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
                           {/* Left: Time + Type + Prospect info */}
-                          <div className="flex items-start gap-4 min-w-0 flex-1">
+                          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
                             {/* Time block */}
                             <div className="text-center shrink-0 w-16">
                               <p className="text-2xl font-bold tabular-nums">
@@ -404,7 +404,19 @@ export function RdvListPage() {
                                   </a>
                                 )}
                               </div>
-                              {rdv.notes && (
+                              {rdv.meeting_url && rdv.status === 'prevu' && (
+                                <a
+                                  href={rdv.meeting_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Video className="h-3 w-3" />
+                                  Rejoindre la visio
+                                </a>
+                              )}
+                              {rdv.notes && !rdv.notes.startsWith('[cal.com') && (
                                 <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{rdv.notes}</p>
                               )}
                               {rdv.result && rdv.status === 'fait' && (

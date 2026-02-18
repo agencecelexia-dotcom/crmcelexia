@@ -62,6 +62,7 @@ export function BillingListPage() {
               </p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -97,6 +98,7 @@ export function BillingListPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

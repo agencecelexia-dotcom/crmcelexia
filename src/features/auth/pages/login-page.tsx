@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
+import { Loader2, AlertTriangle } from 'lucide-react'
 import { APP_NAME } from '@/lib/constants'
+import { supabaseMisconfigured } from '@/lib/supabase/client'
 
 export function LoginPage() {
   const [email, setEmail] = useState('')
@@ -39,6 +40,17 @@ export function LoginPage() {
           <CardDescription>Connectez-vous à votre espace CRM</CardDescription>
         </CardHeader>
         <CardContent>
+          {supabaseMisconfigured && (
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-800">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                Variables d'environnement Supabase manquantes. Configurez{' '}
+                <code className="font-mono text-xs">VITE_SUPABASE_URL</code> et{' '}
+                <code className="font-mono text-xs">VITE_SUPABASE_ANON_KEY</code>{' '}
+                sur Vercel puis relancez le build.
+              </span>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
