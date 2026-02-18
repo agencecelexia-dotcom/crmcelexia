@@ -1,27 +1,71 @@
 import { supabase } from '@/lib/supabase/client'
 
-const NICHES: Record<string, string[]> = {
-  'Artisan Batiment': [
-    '43.21A', '43.22A', '43.22B', '43.34Z', '43.31Z',
-    '43.32A', '43.32B', '43.33Z', '43.39Z', '43.91B',
-    '43.99C', '43.29A', '43.12A', '43.11Z', '43.91A',
-    '43.99A', '43.99B', '43.12B', '43.13Z', '43.21B',
-    '43.29B',
-  ],
-  'Beaute / Coiffure / Bien-etre': [
-    '96.02A', '96.02B', '96.04Z', '96.09Z',
-  ],
+// --- Niche categories with sub-niches ---
+
+export interface SubNiche {
+  label: string
+  codes: string[]
 }
 
-export const AVAILABLE_NICHES = Object.keys(NICHES)
+export interface NicheCategory {
+  label: string
+  subNiches: SubNiche[]
+  allCodes: string[]
+}
+
+export const NICHE_CATEGORIES: NicheCategory[] = [
+  {
+    label: 'Artisan Batiment',
+    allCodes: [
+      '43.21A', '43.21B', '43.22A', '43.22B', '43.34Z', '43.31Z',
+      '43.32A', '43.32B', '43.33Z', '43.39Z', '43.91B', '43.91A',
+      '43.99C', '43.29A', '43.12A', '43.12B', '43.11Z', '43.99A',
+      '43.99B', '43.13Z', '43.29B',
+    ],
+    subNiches: [
+      { label: 'Couvreur', codes: ['43.91B'] },
+      { label: 'Charpentier', codes: ['43.91A'] },
+      { label: 'Électricien', codes: ['43.21A', '43.21B'] },
+      { label: 'Plombier', codes: ['43.22A'] },
+      { label: 'Chauffagiste / Climatisation', codes: ['43.22B'] },
+      { label: 'Peintre', codes: ['43.34Z'] },
+      { label: 'Plaquiste / Plâtrier', codes: ['43.31Z'] },
+      { label: 'Menuisier / Serrurier', codes: ['43.32A', '43.32B'] },
+      { label: 'Carreleur', codes: ['43.33Z'] },
+      { label: 'Maçon', codes: ['43.99C'] },
+      { label: 'Isolation', codes: ['43.29A'] },
+      { label: 'Terrassement', codes: ['43.12A', '43.12B'] },
+      { label: 'Démolition', codes: ['43.11Z'] },
+      { label: 'Étanchéité', codes: ['43.99A'] },
+      { label: 'Structure métallique', codes: ['43.99B'] },
+      { label: 'Forage / Sondage', codes: ['43.13Z'] },
+      { label: 'Finition (autres)', codes: ['43.39Z'] },
+      { label: 'Autres installations', codes: ['43.29B'] },
+      { label: 'Paysagiste', codes: ['81.30Z'] },
+    ],
+  },
+  {
+    label: 'Beaute / Coiffure / Bien-etre',
+    allCodes: ['96.02A', '96.02B', '96.04Z', '96.09Z'],
+    subNiches: [
+      { label: 'Coiffure', codes: ['96.02A'] },
+      { label: 'Soins de beauté', codes: ['96.02B'] },
+      { label: 'Entretien corporel', codes: ['96.04Z'] },
+      { label: 'Autres soins', codes: ['96.09Z'] },
+    ],
+  },
+]
+
+// Flat list of all niche names for backward compat
+export const AVAILABLE_NICHES = NICHE_CATEGORIES.map((c) => c.label)
 
 export interface GenerationProgress {
   phase: 'collecting' | 'enriching' | 'done' | 'error'
   collected: number
-  collectTotal: number
   enriched: number
-  enrichTotal: number
   withPhone: number
+  quantity: number
+  sireneExhausted: boolean
   inserted: number
   error?: string
 }
@@ -75,129 +119,146 @@ async function invokeFunction(action: string, params: Record<string, unknown>) {
   return data
 }
 
+/**
+ * Delete (soft-delete) all prospects that have no phone number.
+ */
+export async function deleteProspectsWithoutPhone(): Promise<number> {
+  const { data, error } = await supabase
+    .from('prospects')
+    .update({ deleted_at: new Date().toISOString() })
+    .is('deleted_at', null)
+    .or('phone.is.null,phone.eq.')
+    .select('id')
+
+  if (error) throw new Error(`Erreur suppression: ${error.message}`)
+  return data?.length || 0
+}
+
 export async function generateProspects(
-  niche: string,
+  nicheName: string,
+  nafCodes: string[],
   quantity: number,
   commercialId: string,
   onProgress: (progress: GenerationProgress) => void,
   abortSignal?: AbortSignal,
 ): Promise<number> {
-  // We collect more raw leads because only a fraction will have a phone
-  const targetRaw = quantity * 5
-  const rawLeads: RawLead[] = []
+  const phoneLeads: EnrichedLead[] = []
+  const seenSirets = new Set<string>()
   let cursor = '*'
-  let sireneTotal = 0
+  let sireneExhausted = false
+  let totalCollected = 0
+  let totalEnriched = 0
 
-  // --- Phase 1: Collect from SIRENE ---
   onProgress({
     phase: 'collecting',
     collected: 0,
-    collectTotal: targetRaw,
     enriched: 0,
-    enrichTotal: 0,
     withPhone: 0,
+    quantity,
+    sireneExhausted: false,
     inserted: 0,
   })
 
-  while (rawLeads.length < targetRaw) {
+  // --- Interleaved loop: fetch SIRENE page → enrich → repeat until target ---
+  while (phoneLeads.length < quantity && !sireneExhausted) {
     if (abortSignal?.aborted) throw new Error('Annulé')
 
-    const data = await invokeFunction('fetch_sirene', { niche, cursor })
+    // Fetch one page from SIRENE (100 results)
+    const data = await invokeFunction('fetch_sirene', { codes: nafCodes, cursor })
+
     if (data.rateLimited) {
       await sleep(5000)
       continue
     }
 
-    const leads = data.leads as RawLead[]
-    rawLeads.push(...leads)
+    const rawLeads = data.leads as RawLead[]
     cursor = data.nextCursor
-    sireneTotal = data.total
+
+    if (!cursor || rawLeads.length === 0) {
+      sireneExhausted = true
+    }
+
+    // Deduplicate
+    const freshLeads = rawLeads.filter((l) => {
+      if (seenSirets.has(l.siret)) return false
+      seenSirets.add(l.siret)
+      return true
+    })
+
+    totalCollected += freshLeads.length
 
     onProgress({
       phase: 'collecting',
-      collected: rawLeads.length,
-      collectTotal: Math.min(targetRaw, sireneTotal || targetRaw),
-      enriched: 0,
-      enrichTotal: 0,
-      withPhone: 0,
+      collected: totalCollected,
+      enriched: totalEnriched,
+      withPhone: phoneLeads.length,
+      quantity,
+      sireneExhausted,
       inserted: 0,
     })
 
-    if (!cursor) break
-    await sleep(300)
-  }
+    if (freshLeads.length === 0) continue
 
-  // Deduplicate by SIRET
-  const seenSirets = new Set<string>()
-  const uniqueLeads = rawLeads.filter((lead) => {
-    if (seenSirets.has(lead.siret)) return false
-    seenSirets.add(lead.siret)
-    return true
-  })
+    // Check existing SIRETs in DB
+    const siretChunk = freshLeads.map((l) => l.siret)
+    const existingSirets = new Set<string>()
 
-  // Check existing SIRETs in DB to avoid duplicates
-  const siretList = uniqueLeads.map((l) => l.siret)
-  // Query in chunks of 500 to avoid URL length limits
-  const existingSirets = new Set<string>()
-  for (let i = 0; i < siretList.length; i += 500) {
-    const chunk = siretList.slice(i, i + 500)
-    const { data: existingData } = await supabase
-      .from('prospects')
-      .select('siret')
-      .in('siret', chunk)
-      .is('deleted_at', null)
-    for (const e of existingData || []) {
-      existingSirets.add((e as { siret: string }).siret)
-    }
-  }
-
-  const newLeads = uniqueLeads.filter(
-    (l) => !existingSirets.has(l.siret),
-  )
-
-  // --- Phase 2: Enrich in batches, stop when we have enough with phone ---
-  const phoneLeads: EnrichedLead[] = []
-  let enrichedCount = 0
-  const batchSize = 10
-
-  for (let i = 0; i < newLeads.length; i += batchSize) {
-    if (abortSignal?.aborted) throw new Error('Annulé')
-
-    // Stop enriching once we have enough prospects with phone
-    if (phoneLeads.length >= quantity) break
-
-    const batch = newLeads.slice(i, i + batchSize)
-
-    const data = await invokeFunction('enrich_batch', { leads: batch, niche })
-
-    const results = data.results as EnrichResult[]
-    for (const r of results) {
-      if (r.excluded) continue
-      // Only keep leads that have a phone number
-      if (r.lead.telephone) {
-        phoneLeads.push(r.lead)
+    for (let i = 0; i < siretChunk.length; i += 500) {
+      const chunk = siretChunk.slice(i, i + 500)
+      const { data: existingData } = await supabase
+        .from('prospects')
+        .select('siret')
+        .in('siret', chunk)
+        .is('deleted_at', null)
+      for (const e of existingData || []) {
+        existingSirets.add((e as { siret: string }).siret)
       }
     }
 
-    enrichedCount = Math.min(i + batchSize, newLeads.length)
+    const leadsToEnrich = freshLeads.filter((l) => !existingSirets.has(l.siret))
 
-    onProgress({
-      phase: 'enriching',
-      collected: newLeads.length,
-      collectTotal: newLeads.length,
-      enriched: enrichedCount,
-      enrichTotal: newLeads.length,
-      withPhone: phoneLeads.length,
-      inserted: 0,
-    })
+    // Enrich in batches of 10
+    const batchSize = 10
+    for (let j = 0; j < leadsToEnrich.length; j += batchSize) {
+      if (abortSignal?.aborted) throw new Error('Annulé')
+      if (phoneLeads.length >= quantity) break
 
-    await sleep(200)
+      const batch = leadsToEnrich.slice(j, j + batchSize)
+      const enrichData = await invokeFunction('enrich_batch', {
+        leads: batch,
+        niche: nicheName,
+      })
+
+      const results = enrichData.results as EnrichResult[]
+      for (const r of results) {
+        if (r.excluded) continue
+        if (r.lead.telephone) {
+          phoneLeads.push(r.lead)
+        }
+      }
+
+      totalEnriched += batch.length
+
+      onProgress({
+        phase: 'enriching',
+        collected: totalCollected,
+        enriched: totalEnriched,
+        withPhone: phoneLeads.length,
+        quantity,
+        sireneExhausted,
+        inserted: 0,
+      })
+
+      await sleep(200)
+    }
+
+    if (!sireneExhausted) await sleep(300)
   }
 
   // Cap at exactly the requested quantity
   const toInsert = phoneLeads.slice(0, quantity)
 
-  // --- Phase 3: Insert into DB ---
+  // --- Insert into DB ---
   const insertChunkSize = 50
   let inserted = 0
 
@@ -212,7 +273,7 @@ export async function generateProspects(
       contact_firstname: lead.prenom || null,
       contact_email: lead.email || null,
       phone: lead.telephone,
-      profession: niche,
+      profession: nicheName,
       city: lead.ville || null,
       address: lead.adresse
         ? `${lead.adresse}, ${lead.code_postal} ${lead.ville}`
@@ -223,7 +284,7 @@ export async function generateProspects(
       siret: lead.siret,
       siren: lead.siren,
       code_naf: lead.code_naf || null,
-      niche,
+      niche: nicheName,
       forme_juridique: lead.forme_juridique || null,
       date_creation_entreprise: lead.date_creation || null,
       departement: lead.departement || null,
@@ -241,11 +302,11 @@ export async function generateProspects(
 
   onProgress({
     phase: 'done',
-    collected: newLeads.length,
-    collectTotal: newLeads.length,
-    enriched: enrichedCount,
-    enrichTotal: newLeads.length,
+    collected: totalCollected,
+    enriched: totalEnriched,
     withPhone: phoneLeads.length,
+    quantity,
+    sireneExhausted,
     inserted,
   })
 

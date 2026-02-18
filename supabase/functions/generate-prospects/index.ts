@@ -220,13 +220,15 @@ async function enrichAnnuaire(
 
 async function handleFetchSirene({
   niche,
+  codes: passedCodes,
   cursor,
 }: {
-  niche: string
+  niche?: string
+  codes?: string[]
   cursor: string
 }) {
-  const codes = NICHES[niche]
-  if (!codes) throw new Error(`Niche inconnue: ${niche}`)
+  const codes = passedCodes || (niche ? NICHES[niche] : null)
+  if (!codes || codes.length === 0) throw new Error('Niche ou codes NAF requis')
 
   const sixMonthsAgo = new Date()
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
@@ -397,7 +399,7 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case 'fetch_sirene':
-        result = await handleFetchSirene(params as { niche: string; cursor: string })
+        result = await handleFetchSirene(params as { niche?: string; codes?: string[]; cursor: string })
         break
       case 'enrich_batch':
         result = await handleEnrichBatch(params as { leads: RawLead[]; niche: string })

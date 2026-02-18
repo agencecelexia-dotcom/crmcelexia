@@ -1,10 +1,12 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import {
   generateProspects,
-  AVAILABLE_NICHES,
+  deleteProspectsWithoutPhone,
+  NICHE_CATEGORIES,
   type GenerationProgress,
+  type NicheCategory,
 } from '../services/prospect-generation-service'
 import {
   Dialog,
@@ -23,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Loader2, CheckCircle2, XCircle, Phone } from 'lucide-react'
+import { Loader2, CheckCircle2, XCircle, Phone, Trash2 } from 'lucide-react'
 
 interface Props {
   open: boolean
@@ -34,11 +36,29 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
 
-  const [niche, setNiche] = useState(AVAILABLE_NICHES[0])
+  const [categoryIndex, setCategoryIndex] = useState(0)
+  const [subNicheIndex, setSubNicheIndex] = useState(-1) // -1 = "Tous"
   const [quantity, setQuantity] = useState(100)
   const [isRunning, setIsRunning] = useState(false)
+  const [isCleaning, setIsCleaning] = useState(false)
   const [progress, setProgress] = useState<GenerationProgress | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  const selectedCategory: NicheCategory = NICHE_CATEGORIES[categoryIndex]
+
+  const { nicheName, nafCodes } = useMemo(() => {
+    if (subNicheIndex < 0) {
+      return {
+        nicheName: selectedCategory.label,
+        nafCodes: selectedCategory.allCodes,
+      }
+    }
+    const sub = selectedCategory.subNiches[subNicheIndex]
+    return {
+      nicheName: `${selectedCategory.label} > ${sub.label}`,
+      nafCodes: sub.codes,
+    }
+  }, [selectedCategory, subNicheIndex])
 
   const handleStart = useCallback(async () => {
     if (!profile) return
@@ -53,7 +73,8 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
 
     try {
       const inserted = await generateProspects(
-        niche,
+        nicheName,
+        nafCodes,
         quantity,
         profile.id,
         setProgress,
@@ -70,10 +91,10 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
             : {
                 phase: 'error',
                 collected: 0,
-                collectTotal: 0,
                 enriched: 0,
-                enrichTotal: 0,
                 withPhone: 0,
+                quantity,
+                sireneExhausted: false,
                 inserted: 0,
                 error: message,
               },
@@ -84,13 +105,27 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
       setIsRunning(false)
       abortControllerRef.current = null
     }
-  }, [niche, quantity, profile, queryClient])
+  }, [nicheName, nafCodes, quantity, profile, queryClient])
 
   const handleCancel = useCallback(() => {
     abortControllerRef.current?.abort()
     setIsRunning(false)
     toast.info('Génération annulée')
   }, [])
+
+  const handleCleanup = useCallback(async () => {
+    setIsCleaning(true)
+    try {
+      const count = await deleteProspectsWithoutPhone()
+      toast.success(`${count} prospect${count !== 1 ? 's' : ''} sans téléphone supprimé${count !== 1 ? 's' : ''}`)
+      queryClient.invalidateQueries({ queryKey: ['prospects'] })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur inconnue'
+      toast.error(`Erreur: ${message}`)
+    } finally {
+      setIsCleaning(false)
+    }
+  }, [queryClient])
 
   const handleClose = useCallback(
     (value: boolean) => {
@@ -101,14 +136,14 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
     [isRunning, onOpenChange],
   )
 
+  // Progress based on phone leads found vs target
   const progressPercent =
-    progress && progress.enrichTotal > 0
-      ? Math.round((progress.enriched / progress.enrichTotal) * 100)
-      : progress?.phase === 'collecting' && progress.collectTotal > 0
-        ? Math.round(
-            (progress.collected / progress.collectTotal) * 50,
-          )
-        : 0
+    progress && progress.quantity > 0
+      ? Math.min(
+          Math.round((progress.withPhone / progress.quantity) * 100),
+          100,
+        )
+      : 0
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -121,19 +156,45 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
           {/* Form */}
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="gen-niche">Niche</Label>
+              <Label htmlFor="gen-category">Catégorie</Label>
               <Select
-                value={niche}
-                onValueChange={setNiche}
+                value={String(categoryIndex)}
+                onValueChange={(v) => {
+                  setCategoryIndex(Number(v))
+                  setSubNicheIndex(-1)
+                }}
                 disabled={isRunning}
               >
-                <SelectTrigger id="gen-niche">
+                <SelectTrigger id="gen-category">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {AVAILABLE_NICHES.map((n) => (
-                    <SelectItem key={n} value={n}>
-                      {n}
+                  {NICHE_CATEGORIES.map((cat, i) => (
+                    <SelectItem key={cat.label} value={String(i)}>
+                      {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="gen-subniche">Sous-catégorie</Label>
+              <Select
+                value={String(subNicheIndex)}
+                onValueChange={(v) => setSubNicheIndex(Number(v))}
+                disabled={isRunning}
+              >
+                <SelectTrigger id="gen-subniche">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="-1">
+                    Tous les {selectedCategory.label.toLowerCase()}
+                  </SelectItem>
+                  {selectedCategory.subNiches.map((sub, i) => (
+                    <SelectItem key={sub.label} value={String(i)}>
+                      {sub.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -154,7 +215,7 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
                 disabled={isRunning}
               />
               <p className="text-xs text-muted-foreground">
-                Seuls les prospects avec numéro de téléphone seront importés.
+                Le système ne s'arrêtera pas tant qu'il n'aura pas trouvé {quantity} prospects avec téléphone.
               </p>
             </div>
           </div>
@@ -167,7 +228,7 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
                     {progress.phase === 'collecting' && 'Collecte SIRENE...'}
-                    {progress.phase === 'enriching' && 'Enrichissement...'}
+                    {progress.phase === 'enriching' && 'Recherche de numéros...'}
                     {progress.phase === 'done' && 'Terminé !'}
                     {progress.phase === 'error' && 'Erreur'}
                   </span>
@@ -199,8 +260,7 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
                   <div className="col-span-2 flex items-center gap-2">
                     <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
                     <span>
-                      {progress.collected} / {progress.collectTotal} leads
-                      collectés
+                      {progress.collected} leads collectés...
                     </span>
                   </div>
                 )}
@@ -213,12 +273,14 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
                         className={`h-3.5 w-3.5 ${progress.phase === 'enriching' ? 'animate-spin text-primary' : 'text-green-500'}`}
                       />
                       <span>
-                        {progress.enriched} / {progress.enrichTotal} enrichis
+                        {progress.enriched} enrichis
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Phone className="h-3.5 w-3.5 text-green-600" />
-                      <span>{progress.withPhone} / {quantity} avec téléphone</span>
+                      <span className="font-medium">
+                        {progress.withPhone} / {progress.quantity} avec tél.
+                      </span>
                     </div>
                   </>
                 )}
@@ -230,6 +292,9 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
                       {progress.inserted} prospect
                       {progress.inserted !== 1 ? 's' : ''} inséré
                       {progress.inserted !== 1 ? 's' : ''} en base
+                      {progress.sireneExhausted && progress.inserted < progress.quantity
+                        ? ' (base SIRENE épuisée)'
+                        : ''}
                     </span>
                   </div>
                 )}
@@ -245,25 +310,42 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
           )}
 
           {/* Actions */}
-          <div className="flex justify-end gap-2">
-            {isRunning ? (
-              <Button variant="destructive" size="sm" onClick={handleCancel}>
-                Annuler
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleClose(false)}
-                >
-                  Fermer
+          <div className="flex justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCleanup}
+              disabled={isRunning || isCleaning}
+              className="text-destructive hover:text-destructive"
+            >
+              {isCleaning ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Supprimer sans tél.
+            </Button>
+
+            <div className="flex gap-2">
+              {isRunning ? (
+                <Button variant="destructive" size="sm" onClick={handleCancel}>
+                  Annuler
                 </Button>
-                <Button size="sm" onClick={handleStart}>
-                  Lancer la génération
-                </Button>
-              </>
-            )}
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleClose(false)}
+                  >
+                    Fermer
+                  </Button>
+                  <Button size="sm" onClick={handleStart}>
+                    Lancer la génération
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>
