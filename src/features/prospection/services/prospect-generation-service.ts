@@ -22,7 +22,6 @@ export interface GenerationProgress {
   enriched: number
   enrichTotal: number
   withPhone: number
-  withoutPhone: number
   inserted: number
   error?: string
 }
@@ -65,7 +64,6 @@ async function invokeFunction(action: string, params: Record<string, unknown>) {
     { body: { action, ...params } },
   )
   if (error) {
-    // Try to extract actual error from response context
     let detail = error.message
     try {
       if (data && typeof data === 'object' && 'error' in data) {
@@ -84,7 +82,8 @@ export async function generateProspects(
   onProgress: (progress: GenerationProgress) => void,
   abortSignal?: AbortSignal,
 ): Promise<number> {
-  const targetRaw = quantity * 3
+  // We collect more raw leads because only a fraction will have a phone
+  const targetRaw = quantity * 5
   const rawLeads: RawLead[] = []
   let cursor = '*'
   let sireneTotal = 0
@@ -97,7 +96,6 @@ export async function generateProspects(
     enriched: 0,
     enrichTotal: 0,
     withPhone: 0,
-    withoutPhone: 0,
     inserted: 0,
   })
 
@@ -122,7 +120,6 @@ export async function generateProspects(
       enriched: 0,
       enrichTotal: 0,
       withPhone: 0,
-      withoutPhone: 0,
       inserted: 0,
     })
 
@@ -138,29 +135,36 @@ export async function generateProspects(
     return true
   })
 
-  // Check existing SIRETs in DB
+  // Check existing SIRETs in DB to avoid duplicates
   const siretList = uniqueLeads.map((l) => l.siret)
-  const { data: existingData } = await supabase
-    .from('prospects')
-    .select('siret')
-    .in('siret', siretList)
-    .is('deleted_at', null)
+  // Query in chunks of 500 to avoid URL length limits
+  const existingSirets = new Set<string>()
+  for (let i = 0; i < siretList.length; i += 500) {
+    const chunk = siretList.slice(i, i + 500)
+    const { data: existingData } = await supabase
+      .from('prospects')
+      .select('siret')
+      .in('siret', chunk)
+      .is('deleted_at', null)
+    for (const e of existingData || []) {
+      existingSirets.add((e as { siret: string }).siret)
+    }
+  }
 
-  const existingSirets = new Set(
-    (existingData || []).map((e: { siret: string }) => e.siret),
-  )
   const newLeads = uniqueLeads.filter(
     (l) => !existingSirets.has(l.siret),
   )
 
-  // --- Phase 2: Enrich in batches ---
-  const enrichedLeads: EnrichedLead[] = []
-  let withPhone = 0
-  let withoutPhone = 0
+  // --- Phase 2: Enrich in batches, stop when we have enough with phone ---
+  const phoneLeads: EnrichedLead[] = []
+  let enrichedCount = 0
   const batchSize = 10
 
   for (let i = 0; i < newLeads.length; i += batchSize) {
     if (abortSignal?.aborted) throw new Error('Annulé')
+
+    // Stop enriching once we have enough prospects with phone
+    if (phoneLeads.length >= quantity) break
 
     const batch = newLeads.slice(i, i + batchSize)
 
@@ -169,46 +173,45 @@ export async function generateProspects(
     const results = data.results as EnrichResult[]
     for (const r of results) {
       if (r.excluded) continue
-      enrichedLeads.push(r.lead)
-      if (r.lead.telephone) withPhone++
-      else withoutPhone++
+      // Only keep leads that have a phone number
+      if (r.lead.telephone) {
+        phoneLeads.push(r.lead)
+      }
     }
+
+    enrichedCount = Math.min(i + batchSize, newLeads.length)
 
     onProgress({
       phase: 'enriching',
       collected: newLeads.length,
       collectTotal: newLeads.length,
-      enriched: Math.min(i + batchSize, newLeads.length),
+      enriched: enrichedCount,
       enrichTotal: newLeads.length,
-      withPhone,
-      withoutPhone,
+      withPhone: phoneLeads.length,
       inserted: 0,
     })
 
     await sleep(200)
   }
 
-  // Sort: with phone first
-  const sorted = [
-    ...enrichedLeads.filter((l) => l.telephone),
-    ...enrichedLeads.filter((l) => !l.telephone),
-  ]
+  // Cap at exactly the requested quantity
+  const toInsert = phoneLeads.slice(0, quantity)
 
   // --- Phase 3: Insert into DB ---
   const insertChunkSize = 50
   let inserted = 0
 
-  for (let i = 0; i < sorted.length; i += insertChunkSize) {
+  for (let i = 0; i < toInsert.length; i += insertChunkSize) {
     if (abortSignal?.aborted) throw new Error('Annulé')
 
-    const chunk = sorted.slice(i, i + insertChunkSize)
+    const chunk = toInsert.slice(i, i + insertChunkSize)
 
     const records = chunk.map((lead) => ({
       company_name: lead.nom_societe,
       contact_name: lead.nom || null,
       contact_firstname: lead.prenom || null,
       contact_email: lead.email || null,
-      phone: lead.telephone || '',
+      phone: lead.telephone,
       profession: niche,
       city: lead.ville || null,
       address: lead.adresse
@@ -240,10 +243,9 @@ export async function generateProspects(
     phase: 'done',
     collected: newLeads.length,
     collectTotal: newLeads.length,
-    enriched: newLeads.length,
+    enriched: enrichedCount,
     enrichTotal: newLeads.length,
-    withPhone,
-    withoutPhone,
+    withPhone: phoneLeads.length,
     inserted,
   })
 

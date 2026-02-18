@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Loader2, CheckCircle2, XCircle, Phone, PhoneOff } from 'lucide-react'
+import { Loader2, CheckCircle2, XCircle, Phone } from 'lucide-react'
 
 interface Props {
   open: boolean
@@ -74,7 +74,6 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
                 enriched: 0,
                 enrichTotal: 0,
                 withPhone: 0,
-                withoutPhone: 0,
                 inserted: 0,
                 error: message,
               },
@@ -155,8 +154,7 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
                 disabled={isRunning}
               />
               <p className="text-xs text-muted-foreground">
-                Le système collectera ~{quantity * 3} leads bruts pour en
-                extraire les meilleurs.
+                Seuls les prospects avec numéro de téléphone seront importés.
               </p>
             </div>
           </div>
@@ -220,11 +218,7 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
                     </div>
                     <div className="flex items-center gap-2">
                       <Phone className="h-3.5 w-3.5 text-green-600" />
-                      <span>{progress.withPhone} avec téléphone</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <PhoneOff className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span>{progress.withoutPhone} sans téléphone</span>
+                      <span>{progress.withPhone} / {quantity} avec téléphone</span>
                     </div>
                   </>
                 )}
