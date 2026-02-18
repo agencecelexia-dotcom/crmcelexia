@@ -3,7 +3,7 @@ import { useAuth } from '@/features/auth/hooks/use-auth'
 import { useLogCall } from '../hooks/use-calls'
 import { useUpdateProspect } from '../hooks/use-prospects'
 import { useCreateReminder } from '../hooks/use-reminders'
-import { useRdvForProspect } from '@/features/rendez-vous/hooks/use-rdv'
+import { useRdvForProspect, useCreateRdv } from '@/features/rendez-vous/hooks/use-rdv'
 import { useCallsForProspect } from '../hooks/use-calls'
 import { useRemindersForProspect, useCompleteReminder } from '../hooks/use-reminders'
 import type { Prospect } from '@/types'
@@ -64,6 +64,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
   const updateProspect = useUpdateProspect()
   const createReminder = useCreateReminder()
   const completeReminder = useCompleteReminder()
+  const createRdv = useCreateRdv()
 
   const { data: calls } = useCallsForProspect(prospect.id)
   const { data: reminders } = useRemindersForProspect(prospect.id)
@@ -104,13 +105,36 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
       toast.success(`Appel enregistré — ${PROSPECT_STATUS_LABELS[newStatus]}`)
       setCallNote('')
 
-      // When result is "RDV pris", open Cal.com booking page so the webhook
-      // creates the RDV card automatically with the visio link
-      if (result === 'reached_rdv' && calcomLink) {
-        const bookingUrl = buildCalcomUrl(calcomLink, prospect)
-        if (bookingUrl) {
-          window.open(bookingUrl, '_blank', 'noopener,noreferrer')
-          toast.info('Choisissez un créneau sur Cal.com — le RDV sera créé automatiquement')
+      // When result is "RDV pris", create a RDV card immediately and open Cal.com
+      if (result === 'reached_rdv') {
+        // Create a placeholder RDV so the card appears right away
+        const tomorrow = new Date()
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        tomorrow.setHours(10, 0, 0, 0)
+        const placeholderDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}T10:00:00`
+
+        try {
+          await createRdv.mutateAsync({
+            prospect_id: prospect.id,
+            commercial_id: profile.id,
+            scheduled_at: placeholderDate,
+            duration_minutes: 30,
+            type: 'visio',
+            meeting_url: calcomLink || null,
+            notes: '[en attente Cal.com]',
+          })
+        } catch {
+          // RDV creation failed but call was logged — don't block the flow
+          console.error('Failed to create placeholder RDV')
+        }
+
+        // Open Cal.com so the user can pick a slot — webhook will update the RDV
+        if (calcomLink) {
+          const bookingUrl = buildCalcomUrl(calcomLink, prospect)
+          if (bookingUrl) {
+            window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+            toast.info('Choisissez un créneau sur Cal.com — le RDV sera mis à jour automatiquement')
+          }
         }
       }
 

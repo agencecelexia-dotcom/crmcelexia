@@ -104,13 +104,10 @@ export function ProspectsListPage() {
   const totalPages = data?.totalPages ?? 1
   const totalCount = data?.count ?? 0
 
-  // Auto-advance to next prospect after call is logged
+  // Keep the user on the same prospect after a call is logged
+  // (query invalidation will refresh the data in place)
   function handleCallLogged() {
-    if (!selectedProspect) return
-    const currentIndex = prospects.findIndex((p) => p.id === selectedProspect.id)
-    if (currentIndex >= 0 && currentIndex < prospects.length - 1) {
-      setSelectedProspect(prospects[currentIndex + 1])
-    }
+    // no-op: stay on the current prospect
   }
 
   // Close panel on Escape key
