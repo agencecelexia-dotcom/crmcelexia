@@ -9,6 +9,7 @@ import {
 } from '../services/prospect-service'
 import type { Prospect, ProspectFilters } from '@/types'
 import { STALE_TIME_LIST } from '@/lib/constants'
+import { toast } from 'sonner'
 
 interface UseProspectsParams {
   filters?: ProspectFilters
@@ -41,7 +42,9 @@ export function useCreateProspect() {
     mutationFn: (prospect: Partial<Prospect>) => createProspect(prospect),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prospects'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
+    onError: () => toast.error('Erreur lors de la création du prospect'),
   })
 }
 
@@ -54,7 +57,9 @@ export function useUpdateProspect() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['prospects'] })
       queryClient.invalidateQueries({ queryKey: ['prospect', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
+    onError: () => toast.error('Erreur lors de la mise à jour du prospect'),
   })
 }
 

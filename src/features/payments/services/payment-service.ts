@@ -17,17 +17,25 @@ export interface PaymentView {
 
 function derivePaymentStatus(devis: Devis): PaymentStatus {
   if (devis.status === 'signe') return 'paye'
+  if (devis.status === 'refuse') return 'impaye'
+  if (devis.status === 'expire') return 'impaye'
   if (devis.status === 'envoye') {
     if (devis.valid_until) {
       const validDate = new Date(devis.valid_until)
       const now = new Date()
-      const daysDiff = Math.floor((now.getTime() - validDate.getTime()) / (1000 * 60 * 60 * 24))
-      if (daysDiff > 30) return 'impaye'
-      if (daysDiff > 0) return 'en_retard'
+      if (now > validDate) {
+        const daysPastDue = Math.floor((now.getTime() - validDate.getTime()) / (1000 * 60 * 60 * 24))
+        if (daysPastDue > 30) return 'impaye'
+        return 'en_retard'
+      }
+    }
+    if (devis.sent_at) {
+      const sentDate = new Date(devis.sent_at)
+      const daysSinceSent = Math.floor((Date.now() - sentDate.getTime()) / (1000 * 60 * 60 * 24))
+      if (daysSinceSent > 30) return 'en_retard'
     }
     return 'en_attente'
   }
-  if (devis.status === 'refuse' || devis.status === 'expire') return 'impaye'
   return 'en_attente'
 }
 

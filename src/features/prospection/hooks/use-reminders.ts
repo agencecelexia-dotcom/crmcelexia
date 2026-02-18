@@ -5,6 +5,7 @@ import {
   getMyReminders,
   completeReminder,
 } from '../services/reminder-service'
+import { toast } from 'sonner'
 
 interface CreateReminderParams {
   prospect_id: string
@@ -42,7 +43,10 @@ export function useCreateReminder() {
       queryClient.invalidateQueries({ queryKey: ['reminders'] })
       queryClient.invalidateQueries({ queryKey: ['prospect', variables.prospect_id] })
       queryClient.invalidateQueries({ queryKey: ['prospects'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar'] })
     },
+    onError: () => toast.error('Erreur lors de la création du rappel'),
   })
 }
 
@@ -50,10 +54,16 @@ export function useCompleteReminder() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => completeReminder(id),
-    onSuccess: () => {
+    mutationFn: ({ id }: { id: string; prospectId?: string }) => completeReminder(id),
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['reminders'] })
       queryClient.invalidateQueries({ queryKey: ['prospects'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar'] })
+      if (variables.prospectId) {
+        queryClient.invalidateQueries({ queryKey: ['prospect', variables.prospectId] })
+      }
     },
+    onError: () => toast.error('Erreur lors de la complétion du rappel'),
   })
 }

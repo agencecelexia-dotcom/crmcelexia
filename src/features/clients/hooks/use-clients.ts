@@ -16,6 +16,7 @@ import {
 } from '../services/client-service'
 import type { Client, Project, Devis } from '@/types'
 import { STALE_TIME_LIST } from '@/lib/constants'
+import { toast } from 'sonner'
 
 interface UseClientsParams {
   filters?: ClientFilters
@@ -47,10 +48,11 @@ export function useUpdateClient() {
   return useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Client> }) =>
       updateClient(id, updates),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] })
-      queryClient.invalidateQueries({ queryKey: ['client'] })
+      queryClient.invalidateQueries({ queryKey: ['client', variables.id] })
     },
+    onError: () => toast.error('Erreur lors de la mise à jour du client'),
   })
 }
 
@@ -61,9 +63,11 @@ export function useConvertProspect() {
     mutationFn: (prospectId: string) => convertProspectToClient(prospectId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prospects'] })
+      queryClient.invalidateQueries({ queryKey: ['prospect'] })
       queryClient.invalidateQueries({ queryKey: ['clients'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
+    onError: () => toast.error('Erreur lors de la conversion du prospect'),
   })
 }
 
@@ -85,6 +89,7 @@ export function useCreateProject() {
       queryClient.invalidateQueries({ queryKey: ['project'] })
       queryClient.invalidateQueries({ queryKey: ['client'] })
     },
+    onError: () => toast.error('Erreur lors de la création du projet'),
   })
 }
 
@@ -96,7 +101,9 @@ export function useUpdateProject() {
       updateProject(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
+    onError: () => toast.error('Erreur lors de la mise à jour du projet'),
   })
 }
 
@@ -117,6 +124,7 @@ export function useCreateProjectNote() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['project-notes', variables.project_id] })
     },
+    onError: () => toast.error('Erreur lors de l\'ajout de la note'),
   })
 }
 
@@ -136,7 +144,9 @@ export function useCreateDevis() {
     mutationFn: (params: Parameters<typeof createDevis>[0]) => createDevis(params),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['devis'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
+    onError: () => toast.error('Erreur lors de la création du devis'),
   })
 }
 
@@ -148,6 +158,8 @@ export function useUpdateDevis() {
       updateDevis(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['devis'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
+    onError: () => toast.error('Erreur lors de la mise à jour du devis'),
   })
 }

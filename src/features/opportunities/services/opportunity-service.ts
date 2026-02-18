@@ -25,7 +25,8 @@ export async function getOpportunities({
     .select('*, prospect:prospects!opportunities_prospect_id_fkey(id, company_name, phone), commercial:profiles!opportunities_commercial_id_fkey(id, full_name)', { count: 'exact' })
 
   if (filters.search) {
-    query = query.or(`name.ilike.%${filters.search}%`)
+    const s = filters.search.replace(/[%_\\]/g, '\\$&')
+    query = query.or(`name.ilike.%${s}%`)
   }
 
   if (filters.status && filters.status.length > 0) {
@@ -122,7 +123,7 @@ export async function getPipelineStats(commercialId?: string): Promise<PipelineS
   let query = supabase
     .from('opportunities')
     .select('status, estimated_value, probability, projected_revenue, expected_close_date')
-    .not('status', 'in', '("gagne","perdu")')
+    .not('status', 'in', '(gagne,perdu)')
 
   if (commercialId) {
     query = query.eq('commercial_id', commercialId)

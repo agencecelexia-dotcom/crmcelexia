@@ -37,7 +37,7 @@ export function ReminderList({ prospectId, onComplete }: ReminderListProps) {
 
   async function handleComplete(id: string) {
     try {
-      await completeReminder.mutateAsync(id)
+      await completeReminder.mutateAsync({ id, prospectId })
       toast.success('Rappel marqué comme fait')
       onComplete?.()
     } catch {

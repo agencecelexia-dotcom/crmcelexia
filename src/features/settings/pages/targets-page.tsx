@@ -58,7 +58,6 @@ export function TargetsPage() {
         }
         setTargets(tMap)
       } catch (err) {
-        console.error('Failed to load targets:', err)
         setError(err instanceof Error ? err.message : String(err))
       } finally {
         setLoading(false)

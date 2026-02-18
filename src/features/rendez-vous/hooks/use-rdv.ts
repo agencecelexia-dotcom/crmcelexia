@@ -11,6 +11,7 @@ import {
 } from '../services/rdv-service'
 import type { RdvType } from '@/types/enums'
 import { STALE_TIME_LIST } from '@/lib/constants'
+import { toast } from 'sonner'
 
 interface UseRendezVousParams {
   filters?: RdvFilters
@@ -84,12 +85,15 @@ export function useCreateRdv() {
       queryClient.invalidateQueries({ queryKey: ['prospect', variables.prospect_id] })
       queryClient.invalidateQueries({ queryKey: ['prospects'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar'] })
     },
+    onError: () => toast.error('Erreur lors de la création du RDV'),
   })
 }
 
 interface UpdateRdvParams {
   id: string
+  prospect_id?: string
   updates: Partial<Pick<import('@/types').RendezVous, 'scheduled_at' | 'duration_minutes' | 'type' | 'status' | 'result' | 'location' | 'meeting_url' | 'notes' | 'no_show_reason'>>
 }
 
@@ -97,11 +101,16 @@ export function useUpdateRdv() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (params: UpdateRdvParams) => updateRdv(params),
-    onSuccess: () => {
+    mutationFn: (params: UpdateRdvParams) => updateRdv({ id: params.id, updates: params.updates }),
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['rdv'] })
       queryClient.invalidateQueries({ queryKey: ['prospects'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar'] })
+      if (variables.prospect_id) {
+        queryClient.invalidateQueries({ queryKey: ['prospect', variables.prospect_id] })
+      }
     },
+    onError: () => toast.error('Erreur lors de la mise à jour du RDV'),
   })
 }

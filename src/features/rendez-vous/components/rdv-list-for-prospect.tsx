@@ -53,6 +53,7 @@ export function RdvListForProspect({ prospectId }: RdvListForProspectProps) {
     try {
       await updateRdv.mutateAsync({
         id: rdvId,
+        prospect_id: prospectId,
         updates: { status: newStatus },
       })
       toast.success('Statut du RDV mis à jour')
@@ -69,6 +70,7 @@ export function RdvListForProspect({ prospectId }: RdvListForProspectProps) {
     try {
       await updateRdv.mutateAsync({
         id: rdvId,
+        prospect_id: prospectId,
         updates: { status: 'fait', result: completionResult.trim() },
       })
       toast.success('RDV marqué comme fait')

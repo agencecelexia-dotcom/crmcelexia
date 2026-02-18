@@ -24,7 +24,8 @@ export async function getProspects({
 
   // Apply filters
   if (filters.search) {
-    query = query.or(`company_name.ilike.%${filters.search}%,phone.ilike.%${filters.search}%,contact_name.ilike.%${filters.search}%`)
+    const s = filters.search.replace(/[%_\\]/g, '\\$&')
+    query = query.or(`company_name.ilike.%${s}%,phone.ilike.%${s}%,contact_name.ilike.%${s}%`)
   }
 
   if (filters.status && filters.status.length > 0) {
@@ -142,6 +143,7 @@ export async function getDistinctProfessions(): Promise<string[]> {
     .select('profession')
     .not('profession', 'is', null)
     .is('deleted_at', null)
+    .limit(5000)
 
   if (error) throw error
 
@@ -155,6 +157,7 @@ export async function getDistinctCities(): Promise<string[]> {
     .select('city')
     .not('city', 'is', null)
     .is('deleted_at', null)
+    .limit(5000)
 
   if (error) throw error
 
