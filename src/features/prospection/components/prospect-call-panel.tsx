@@ -7,13 +7,12 @@ import { useRdvForProspect } from '@/features/rendez-vous/hooks/use-rdv'
 import { useCallsForProspect } from '../hooks/use-calls'
 import { useRemindersForProspect, useCompleteReminder } from '../hooks/use-reminders'
 import type { Prospect } from '@/types'
-import type { CallResult, ProspectStatus } from '@/types/enums'
+import type { CallResult } from '@/types/enums'
 import {
   CALL_RESULT_TO_STATUS,
   PROSPECT_STATUS_LABELS,
   PROSPECT_STATUS_COLORS,
   CALL_RESULT_LABELS,
-  RDV_STATUS_LABELS,
   RDV_TYPE_LABELS,
 } from '@/types/enums'
 import { StatusBadge } from '@/components/shared/status-badge'
