@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { useCreateRdv } from '../hooks/use-rdv'
 import type { Prospect } from '@/types'
@@ -30,27 +30,37 @@ interface RdvFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   callId?: string | null
+  defaultType?: RdvType
+  defaultMeetingUrl?: string
 }
 
-export function RdvForm({ prospect, open, onOpenChange, callId }: RdvFormProps) {
+export function RdvForm({ prospect, open, onOpenChange, callId, defaultType, defaultMeetingUrl }: RdvFormProps) {
   const { profile } = useAuth()
   const createRdv = useCreateRdv()
 
-  const [type, setType] = useState<RdvType>('telephone')
+  const [type, setType] = useState<RdvType>(defaultType ?? 'telephone')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('10:00')
   const [duration, setDuration] = useState('30')
   const [location, setLocation] = useState('')
-  const [meetingUrl, setMeetingUrl] = useState('')
+  const [meetingUrl, setMeetingUrl] = useState(defaultMeetingUrl ?? '')
   const [notes, setNotes] = useState('')
 
+  // Sync defaults when they change (e.g. dialog re-opens with new values)
+  useEffect(() => {
+    if (open) {
+      setType(defaultType ?? 'telephone')
+      setMeetingUrl(defaultMeetingUrl ?? '')
+    }
+  }, [open, defaultType, defaultMeetingUrl])
+
   function reset() {
-    setType('telephone')
+    setType(defaultType ?? 'telephone')
     setDate('')
     setTime('10:00')
     setDuration('30')
     setLocation('')
-    setMeetingUrl('')
+    setMeetingUrl(defaultMeetingUrl ?? '')
     setNotes('')
   }
 

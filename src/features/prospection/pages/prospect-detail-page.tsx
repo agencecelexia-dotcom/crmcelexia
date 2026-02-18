@@ -20,6 +20,7 @@ import { formatDate } from '@/lib/format'
 import { ArrowLeft, Phone, Clock, Globe, MapPin, Pencil, Save, X, CalendarDays } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
 
 export function ProspectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -27,6 +28,7 @@ export function ProspectDetailPage() {
   const { isFounder } = useAuth()
   const { data: prospect, isLoading, error } = useProspect(id)
   const updateProspect = useUpdateProspect()
+  const { data: calcomLink } = useCalcomLink()
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, string>>({})
   const [callLoggerOpen, setCallLoggerOpen] = useState(false)
@@ -348,6 +350,8 @@ export function ProspectDetailPage() {
         open={rdvFormOpen}
         onOpenChange={setRdvFormOpen}
         callId={lastCallId}
+        defaultType={lastCallId ? 'visio' : undefined}
+        defaultMeetingUrl={lastCallId && calcomLink ? buildCalcomUrl(calcomLink, prospect) : undefined}
       />
     </div>
   )
