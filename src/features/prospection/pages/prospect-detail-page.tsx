@@ -42,7 +42,8 @@ import {
   XCircle,
   UserCheck,
 } from 'lucide-react'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
 import {
@@ -68,6 +69,7 @@ export function ProspectDetailPage() {
   const { data: prospect, isLoading, error } = useProspect(id)
   const updateProspect = useUpdateProspect()
   const convertProspect = useConvertProspect()
+  const queryClient = useQueryClient()
   const { data: calcomLink } = useCalcomLink()
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, string>>({})
@@ -75,11 +77,41 @@ export function ProspectDetailPage() {
   const [reminderFormOpen, setReminderFormOpen] = useState(false)
   const [rdvFormOpen, setRdvFormOpen] = useState(false)
   const [lastCallId, setLastCallId] = useState<string | null>(null)
+  const [waitingForCalcom, setWaitingForCalcom] = useState(false)
 
   // Loss reason dialog
   const [lossDialogOpen, setLossDialogOpen] = useState(false)
   const [selectedLossReason, setSelectedLossReason] = useState<LossReason | ''>('')
   const [lossNotes, setLossNotes] = useState('')
+
+  // Poll for new RDV after Cal.com booking — webhook creates it asynchronously
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollingCountRef = useRef(0)
+
+  const startCalcomPolling = useCallback(() => {
+    if (pollingRef.current) return
+    setWaitingForCalcom(true)
+    pollingCountRef.current = 0
+    pollingRef.current = setInterval(() => {
+      pollingCountRef.current++
+      // Refresh RDV data for this prospect
+      queryClient.invalidateQueries({ queryKey: ['rdv', 'prospect', id] })
+      queryClient.invalidateQueries({ queryKey: ['prospect', id] })
+      // Stop after 3 minutes (36 x 5s)
+      if (pollingCountRef.current >= 36) {
+        if (pollingRef.current) clearInterval(pollingRef.current)
+        pollingRef.current = null
+        setWaitingForCalcom(false)
+      }
+    }, 5000)
+  }, [id, queryClient])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current)
+    }
+  }, [])
 
   // Lead score from custom_fields
   const savedLeadScore = useMemo(() => {
@@ -220,6 +252,16 @@ export function ProspectDetailPage() {
     }
   }
 
+  function openCalcom() {
+    if (!calcomLink || !prospect) return
+    const bookingUrl = buildCalcomUrl(calcomLink, prospect)
+    if (bookingUrl) {
+      window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+      toast.info('Réservez un créneau sur Cal.com — le RDV apparaîtra ici automatiquement')
+      startCalcomPolling()
+    }
+  }
+
   function handleCallSuccess(callId: string, result: CallResult) {
     setLastCallId(callId)
 
@@ -228,12 +270,12 @@ export function ProspectDetailPage() {
       setLossDialogOpen(true)
     }
 
-    // Only open Cal.com when result is "RDV pris"
-    if (result === 'reached_rdv' && calcomLink) {
-      const bookingUrl = buildCalcomUrl(calcomLink, prospect!)
-      if (bookingUrl) {
-        window.open(bookingUrl, '_blank', 'noopener,noreferrer')
-        toast.info('Réservez un créneau sur Cal.com — le RDV sera créé automatiquement')
+    // "RDV pris" → Cal.com if configured, otherwise manual RDV form
+    if (result === 'reached_rdv') {
+      if (calcomLink) {
+        openCalcom()
+      } else {
+        setRdvFormOpen(true)
       }
     }
   }
@@ -408,10 +450,24 @@ export function ProspectDetailPage() {
           {/* Rendez-vous */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Rendez-vous</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => setRdvFormOpen(true)}>
-                <CalendarDays className="mr-1 h-4 w-4" /> Planifier
-              </Button>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base">Rendez-vous</CardTitle>
+                {waitingForCalcom && (
+                  <span className="flex items-center gap-1 text-xs text-blue-600 animate-pulse">
+                    <CalendarDays className="h-3 w-3" />
+                    En attente Cal.com...
+                  </span>
+                )}
+              </div>
+              {calcomLink ? (
+                <Button variant="ghost" size="sm" onClick={openCalcom}>
+                  <CalendarDays className="mr-1 h-4 w-4" /> Réserver (Cal.com)
+                </Button>
+              ) : (
+                <Button variant="ghost" size="sm" onClick={() => setRdvFormOpen(true)}>
+                  <CalendarDays className="mr-1 h-4 w-4" /> Planifier
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               <RdvListForProspect prospectId={prospect.id} />
@@ -457,18 +513,29 @@ export function ProspectDetailPage() {
               <Separator />
               <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">Actions rapides</p>
-                <Button className="w-full" size="sm" onClick={() => setCallLoggerOpen(true)}>
-                  <Phone className="mr-2 h-4 w-4" />
-                  Logger un appel
-                </Button>
-                <Button variant="outline" className="w-full" size="sm" onClick={() => setRdvFormOpen(true)}>
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  Planifier un RDV
-                </Button>
-                <Button variant="outline" className="w-full" size="sm" onClick={() => setReminderFormOpen(true)}>
-                  <Clock className="mr-2 h-4 w-4" />
-                  Planifier un rappel
-                </Button>
+                {prospect.status !== 'converti_client' && (
+                  <>
+                    <Button className="w-full" size="sm" onClick={() => setCallLoggerOpen(true)}>
+                      <Phone className="mr-2 h-4 w-4" />
+                      Logger un appel
+                    </Button>
+                    {calcomLink ? (
+                      <Button variant="outline" className="w-full" size="sm" onClick={openCalcom}>
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        Réserver un RDV (Cal.com)
+                      </Button>
+                    ) : (
+                      <Button variant="outline" className="w-full" size="sm" onClick={() => setRdvFormOpen(true)}>
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        Planifier un RDV
+                      </Button>
+                    )}
+                    <Button variant="outline" className="w-full" size="sm" onClick={() => setReminderFormOpen(true)}>
+                      <Clock className="mr-2 h-4 w-4" />
+                      Planifier un rappel
+                    </Button>
+                  </>
+                )}
                 {prospect.status === 'rdv_pris' || prospect.status === 'interesse' ? (
                   <Button
                     variant="default"
@@ -601,13 +668,16 @@ export function ProspectDetailPage() {
         open={reminderFormOpen}
         onOpenChange={setReminderFormOpen}
       />
-      <RdvForm
-        prospect={prospect}
-        open={rdvFormOpen}
-        onOpenChange={setRdvFormOpen}
-        callId={lastCallId}
-        defaultType={lastCallId ? 'visio' : undefined}
-      />
+      {/* Manual RDV form — only used when Cal.com is NOT configured */}
+      {!calcomLink && (
+        <RdvForm
+          prospect={prospect}
+          open={rdvFormOpen}
+          onOpenChange={setRdvFormOpen}
+          callId={lastCallId}
+          defaultType={lastCallId ? 'visio' : undefined}
+        />
+      )}
 
       {/* Loss Reason Dialog */}
       <Dialog open={lossDialogOpen} onOpenChange={setLossDialogOpen}>
