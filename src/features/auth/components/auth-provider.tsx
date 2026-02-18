@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // This is the recommended Supabase v2+ pattern
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, s) => {
+    } = supabase.auth.onAuthStateChange(async (_event, s) => {
       if (!mounted) return
 
       setSession(s)
