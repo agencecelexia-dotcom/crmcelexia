@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
-import { FileText, ChevronLeft, ChevronRight } from 'lucide-react'
+import { FileText, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react'
 
 const DEVIS_STATUS_COLORS: Record<DevisStatus, string> = {
   brouillon: 'bg-gray-100 text-gray-800',
@@ -25,6 +25,31 @@ const DEVIS_STATUS_COLORS: Record<DevisStatus, string> = {
   signe: 'bg-green-100 text-green-800',
   refuse: 'bg-red-100 text-red-800',
   expire: 'bg-orange-100 text-orange-800',
+}
+
+const PAYMENT_LABELS: Record<string, string> = {
+  paye: 'Payé',
+  en_attente: 'En attente',
+  en_retard: 'En retard',
+  impaye: 'Impayé',
+}
+
+const PAYMENT_COLORS: Record<string, string> = {
+  paye: 'bg-green-100 text-green-800',
+  en_attente: 'bg-yellow-100 text-yellow-800',
+  en_retard: 'bg-orange-100 text-orange-800',
+  impaye: 'bg-red-100 text-red-800',
+}
+
+function derivePaymentStatus(devis: { status: DevisStatus; sent_at: string | null }): string {
+  if (devis.status === 'signe') return 'paye'
+  if (devis.status === 'refuse') return 'impaye'
+  if (devis.status === 'expire') return 'en_retard'
+  if (devis.status === 'envoye' && devis.sent_at) {
+    const diffDays = Math.floor((Date.now() - new Date(devis.sent_at).getTime()) / (1000 * 60 * 60 * 24))
+    if (diffDays > 30) return 'en_retard'
+  }
+  return 'en_attente'
 }
 
 export function BillingListPage() {
@@ -38,11 +63,17 @@ export function BillingListPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Devis & Facturation</h1>
-        <p className="text-sm text-muted-foreground">
-          Tous les devis de l'agence
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Devis & Facturation</h1>
+          <p className="text-sm text-muted-foreground">
+            Tous les devis de l'agence
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => navigate('/payments')}>
+          <CreditCard className="mr-2 h-4 w-4" />
+          Suivi des paiements
+        </Button>
       </div>
 
       <Card>
@@ -71,6 +102,7 @@ export function BillingListPage() {
                   <TableHead className="text-right">Montant HT</TableHead>
                   <TableHead className="text-right">Montant TTC</TableHead>
                   <TableHead>Statut</TableHead>
+                  <TableHead>Paiement</TableHead>
                   <TableHead>Créé le</TableHead>
                 </TableRow>
               </TableHeader>
@@ -92,6 +124,17 @@ export function BillingListPage() {
                         label={DEVIS_STATUS_LABELS[devis.status]}
                         colorClass={DEVIS_STATUS_COLORS[devis.status]}
                       />
+                    </TableCell>
+                    <TableCell>
+                      {devis.status !== 'brouillon' && (() => {
+                        const ps = derivePaymentStatus(devis)
+                        return (
+                          <StatusBadge
+                            label={PAYMENT_LABELS[ps]}
+                            colorClass={PAYMENT_COLORS[ps]}
+                          />
+                        )
+                      })()}
                     </TableCell>
                     <TableCell className="text-sm">{formatDateShort(devis.created_at)}</TableCell>
                   </TableRow>
