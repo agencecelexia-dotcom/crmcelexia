@@ -7,7 +7,7 @@ BEGIN
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
-    COALESCE(NEW.raw_user_meta_data->>'role', 'commercial')
+    COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'commercial')
   );
   RETURN NEW;
 END;

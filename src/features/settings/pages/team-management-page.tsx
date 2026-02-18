@@ -245,7 +245,8 @@ function InviteMemberDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       reset()
       onOpenChange(false)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erreur lors de l\'invitation.'
+      const e = err as { message?: string }
+      const msg = e?.message || 'Erreur lors de l\'invitation.'
       setError(msg)
     }
   }
