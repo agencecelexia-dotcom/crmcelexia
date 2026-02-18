@@ -88,6 +88,26 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  // GET = health check / diagnostic endpoint
+  if (req.method === 'GET') {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const hasServiceKey = !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const hasWebhookSecret = !!Deno.env.get('CALCOM_WEBHOOK_SECRET')
+    return new Response(JSON.stringify({
+      status: 'ok',
+      version: '2.0.0',
+      timestamp: new Date().toISOString(),
+      config: {
+        supabase_url: supabaseUrl ? 'configured' : 'MISSING',
+        service_role_key: hasServiceKey ? 'configured' : 'MISSING',
+        calcom_webhook_secret: hasWebhookSecret ? 'configured' : 'not set (signature verification disabled)',
+      },
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405, headers: corsHeaders })
   }
@@ -108,13 +128,21 @@ Deno.serve(async (req) => {
 
     const body = JSON.parse(rawBody)
 
+    // Log full incoming payload for debugging (truncated to avoid huge logs)
+    const bodyStr = JSON.stringify(body)
+    console.log(`[calcom-webhook] Incoming payload (${bodyStr.length} chars): ${bodyStr.slice(0, 2000)}`)
+
     // Cal.com v1: { triggerEvent, payload }
     // Cal.com v2: event data might be at root level
     const triggerEvent = body.triggerEvent || body.event || body.type
     const payload = body.payload || body
 
+    console.log(`[calcom-webhook] Trigger event: ${triggerEvent}`)
+    console.log(`[calcom-webhook] Payload keys: ${Object.keys(payload).join(', ')}`)
+
     if (!triggerEvent) {
-      return new Response(JSON.stringify({ error: 'No trigger event' }), {
+      console.error('[calcom-webhook] No trigger event found in body. Body keys:', Object.keys(body))
+      return new Response(JSON.stringify({ error: 'No trigger event', bodyKeys: Object.keys(body) }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

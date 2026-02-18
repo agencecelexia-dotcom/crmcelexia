@@ -94,8 +94,11 @@ export function RdvListForProspect({ prospectId }: RdvListForProspectProps) {
             key={rdv.id}
             className={cn(
               'rounded-lg border p-3 space-y-2',
-              rdv.status === 'fait' && 'opacity-60',
+              (rdv.status === 'fait' || rdv.status === 'close' || rdv.status === 'annule') && 'opacity-60',
               rdv.status === 'no_show' && 'border-red-200 bg-red-50/50',
+              rdv.status === 'perdu' && 'border-red-200 bg-red-50/50 opacity-60',
+              rdv.status === 'show' && 'border-green-200 bg-green-50/50',
+              rdv.status === 'confirme' && 'border-cyan-200 bg-cyan-50/50',
               isPast && 'border-orange-200 bg-orange-50/50',
             )}
           >
@@ -112,6 +115,18 @@ export function RdvListForProspect({ prospectId }: RdvListForProspectProps) {
                 colorClass={RDV_STATUS_COLORS[rdv.status]}
               />
             </div>
+
+            {rdv.meeting_url && (
+              <a
+                href={rdv.meeting_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+              >
+                <Video className="h-3 w-3" />
+                Rejoindre la visio
+              </a>
+            )}
 
             {rdv.location && (
               <p className="text-sm text-muted-foreground flex items-center gap-1">
