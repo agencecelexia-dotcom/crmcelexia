@@ -38,6 +38,14 @@ export interface Prospect {
   client_id: string | null
   notes: string | null
   custom_fields: Record<string, unknown>
+  siret: string | null
+  siren: string | null
+  code_naf: string | null
+  niche: string | null
+  forme_juridique: string | null
+  date_creation_entreprise: string | null
+  departement: string | null
+  code_postal: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null

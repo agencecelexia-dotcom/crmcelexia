@@ -183,6 +183,7 @@ export const PROSPECT_SOURCE = {
   CSV_IMPORT: 'csv_import',
   MANUAL: 'manual',
   REFERRAL: 'referral',
+  API_GENERATION: 'api_generation',
 } as const
 
 export type ProspectSource = (typeof PROSPECT_SOURCE)[keyof typeof PROSPECT_SOURCE]
