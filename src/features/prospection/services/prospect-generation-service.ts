@@ -106,27 +106,43 @@ async function invokeFunction(
   retries = 2,
 ): Promise<any> {
   for (let attempt = 0; attempt <= retries; attempt++) {
-    const { data, error, response } = await supabase.functions.invoke(
+    const { data, error } = await supabase.functions.invoke(
       'generate-prospects',
       { body: { action, ...params } },
-    ) as { data: any; error: any; response?: Response }
+    )
 
     if (!error) return data
 
-    // Extract the real error message from the response body
-    let detail = error.message || 'Erreur inconnue'
-    try {
-      // The SDK stores the Response object in error.context
-      const ctx = error.context || response
-      if (ctx && typeof ctx.json === 'function') {
+    // Extract the real error message.
+    // In Supabase SDK v2, FunctionsHttpError stores the parsed JSON body
+    // in error.context (it's a plain object, NOT a Response).
+    let detail = ''
+
+    // Method 1: error.context is the parsed response body { error: "..." }
+    const ctx = (error as any).context
+    if (ctx && typeof ctx === 'object' && 'error' in ctx) {
+      detail = ctx.error
+    }
+
+    // Method 2: data might contain the error in some SDK versions
+    if (!detail && data && typeof data === 'object' && 'error' in (data as any)) {
+      detail = (data as { error: string }).error
+    }
+
+    // Method 3: error.context might be a Response (older SDK versions)
+    if (!detail && ctx && typeof ctx.json === 'function') {
+      try {
         const body = await ctx.json()
-        if (body && typeof body === 'object' && 'error' in body) {
-          detail = body.error
-        }
-      } else if (data && typeof data === 'object' && 'error' in data) {
-        detail = (data as { error: string }).error
-      }
-    } catch { /* could not parse response body */ }
+        if (body?.error) detail = body.error
+      } catch { /* body already consumed */ }
+    }
+
+    // Fallback to SDK error message
+    if (!detail) {
+      detail = error.message || 'Erreur inconnue'
+    }
+
+    console.error(`[${action}] attempt ${attempt + 1}/${retries + 1}: ${detail}`)
 
     // Retry on transient errors (network, 500, relay errors)
     const isTransient =
@@ -147,6 +163,14 @@ async function invokeFunction(
   }
 
   throw new Error(`[${action}] Échec après ${retries + 1} tentatives`)
+}
+
+/**
+ * Run a diagnostic check on all external APIs used by the edge function.
+ * Returns the status of SIRENE, Mappy, Annuaire APIs and env var config.
+ */
+export async function runDiagnostic(): Promise<any> {
+  return invokeFunction('diagnostic', {})
 }
 
 /**

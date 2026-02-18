@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/hooks/use-auth'
 import {
   generateProspects,
   deleteProspectsWithoutPhone,
+  runDiagnostic,
   getNafCodes,
   NICHE_CATEGORIES,
   type GenerationProgress,
@@ -25,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Loader2, CheckCircle2, XCircle, Phone, Trash2 } from 'lucide-react'
+import { Loader2, CheckCircle2, XCircle, Phone, Trash2, Stethoscope } from 'lucide-react'
 
 interface Props {
   open: boolean
@@ -41,6 +42,8 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
   const [quantity, setQuantity] = useState(100)
   const [isRunning, setIsRunning] = useState(false)
   const [isCleaning, setIsCleaning] = useState(false)
+  const [isDiagnosing, setIsDiagnosing] = useState(false)
+  const [diagnosticResult, setDiagnosticResult] = useState<any>(null)
   const [progress, setProgress] = useState<GenerationProgress | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   // Guard against double-start: track if an async generation is still in flight
@@ -130,10 +133,38 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
     }
   }, [queryClient])
 
+  const handleDiagnostic = useCallback(async () => {
+    setIsDiagnosing(true)
+    setDiagnosticResult(null)
+    try {
+      const result = await runDiagnostic()
+      setDiagnosticResult(result)
+      const sireneOk = result.sirene?.status === 'OK'
+      const mappyOk = result.mappy?.status === 'OK'
+      const annuaireOk = result.annuaire?.status === 'OK'
+      if (sireneOk && mappyOk && annuaireOk) {
+        toast.success('Toutes les APIs fonctionnent correctement !')
+      } else {
+        const issues = []
+        if (!sireneOk) issues.push(`SIRENE: ${result.sirene?.httpStatus || result.sirene?.message || 'KO'}`)
+        if (!mappyOk) issues.push(`Mappy: ${result.mappy?.httpStatus || 'KO'}`)
+        if (!annuaireOk) issues.push(`Annuaire: ${result.annuaire?.httpStatus || 'KO'}`)
+        toast.error(`Problème(s) détecté(s): ${issues.join(', ')}`)
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur'
+      setDiagnosticResult({ error: message })
+      toast.error(`Diagnostic impossible: ${message}`)
+    } finally {
+      setIsDiagnosing(false)
+    }
+  }, [])
+
   const handleClose = useCallback(
     (value: boolean) => {
       if (isRunning) return
       setProgress(null)
+      setDiagnosticResult(null)
       onOpenChange(value)
     },
     [isRunning, onOpenChange],
@@ -318,22 +349,65 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
             </div>
           )}
 
+          {/* Diagnostic result */}
+          {diagnosticResult && (
+            <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1 font-mono overflow-auto max-h-48">
+              <div className="font-semibold text-sm font-sans mb-2">Résultat diagnostic</div>
+              {diagnosticResult.error ? (
+                <div className="text-destructive">{diagnosticResult.error}</div>
+              ) : (
+                <>
+                  <div className={diagnosticResult.sirene?.status === 'OK' ? 'text-green-600' : 'text-destructive'}>
+                    SIRENE: {diagnosticResult.sirene?.status} {diagnosticResult.sirene?.httpStatus ? `(HTTP ${diagnosticResult.sirene.httpStatus})` : ''}
+                    {diagnosticResult.sirene?.body && diagnosticResult.sirene.status !== 'OK' && (
+                      <div className="ml-4 text-muted-foreground break-all">{diagnosticResult.sirene.body}</div>
+                    )}
+                  </div>
+                  <div className={diagnosticResult.mappy?.status === 'OK' ? 'text-green-600' : 'text-destructive'}>
+                    Mappy: {diagnosticResult.mappy?.status} {diagnosticResult.mappy?.httpStatus ? `(HTTP ${diagnosticResult.mappy.httpStatus})` : ''}
+                  </div>
+                  <div className={diagnosticResult.annuaire?.status === 'OK' ? 'text-green-600' : 'text-destructive'}>
+                    Annuaire: {diagnosticResult.annuaire?.status} {diagnosticResult.annuaire?.httpStatus ? `(HTTP ${diagnosticResult.annuaire.httpStatus})` : ''}
+                  </div>
+                  <div className="text-muted-foreground mt-1">
+                    Clé SIRENE: {diagnosticResult.env?.SIRENE_API_KEY_value || 'N/A'}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex justify-between">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCleanup}
-              disabled={isRunning || isCleaning}
-              className="text-destructive hover:text-destructive"
-            >
-              {isCleaning ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              Supprimer sans tél.
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCleanup}
+                disabled={isRunning || isCleaning}
+                className="text-destructive hover:text-destructive"
+              >
+                {isCleaning ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Supprimer sans tél.
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDiagnostic}
+                disabled={isRunning || isDiagnosing}
+              >
+                {isDiagnosing ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Stethoscope className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Diagnostic
+              </Button>
+            </div>
 
             <div className="flex gap-2">
               {isRunning ? (
