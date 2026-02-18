@@ -1,0 +1,426 @@
+import { useState } from 'react'
+import { useAuth } from '@/features/auth/hooks/use-auth'
+import { useLogCall } from '../hooks/use-calls'
+import { useUpdateProspect } from '../hooks/use-prospects'
+import { useCreateReminder } from '../hooks/use-reminders'
+import { useRdvForProspect } from '@/features/rendez-vous/hooks/use-rdv'
+import { useCallsForProspect } from '../hooks/use-calls'
+import { useRemindersForProspect, useCompleteReminder } from '../hooks/use-reminders'
+import type { Prospect } from '@/types'
+import type { CallResult, ProspectStatus } from '@/types/enums'
+import {
+  CALL_RESULT_TO_STATUS,
+  PROSPECT_STATUS_LABELS,
+  PROSPECT_STATUS_COLORS,
+  CALL_RESULT_LABELS,
+  RDV_STATUS_LABELS,
+  RDV_TYPE_LABELS,
+} from '@/types/enums'
+import { StatusBadge } from '@/components/shared/status-badge'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
+import { formatPhone, formatDate, formatRelative } from '@/lib/format'
+import {
+  X,
+  Phone,
+  PhoneOff,
+  Voicemail,
+  ThumbsUp,
+  ThumbsDown,
+  CalendarPlus,
+  Clock,
+  ArrowRight,
+  Loader2,
+  ExternalLink,
+  MessageSquare,
+  CheckCircle2,
+  AlertTriangle,
+  Save,
+  PhoneCall,
+} from 'lucide-react'
+import { toast } from 'sonner'
+import { Link } from 'react-router-dom'
+
+interface ProspectCallPanelProps {
+  prospect: Prospect
+  onClose: () => void
+  onCallLogged?: () => void
+}
+
+const QUICK_CALL_ACTIONS: { result: CallResult; label: string; icon: typeof Phone; color: string }[] = [
+  { result: 'no_answer', label: 'Pas de réponse', icon: PhoneOff, color: 'bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200' },
+  { result: 'voicemail', label: 'Messagerie', icon: Voicemail, color: 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200' },
+  { result: 'reached_interested', label: 'Intéressé', icon: ThumbsUp, color: 'bg-green-50 hover:bg-green-100 text-green-700 border-green-200' },
+  { result: 'reached_not_interested', label: 'Pas intéressé', icon: ThumbsDown, color: 'bg-red-50 hover:bg-red-100 text-red-700 border-red-200' },
+  { result: 'reached_callback', label: 'À rappeler', icon: Clock, color: 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200' },
+  { result: 'reached_rdv', label: 'RDV pris', icon: CalendarPlus, color: 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200' },
+]
+
+export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectCallPanelProps) {
+  const { profile } = useAuth()
+  const logCall = useLogCall()
+  const updateProspect = useUpdateProspect()
+  const createReminder = useCreateReminder()
+  const completeReminder = useCompleteReminder()
+
+  const { data: calls } = useCallsForProspect(prospect.id)
+  const { data: reminders } = useRemindersForProspect(prospect.id)
+  const { data: rdvs } = useRdvForProspect(prospect.id)
+
+  const [callNote, setCallNote] = useState('')
+  const [prospectNotes, setProspectNotes] = useState(prospect.notes ?? '')
+  const [notesChanged, setNotesChanged] = useState(false)
+  const [showReminderInput, setShowReminderInput] = useState(false)
+  const [reminderDate, setReminderDate] = useState('')
+  const [reminderTime, setReminderTime] = useState('09:00')
+  const [reminderNote, setReminderNote] = useState('')
+
+  const recentCalls = calls?.slice(0, 5) ?? []
+  const pendingReminders = reminders?.filter((r) => !r.is_completed) ?? []
+  const upcomingRdvs = rdvs?.filter((r) => r.status === 'prevu') ?? []
+
+  async function handleQuickCall(result: CallResult) {
+    if (!profile) return
+
+    const needsNote = ['reached_not_interested', 'wrong_number', 'other'].includes(result)
+    if (needsNote && !callNote.trim()) {
+      toast.error('Ajoutez une note pour ce résultat')
+      return
+    }
+
+    const newStatus = CALL_RESULT_TO_STATUS[result]
+
+    try {
+      await logCall.mutateAsync({
+        prospect_id: prospect.id,
+        commercial_id: profile.id,
+        result,
+        new_status: newStatus,
+        note: callNote.trim() || null,
+      })
+      toast.success(`Appel enregistré — ${PROSPECT_STATUS_LABELS[newStatus]}`)
+      setCallNote('')
+      onCallLogged?.()
+    } catch {
+      toast.error("Erreur lors de l'enregistrement")
+    }
+  }
+
+  async function handleSaveNotes() {
+    try {
+      await updateProspect.mutateAsync({
+        id: prospect.id,
+        updates: { notes: prospectNotes.trim() || null },
+      })
+      setNotesChanged(false)
+      toast.success('Notes sauvegardées')
+    } catch {
+      toast.error('Erreur')
+    }
+  }
+
+  async function handleAddReminder() {
+    if (!reminderDate || !profile) return
+
+    try {
+      const remindAt = new Date(`${reminderDate}T${reminderTime}`).toISOString()
+      await createReminder.mutateAsync({
+        prospect_id: prospect.id,
+        commercial_id: profile.id,
+        remind_at: remindAt,
+        note: reminderNote.trim() || null,
+      })
+      toast.success('Rappel créé')
+      setShowReminderInput(false)
+      setReminderDate('')
+      setReminderNote('')
+    } catch {
+      toast.error('Erreur')
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-full border-l bg-background">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b bg-muted/30">
+        <div className="min-w-0">
+          <h2 className="font-bold text-lg truncate">{prospect.company_name}</h2>
+          {prospect.contact_firstname || prospect.contact_name ? (
+            <p className="text-sm text-muted-foreground truncate">
+              {prospect.contact_firstname} {prospect.contact_name}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            to={`/prospects/${prospect.id}`}
+            className="text-muted-foreground hover:text-foreground"
+            title="Ouvrir la fiche"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Link>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {/* Phone + Status */}
+        <div className="p-4 border-b">
+          <a
+            href={`tel:${prospect.phone}`}
+            className="flex items-center gap-3 p-3 rounded-lg bg-primary/5 hover:bg-primary/10 transition-colors group"
+          >
+            <div className="p-2 rounded-full bg-primary/10 group-hover:bg-primary/20">
+              <Phone className="h-5 w-5 text-primary" />
+            </div>
+            <span className="text-xl font-mono font-bold text-primary">
+              {formatPhone(prospect.phone)}
+            </span>
+          </a>
+
+          <div className="flex items-center gap-2 mt-3">
+            <StatusBadge
+              label={PROSPECT_STATUS_LABELS[prospect.status]}
+              colorClass={PROSPECT_STATUS_COLORS[prospect.status]}
+            />
+            <span className="text-xs text-muted-foreground">
+              {prospect.call_count} appel{prospect.call_count !== 1 ? 's' : ''}
+            </span>
+            {prospect.last_called_at && (
+              <span className="text-xs text-muted-foreground">
+                — {formatRelative(prospect.last_called_at)}
+              </span>
+            )}
+          </div>
+
+          {/* Quick info */}
+          <div className="mt-3 grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+            {prospect.profession && <span>{prospect.profession}</span>}
+            {prospect.city && <span>{prospect.city}</span>}
+            {prospect.contact_email && (
+              <a href={`mailto:${prospect.contact_email}`} className="text-primary hover:underline truncate col-span-2">
+                {prospect.contact_email}
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* Overdue Reminders Alert */}
+        {pendingReminders.some((r) => new Date(r.remind_at) < new Date()) && (
+          <div className="mx-4 mt-3 p-2 rounded-lg bg-red-50 border border-red-200 flex items-center gap-2 text-sm text-red-700">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span className="font-medium">Rappel en retard</span>
+          </div>
+        )}
+
+        {/* Quick Call Actions */}
+        <div className="p-4 border-b">
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <PhoneCall className="h-4 w-4" />
+            Résultat de l'appel
+          </h3>
+          <div className="grid grid-cols-2 gap-2">
+            {QUICK_CALL_ACTIONS.map(({ result, label, icon: Icon, color }) => (
+              <button
+                key={result}
+                onClick={() => handleQuickCall(result)}
+                disabled={logCall.isPending}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${color} disabled:opacity-50`}
+              >
+                {logCall.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Icon className="h-4 w-4" />
+                )}
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Call note */}
+          <div className="mt-3">
+            <Textarea
+              value={callNote}
+              onChange={(e) => setCallNote(e.target.value)}
+              placeholder="Note d'appel (optionnelle)..."
+              rows={2}
+              className="text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Prospect Notes */}
+        <div className="p-4 border-b">
+          <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            Notes du prospect
+          </h3>
+          <Textarea
+            value={prospectNotes}
+            onChange={(e) => {
+              setProspectNotes(e.target.value)
+              setNotesChanged(true)
+            }}
+            placeholder="Ajouter des notes..."
+            rows={3}
+            className="text-sm"
+          />
+          {notesChanged && (
+            <Button
+              size="sm"
+              className="mt-2"
+              onClick={handleSaveNotes}
+              disabled={updateProspect.isPending}
+            >
+              {updateProspect.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <Save className="h-3 w-3 mr-1" />
+              )}
+              Sauvegarder
+            </Button>
+          )}
+        </div>
+
+        {/* Reminders */}
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Rappels
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowReminderInput(!showReminderInput)}
+              className="h-7 text-xs"
+            >
+              + Rappel
+            </Button>
+          </div>
+
+          {showReminderInput && (
+            <div className="mb-3 p-3 rounded-lg border bg-muted/30 space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={reminderDate}
+                  onChange={(e) => setReminderDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="h-8 text-sm"
+                />
+                <Input
+                  type="time"
+                  value={reminderTime}
+                  onChange={(e) => setReminderTime(e.target.value)}
+                  className="h-8 text-sm w-24"
+                />
+              </div>
+              <Input
+                value={reminderNote}
+                onChange={(e) => setReminderNote(e.target.value)}
+                placeholder="Note..."
+                className="h-8 text-sm"
+              />
+              <Button
+                size="sm"
+                onClick={handleAddReminder}
+                disabled={!reminderDate || createReminder.isPending}
+                className="h-7 text-xs"
+              >
+                Créer
+              </Button>
+            </div>
+          )}
+
+          {pendingReminders.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Aucun rappel en cours</p>
+          ) : (
+            <div className="space-y-1.5">
+              {pendingReminders.map((r) => {
+                const isOverdue = new Date(r.remind_at) < new Date()
+                return (
+                  <div
+                    key={r.id}
+                    className={`flex items-center justify-between text-xs p-2 rounded-lg border ${
+                      isOverdue ? 'bg-red-50 border-red-200 text-red-700' : 'bg-muted/30'
+                    }`}
+                  >
+                    <div>
+                      <span className="font-medium">{formatDate(r.remind_at)}</span>
+                      {r.note && <p className="text-muted-foreground mt-0.5">{r.note}</p>}
+                    </div>
+                    <button
+                      onClick={() => completeReminder.mutate(r.id)}
+                      className="p-1 hover:bg-green-100 rounded"
+                      title="Terminer"
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Upcoming RDVs */}
+        {upcomingRdvs.length > 0 && (
+          <div className="p-4 border-b">
+            <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+              <CalendarPlus className="h-4 w-4" />
+              RDV à venir
+            </h3>
+            <div className="space-y-1.5">
+              {upcomingRdvs.map((rdv) => (
+                <div key={rdv.id} className="text-xs p-2 rounded-lg border bg-blue-50 border-blue-200">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{formatDate(rdv.scheduled_at)}</span>
+                    <StatusBadge
+                      label={RDV_TYPE_LABELS[rdv.type]}
+                      colorClass="bg-blue-100 text-blue-700"
+                    />
+                  </div>
+                  {rdv.notes && <p className="text-muted-foreground mt-0.5">{rdv.notes}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recent Calls History */}
+        <div className="p-4">
+          <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+            <Phone className="h-4 w-4" />
+            Derniers appels
+          </h3>
+          {recentCalls.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Aucun appel enregistré</p>
+          ) : (
+            <div className="space-y-1.5">
+              {recentCalls.map((call) => (
+                <div key={call.id} className="text-xs p-2 rounded-lg border bg-muted/20">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{CALL_RESULT_LABELS[call.result]}</span>
+                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                    <StatusBadge
+                      label={PROSPECT_STATUS_LABELS[call.new_status]}
+                      colorClass={PROSPECT_STATUS_COLORS[call.new_status]}
+                    />
+                  </div>
+                  {call.note && (
+                    <p className="text-muted-foreground mt-0.5">{call.note}</p>
+                  )}
+                  <p className="text-muted-foreground mt-0.5">{formatRelative(call.called_at)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

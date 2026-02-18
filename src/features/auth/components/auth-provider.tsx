@@ -9,44 +9,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchProfile = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+    // Retry once on failure
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single()
 
-    if (error) {
-      console.error('Error fetching profile:', error)
-      return null
+        if (error) {
+          console.error(`Profile fetch attempt ${attempt + 1} error:`, error.message)
+          if (attempt === 0) {
+            await new Promise((r) => setTimeout(r, 1000))
+            continue
+          }
+          return null
+        }
+        return data as Profile
+      } catch (err) {
+        console.error(`Profile fetch attempt ${attempt + 1} network error:`, err)
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 1000))
+          continue
+        }
+        return null
+      }
     }
-    return data as Profile
+    return null
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session: s } }) => {
-      setSession(s)
-      if (s?.user) {
-        const p = await fetchProfile(s.user.id)
-        setProfile(p)
-      }
-      setIsLoading(false)
-    })
+    let mounted = true
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, s) => {
-        setSession(s)
-        if (s?.user) {
-          const p = await fetchProfile(s.user.id)
-          setProfile(p)
-        } else {
-          setProfile(null)
-        }
+    // Safety timeout — hard cap at 8 seconds
+    const timeout = setTimeout(() => {
+      if (mounted) {
+        console.warn('Auth: safety timeout reached (8s), forcing loaded state')
         setIsLoading(false)
       }
-    )
+    }, 8_000)
 
-    return () => subscription.unsubscribe()
+    // Use ONLY onAuthStateChange — it fires INITIAL_SESSION immediately
+    // This is the recommended Supabase v2+ pattern
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, s) => {
+      if (!mounted) return
+
+      setSession(s)
+
+      if (s?.user) {
+        const p = await fetchProfile(s.user.id)
+        if (mounted) {
+          setProfile(p)
+          setIsLoading(false)
+        }
+      } else {
+        if (mounted) {
+          setProfile(null)
+          setIsLoading(false)
+        }
+      }
+    })
+
+    return () => {
+      mounted = false
+      clearTimeout(timeout)
+      subscription.unsubscribe()
+    }
   }, [fetchProfile])
 
   const signIn = useCallback(async (email: string, password: string) => {

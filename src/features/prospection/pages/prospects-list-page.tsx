@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useProspects } from '../hooks/use-prospects'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { useDebounce } from '@/hooks/use-debounce'
 import { DEBOUNCE_MS } from '@/lib/constants'
-import type { ProspectFilters } from '@/types'
+import type { ProspectFilters, Prospect } from '@/types'
 import type { ProspectStatus } from '@/types/enums'
 import {
   PROSPECT_STATUS_LABELS,
@@ -12,6 +12,7 @@ import {
 } from '@/types/enums'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { EmptyState } from '@/components/shared/empty-state'
+import { ProspectCallPanel } from '../components/prospect-call-panel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -40,6 +41,8 @@ import {
   ChevronRight,
   Download,
   Filter,
+  PhoneCall,
+  AlertTriangle,
 } from 'lucide-react'
 import { exportToCsv } from '@/lib/export-csv'
 
@@ -60,6 +63,9 @@ export function ProspectsListPage() {
   const [hasOverdue, setHasOverdue] = useState(false)
   const [sortBy, setSortBy] = useState('created_at')
   const [sortDesc, setSortDesc] = useState(true)
+
+  // Side panel state
+  const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null)
 
   const debouncedCity = useDebounce(cityFilter, DEBOUNCE_MS)
   const debouncedProfession = useDebounce(professionFilter, DEBOUNCE_MS)
@@ -95,273 +101,338 @@ export function ProspectsListPage() {
   const totalPages = data?.totalPages ?? 1
   const totalCount = data?.count ?? 0
 
-  return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Prospects</h1>
-          <p className="text-sm text-muted-foreground">
-            {totalCount} prospect{totalCount !== 1 ? 's' : ''}
-            {isFetching && !isLoading && ' (mise à jour...)'}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (prospects.length === 0) return
-              exportToCsv('prospects', prospects as unknown as Record<string, unknown>[], [
-                { key: 'company_name', label: 'Entreprise' },
-                { key: 'contact_name', label: 'Nom' },
-                { key: 'contact_firstname', label: 'Prénom' },
-                { key: 'phone', label: 'Téléphone' },
-                { key: 'email', label: 'Email' },
-                { key: 'profession', label: 'Métier' },
-                { key: 'city', label: 'Ville' },
-                { key: 'status', label: 'Statut' },
-                { key: 'call_count', label: 'Appels' },
-                { key: 'last_called_at', label: 'Dernier appel' },
-              ])
-            }}
-            disabled={prospects.length === 0}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Export CSV
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/prospects/import">
-              <Upload className="mr-2 h-4 w-4" />
-              Import CSV
-            </Link>
-          </Button>
-          <Button size="sm" onClick={() => navigate('/prospects/new')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nouveau prospect
-          </Button>
-        </div>
-      </div>
+  // Auto-advance to next prospect after call is logged
+  function handleCallLogged() {
+    if (!selectedProspect) return
+    const currentIndex = prospects.findIndex((p) => p.id === selectedProspect.id)
+    if (currentIndex >= 0 && currentIndex < prospects.length - 1) {
+      setSelectedProspect(prospects[currentIndex + 1])
+    }
+  }
 
-      {/* Filters bar */}
-      <div className="space-y-3">
-        <div className="flex gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[240px] max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher par nom, téléphone..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-              className="pl-9"
-            />
+  // Close panel on Escape key
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setSelectedProspect(null)
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  // Update selected prospect when data refreshes
+  useEffect(() => {
+    if (selectedProspect && prospects.length > 0) {
+      const updated = prospects.find((p) => p.id === selectedProspect.id)
+      if (updated) setSelectedProspect(updated)
+    }
+  }, [prospects, selectedProspect?.id])
+
+  return (
+    <div className="flex h-[calc(100vh-4rem)]">
+      {/* Main List Area */}
+      <div className={`flex-1 min-w-0 flex flex-col transition-all ${selectedProspect ? '' : ''}`}>
+        {/* Header */}
+        <div className="px-4 pt-4 pb-2 shrink-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">Prospects</h1>
+              <p className="text-sm text-muted-foreground">
+                {totalCount} prospect{totalCount !== 1 ? 's' : ''}
+                {isFetching && !isLoading && ' (mise à jour...)'}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (prospects.length === 0) return
+                  exportToCsv('prospects', prospects as unknown as Record<string, unknown>[], [
+                    { key: 'company_name', label: 'Entreprise' },
+                    { key: 'contact_name', label: 'Nom' },
+                    { key: 'contact_firstname', label: 'Prénom' },
+                    { key: 'phone', label: 'Téléphone' },
+                    { key: 'email', label: 'Email' },
+                    { key: 'profession', label: 'Métier' },
+                    { key: 'city', label: 'Ville' },
+                    { key: 'status', label: 'Statut' },
+                    { key: 'call_count', label: 'Appels' },
+                    { key: 'last_called_at', label: 'Dernier appel' },
+                  ])
+                }}
+                disabled={prospects.length === 0}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/prospects/import">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import
+                </Link>
+              </Button>
+              <Button size="sm" onClick={() => navigate('/prospects/new')}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nouveau
+              </Button>
+            </div>
           </div>
 
-          <Select
-            value={statusFilter}
-            onValueChange={(v) => { setStatusFilter(v as ProspectStatus | 'all'); setPage(1) }}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Tous les statuts" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les statuts</SelectItem>
-              {STATUS_OPTIONS.map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Filters bar */}
+          <div className="space-y-2 mt-3">
+            <div className="flex gap-2 flex-wrap">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher..."
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                  className="pl-9 h-9"
+                />
+              </div>
 
-          <Button
-            variant={showAdvanced ? 'secondary' : 'outline'}
-            size="sm"
-            onClick={() => setShowAdvanced((v) => !v)}
-            className="gap-2"
-          >
-            <Filter className="h-4 w-4" />
-            Filtres
-          </Button>
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => { setStatusFilter(v as ProspectStatus | 'all'); setPage(1) }}
+              >
+                <SelectTrigger className="w-[180px] h-9">
+                  <SelectValue placeholder="Tous les statuts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  {STATUS_OPTIONS.map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant={showAdvanced ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setShowAdvanced((v) => !v)}
+                className="gap-1 h-9"
+              >
+                <Filter className="h-4 w-4" />
+                Filtres
+              </Button>
+            </div>
+
+            {showAdvanced && (
+              <div className="flex gap-2 flex-wrap items-center rounded-lg border bg-muted/30 p-2">
+                <Input
+                  placeholder="Ville..."
+                  value={cityFilter}
+                  onChange={(e) => { setCityFilter(e.target.value); setPage(1) }}
+                  className="w-[140px] h-8 text-sm"
+                />
+                <Input
+                  placeholder="Métier..."
+                  value={professionFilter}
+                  onChange={(e) => { setProfessionFilter(e.target.value); setPage(1) }}
+                  className="w-[140px] h-8 text-sm"
+                />
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={neverCalled}
+                    onChange={(e) => { setNeverCalled(e.target.checked); setPage(1) }}
+                    className="rounded border-input"
+                  />
+                  Jamais appelé
+                </label>
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasOverdue}
+                    onChange={(e) => { setHasOverdue(e.target.checked); setPage(1) }}
+                    className="rounded border-input"
+                  />
+                  Rappels en retard
+                </label>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Advanced filters */}
-        {showAdvanced && (
-          <div className="flex gap-3 flex-wrap items-center rounded-lg border bg-muted/30 p-3">
-            <Input
-              placeholder="Ville..."
-              value={cityFilter}
-              onChange={(e) => { setCityFilter(e.target.value); setPage(1) }}
-              className="w-[160px] h-9"
-            />
-            <Input
-              placeholder="Métier..."
-              value={professionFilter}
-              onChange={(e) => { setProfessionFilter(e.target.value); setPage(1) }}
-              className="w-[160px] h-9"
-            />
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={neverCalled}
-                onChange={(e) => { setNeverCalled(e.target.checked); setPage(1) }}
-                className="rounded border-input"
-              />
-              Jamais appelé
-            </label>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={hasOverdue}
-                onChange={(e) => { setHasOverdue(e.target.checked); setPage(1) }}
-                className="rounded border-input"
-              />
-              Rappels en retard
-            </label>
+        {/* Table */}
+        <div className="flex-1 overflow-auto px-4">
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('company_name')}
+                  >
+                    Entreprise {sortBy === 'company_name' && (sortDesc ? '↓' : '↑')}
+                  </TableHead>
+                  <TableHead>Téléphone</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('profession')}
+                  >
+                    Métier {sortBy === 'profession' && (sortDesc ? '↓' : '↑')}
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('city')}
+                  >
+                    Ville {sortBy === 'city' && (sortDesc ? '↓' : '↑')}
+                  </TableHead>
+                  {isFounder && <TableHead>Commercial</TableHead>}
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50 text-right"
+                    onClick={() => handleSort('call_count')}
+                  >
+                    Appels {sortBy === 'call_count' && (sortDesc ? '↓' : '↑')}
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort('next_reminder_at')}
+                  >
+                    Rappel {sortBy === 'next_reminder_at' && (sortDesc ? '↓' : '↑')}
+                  </TableHead>
+                  <TableHead className="w-10"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  Array.from({ length: 10 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: isFounder ? 9 : 8 }).map((_, j) => (
+                        <TableCell key={j}>
+                          <Skeleton className="h-4 w-full" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : prospects.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={isFounder ? 9 : 8}>
+                      <EmptyState
+                        icon={<Phone className="h-12 w-12" />}
+                        title="Aucun prospect"
+                        description="Importez un CSV ou créez votre premier prospect."
+                        action={
+                          <Button asChild>
+                            <Link to="/prospects/import">Importer un CSV</Link>
+                          </Button>
+                        }
+                      />
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  prospects.map((prospect) => {
+                    const isSelected = selectedProspect?.id === prospect.id
+                    const hasOverdueReminder = prospect.next_reminder_at && new Date(prospect.next_reminder_at) < new Date()
+
+                    return (
+                      <TableRow
+                        key={prospect.id}
+                        className={`cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-primary/5 border-l-2 border-l-primary'
+                            : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => setSelectedProspect(prospect)}
+                      >
+                        <TableCell className="font-medium">
+                          {prospect.company_name}
+                          {prospect.contact_name && (
+                            <span className="block text-xs text-muted-foreground">
+                              {prospect.contact_firstname} {prospect.contact_name}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <a
+                            href={`tel:${prospect.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-mono text-sm text-primary hover:underline"
+                          >
+                            {formatPhone(prospect.phone)}
+                          </a>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge
+                            label={PROSPECT_STATUS_LABELS[prospect.status]}
+                            colorClass={PROSPECT_STATUS_COLORS[prospect.status]}
+                          />
+                        </TableCell>
+                        <TableCell className="text-sm">{prospect.profession ?? '—'}</TableCell>
+                        <TableCell className="text-sm">{prospect.city ?? '—'}</TableCell>
+                        {isFounder && (
+                          <TableCell className="text-sm">
+                            {prospect.commercial?.full_name ?? '—'}
+                          </TableCell>
+                        )}
+                        <TableCell className="text-right">{prospect.call_count}</TableCell>
+                        <TableCell className="text-sm">
+                          {prospect.next_reminder_at ? (
+                            <span className={`flex items-center gap-1 ${hasOverdueReminder ? 'text-red-600 font-medium' : ''}`}>
+                              {hasOverdueReminder && <AlertTriangle className="h-3 w-3" />}
+                              {formatDate(prospect.next_reminder_at)}
+                            </span>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => setSelectedProspect(prospect)}
+                            className="p-1.5 rounded-md hover:bg-primary/10 text-primary"
+                            title="Ouvrir le panneau d'appel"
+                          >
+                            <PhoneCall className="h-4 w-4" />
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-2 shrink-0 border-t">
+            <p className="text-sm text-muted-foreground">
+              Page {page} sur {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1 || isLoading}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Précédent
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages || isLoading}
+              >
+                Suivant
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Table */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort('company_name')}
-              >
-                Entreprise {sortBy === 'company_name' && (sortDesc ? '↓' : '↑')}
-              </TableHead>
-              <TableHead>Téléphone</TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort('profession')}
-              >
-                Métier {sortBy === 'profession' && (sortDesc ? '↓' : '↑')}
-              </TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort('city')}
-              >
-                Ville {sortBy === 'city' && (sortDesc ? '↓' : '↑')}
-              </TableHead>
-              <TableHead>Statut</TableHead>
-              {isFounder && <TableHead>Commercial</TableHead>}
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50 text-right"
-                onClick={() => handleSort('call_count')}
-              >
-                Appels {sortBy === 'call_count' && (sortDesc ? '↓' : '↑')}
-              </TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort('last_called_at')}
-              >
-                Dernier appel {sortBy === 'last_called_at' && (sortDesc ? '↓' : '↑')}
-              </TableHead>
-              <TableHead
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => handleSort('next_reminder_at')}
-              >
-                Rappel {sortBy === 'next_reminder_at' && (sortDesc ? '↓' : '↑')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 10 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: isFounder ? 9 : 8 }).map((_, j) => (
-                    <TableCell key={j}>
-                      <Skeleton className="h-4 w-full" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : prospects.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={isFounder ? 9 : 8}>
-                  <EmptyState
-                    icon={<Phone className="h-12 w-12" />}
-                    title="Aucun prospect"
-                    description="Importez un CSV ou créez votre premier prospect."
-                    action={
-                      <Button asChild>
-                        <Link to="/prospects/import">Importer un CSV</Link>
-                      </Button>
-                    }
-                  />
-                </TableCell>
-              </TableRow>
-            ) : (
-              prospects.map((prospect) => (
-                <TableRow
-                  key={prospect.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => navigate(`/prospects/${prospect.id}`)}
-                >
-                  <TableCell className="font-medium">
-                    {prospect.company_name}
-                    {prospect.contact_name && (
-                      <span className="block text-xs text-muted-foreground">
-                        {prospect.contact_firstname} {prospect.contact_name}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {formatPhone(prospect.phone)}
-                  </TableCell>
-                  <TableCell>{prospect.profession ?? '—'}</TableCell>
-                  <TableCell>{prospect.city ?? '—'}</TableCell>
-                  <TableCell>
-                    <StatusBadge
-                      label={PROSPECT_STATUS_LABELS[prospect.status]}
-                      colorClass={PROSPECT_STATUS_COLORS[prospect.status]}
-                    />
-                  </TableCell>
-                  {isFounder && (
-                    <TableCell className="text-sm">
-                      {prospect.commercial?.full_name ?? '—'}
-                    </TableCell>
-                  )}
-                  <TableCell className="text-right">{prospect.call_count}</TableCell>
-                  <TableCell className="text-sm">
-                    {prospect.last_called_at ? formatDate(prospect.last_called_at) : '—'}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {prospect.next_reminder_at ? formatDate(prospect.next_reminder_at) : '—'}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Page {page} sur {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1 || isLoading}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Précédent
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages || isLoading}
-            >
-              Suivant
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+      {/* Side Panel */}
+      {selectedProspect && (
+        <div className="w-[380px] shrink-0 animate-in slide-in-from-right-5 duration-200">
+          <ProspectCallPanel
+            key={selectedProspect.id}
+            prospect={selectedProspect}
+            onClose={() => setSelectedProspect(null)}
+            onCallLogged={handleCallLogged}
+          />
         </div>
       )}
     </div>

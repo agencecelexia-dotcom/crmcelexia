@@ -13,15 +13,17 @@ export interface FunnelStats {
   nouveau: number
 }
 
-export interface CommercialKpis {
+export interface DashboardStats {
   calls_today: number
-  calls_this_week: number
+  calls_week: number
+  rdv_week: number
+  rdv_done_month: number
+  rdv_no_show_month: number
   reminders_today: number
   reminders_overdue: number
-  rdv_this_week: number
-  rdv_upcoming: number
-  prospects_total: number
-  conversion_rate: number
+  funnel: FunnelStats
+  weekly_calls: { week: string; count: number }[]
+  show_up_rate: number
 }
 
 export interface CommercialRanking {
@@ -32,222 +34,107 @@ export interface CommercialRanking {
   conversion_count: number
 }
 
-// Get prospect status distribution (funnel)
-export async function getFunnelStats(commercialId?: string): Promise<FunnelStats> {
-  let query = supabase
-    .from('prospects')
-    .select('status')
-    .is('deleted_at', null)
-
-  if (commercialId) {
-    query = query.eq('commercial_id', commercialId)
-  }
-
-  const { data, error } = await query
+// Single RPC call that returns ALL dashboard data
+export async function getDashboardStats(commercialId?: string): Promise<DashboardStats> {
+  const { data, error } = await supabase.rpc('get_dashboard_stats', {
+    p_commercial_id: commercialId ?? null,
+  })
 
   if (error) throw error
 
-  const stats: FunnelStats = {
-    total_prospects: 0,
-    nouveau: 0,
-    appele_sans_reponse: 0,
-    messagerie: 0,
-    interesse: 0,
-    a_rappeler: 0,
-    rdv_pris: 0,
-    converti_client: 0,
-    negatif: 0,
-    perdu: 0,
+  const raw = data as Record<string, unknown>
+  const funnelRaw = (raw.funnel ?? {}) as Record<string, number>
+
+  const funnel: FunnelStats = {
+    nouveau: funnelRaw.nouveau ?? 0,
+    appele_sans_reponse: funnelRaw.appele_sans_reponse ?? 0,
+    messagerie: funnelRaw.messagerie ?? 0,
+    interesse: funnelRaw.interesse ?? 0,
+    a_rappeler: funnelRaw.a_rappeler ?? 0,
+    rdv_pris: funnelRaw.rdv_pris ?? 0,
+    converti_client: funnelRaw.converti_client ?? 0,
+    negatif: funnelRaw.negatif ?? 0,
+    perdu: funnelRaw.perdu ?? 0,
+    total_prospects: Object.values(funnelRaw).reduce((sum, v) => sum + (v ?? 0), 0),
   }
 
-  for (const row of data ?? []) {
-    stats.total_prospects++
-    const status = row.status as keyof FunnelStats
-    if (status in stats && status !== 'total_prospects') {
-      ;(stats[status] as number)++
-    }
-  }
+  const rdvDone = (raw.rdv_done_month as number) ?? 0
+  const rdvNoShow = (raw.rdv_no_show_month as number) ?? 0
+  const rdvTotal = rdvDone + rdvNoShow
+  const showUpRate = rdvTotal > 0 ? Math.round((rdvDone / rdvTotal) * 100) : 100
 
-  return stats
-}
-
-// Get calls count for a period
-export async function getCallsCount(params: {
-  commercialId?: string
-  dateFrom: string
-  dateTo: string
-}): Promise<number> {
-  let query = supabase
-    .from('calls')
-    .select('id', { count: 'exact', head: true })
-    .gte('called_at', params.dateFrom)
-    .lt('called_at', params.dateTo)
-
-  if (params.commercialId) {
-    query = query.eq('commercial_id', params.commercialId)
-  }
-
-  const { count, error } = await query
-  if (error) throw error
-  return count ?? 0
-}
-
-// Get RDV count for a period
-export async function getRdvCount(params: {
-  commercialId?: string
-  dateFrom: string
-  dateTo: string
-  status?: string
-}): Promise<number> {
-  let query = supabase
-    .from('rendez_vous')
-    .select('id', { count: 'exact', head: true })
-    .is('deleted_at', null)
-    .gte('scheduled_at', params.dateFrom)
-    .lt('scheduled_at', params.dateTo)
-
-  if (params.commercialId) {
-    query = query.eq('commercial_id', params.commercialId)
-  }
-
-  if (params.status) {
-    query = query.eq('status', params.status)
-  }
-
-  const { count, error } = await query
-  if (error) throw error
-  return count ?? 0
-}
-
-// Get reminders count for today + overdue
-export async function getRemindersCount(commercialId: string): Promise<{ today: number; overdue: number }> {
-  const now = new Date()
-  const todayStart = new Date(now)
-  todayStart.setHours(0, 0, 0, 0)
-  const todayEnd = new Date(todayStart)
-  todayEnd.setDate(todayEnd.getDate() + 1)
-
-  const [todayRes, overdueRes] = await Promise.all([
-    supabase
-      .from('reminders')
-      .select('id', { count: 'exact', head: true })
-      .eq('commercial_id', commercialId)
-      .eq('is_completed', false)
-      .gte('remind_at', todayStart.toISOString())
-      .lt('remind_at', todayEnd.toISOString()),
-    supabase
-      .from('reminders')
-      .select('id', { count: 'exact', head: true })
-      .eq('commercial_id', commercialId)
-      .eq('is_completed', false)
-      .lt('remind_at', todayStart.toISOString()),
-  ])
-
-  if (todayRes.error) throw todayRes.error
-  if (overdueRes.error) throw overdueRes.error
+  const weeklyCalls = (raw.weekly_calls as { week: string; count: number }[]) ?? []
 
   return {
-    today: todayRes.count ?? 0,
-    overdue: overdueRes.count ?? 0,
+    calls_today: (raw.calls_today as number) ?? 0,
+    calls_week: (raw.calls_week as number) ?? 0,
+    rdv_week: (raw.rdv_week as number) ?? 0,
+    rdv_done_month: rdvDone,
+    rdv_no_show_month: rdvNoShow,
+    reminders_today: (raw.reminders_today as number) ?? 0,
+    reminders_overdue: (raw.reminders_overdue as number) ?? 0,
+    funnel,
+    weekly_calls: weeklyCalls,
+    show_up_rate: showUpRate,
   }
 }
 
-// Get commercial ranking for founders
-export async function getCommercialRanking(dateFrom: string, dateTo: string): Promise<CommercialRanking[]> {
-  // Get all active profiles
-  const { data: profiles, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, full_name')
-    .eq('is_active', true)
-    .in('role', ['commercial', 'co_fondateur', 'fondateur'])
+// Get commercial ranking for founders (only used in founder view)
+export async function getCommercialRanking(): Promise<CommercialRanking[]> {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
 
-  if (profileError) throw profileError
+  const [profilesRes, callsRes, rdvsRes, conversionsRes] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('is_active', true)
+      .in('role', ['commercial', 'co_fondateur', 'fondateur']),
+    supabase
+      .from('calls')
+      .select('commercial_id')
+      .gte('called_at', monthStart)
+      .lt('called_at', monthEnd),
+    supabase
+      .from('rendez_vous')
+      .select('commercial_id')
+      .is('deleted_at', null)
+      .gte('scheduled_at', monthStart)
+      .lt('scheduled_at', monthEnd),
+    supabase
+      .from('prospects')
+      .select('commercial_id')
+      .eq('status', 'converti_client')
+      .gte('converted_at', monthStart)
+      .lt('converted_at', monthEnd),
+  ])
 
-  // Get call counts per commercial
-  const { data: calls, error: callError } = await supabase
-    .from('calls')
-    .select('commercial_id')
-    .gte('called_at', dateFrom)
-    .lt('called_at', dateTo)
+  if (profilesRes.error) throw profilesRes.error
+  if (callsRes.error) throw callsRes.error
+  if (rdvsRes.error) throw rdvsRes.error
+  if (conversionsRes.error) throw conversionsRes.error
 
-  if (callError) throw callError
-
-  // Get RDV counts per commercial
-  const { data: rdvs, error: rdvError } = await supabase
-    .from('rendez_vous')
-    .select('commercial_id')
-    .is('deleted_at', null)
-    .gte('scheduled_at', dateFrom)
-    .lt('scheduled_at', dateTo)
-
-  if (rdvError) throw rdvError
-
-  // Get conversion counts per commercial
-  const { data: conversions, error: convError } = await supabase
-    .from('prospects')
-    .select('commercial_id')
-    .eq('status', 'converti_client')
-    .gte('converted_at', dateFrom)
-    .lt('converted_at', dateTo)
-
-  if (convError) throw convError
-
-  // Aggregate
   const callCounts: Record<string, number> = {}
-  for (const c of calls ?? []) {
+  for (const c of callsRes.data ?? []) {
     callCounts[c.commercial_id] = (callCounts[c.commercial_id] ?? 0) + 1
   }
 
   const rdvCounts: Record<string, number> = {}
-  for (const r of rdvs ?? []) {
+  for (const r of rdvsRes.data ?? []) {
     rdvCounts[r.commercial_id] = (rdvCounts[r.commercial_id] ?? 0) + 1
   }
 
   const convCounts: Record<string, number> = {}
-  for (const c of conversions ?? []) {
+  for (const c of conversionsRes.data ?? []) {
     convCounts[c.commercial_id] = (convCounts[c.commercial_id] ?? 0) + 1
   }
 
-  return (profiles ?? []).map((p) => ({
+  return (profilesRes.data ?? []).map((p) => ({
     id: p.id,
     full_name: p.full_name,
     calls_count: callCounts[p.id] ?? 0,
     rdv_count: rdvCounts[p.id] ?? 0,
     conversion_count: convCounts[p.id] ?? 0,
   })).sort((a, b) => b.calls_count - a.calls_count)
-}
-
-// Weekly call stats for chart
-export async function getWeeklyCallStats(params: {
-  commercialId?: string
-  weeks?: number
-}): Promise<{ week: string; count: number }[]> {
-  const numWeeks = params.weeks ?? 8
-  const results: { week: string; count: number }[] = []
-
-  for (let i = numWeeks - 1; i >= 0; i--) {
-    const weekStart = new Date()
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1 - i * 7)
-    weekStart.setHours(0, 0, 0, 0)
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekStart.getDate() + 7)
-
-    let query = supabase
-      .from('calls')
-      .select('id', { count: 'exact', head: true })
-      .gte('called_at', weekStart.toISOString())
-      .lt('called_at', weekEnd.toISOString())
-
-    if (params.commercialId) {
-      query = query.eq('commercial_id', params.commercialId)
-    }
-
-    const { count, error } = await query
-    if (error) throw error
-
-    const label = `${weekStart.getDate()}/${weekStart.getMonth() + 1}`
-    results.push({ week: label, count: count ?? 0 })
-  }
-
-  return results
 }

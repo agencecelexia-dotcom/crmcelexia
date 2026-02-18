@@ -62,14 +62,11 @@ function useInviteMember() {
 
   return useMutation({
     mutationFn: async (params: { email: string; fullName: string; role: UserRole; password: string }) => {
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: params.email,
-        password: params.password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: params.fullName,
-          role: params.role,
-        },
+      const { data, error } = await supabase.rpc('invite_team_member', {
+        p_email: params.email,
+        p_password: params.password,
+        p_full_name: params.fullName,
+        p_role: params.role,
       })
       if (error) throw error
       return data
