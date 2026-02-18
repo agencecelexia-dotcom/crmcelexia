@@ -9,11 +9,8 @@ const corsHeaders = {
 /** HMAC-SHA256 signature verification for Cal.com webhooks */
 async function verifySignature(body: string, signature: string | null): Promise<boolean> {
   const secret = Deno.env.get('CALCOM_WEBHOOK_SECRET')
-  // If no secret configured, skip verification (but log warning)
-  if (!secret) {
-    console.warn('CALCOM_WEBHOOK_SECRET not set — skipping signature verification')
-    return true
-  }
+  // If no secret configured, skip verification
+  if (!secret) return true
   if (!signature) return false
 
   const encoder = new TextEncoder()
@@ -32,6 +29,31 @@ async function verifySignature(body: string, signature: string | null): Promise<
   return signature === expected
 }
 
+/**
+ * Normalize a phone number to digits-only with +33 prefix for French numbers.
+ * Handles: "06 12 34 56 78", "+33 6 12 34 56 78", "0612345678", "+33612345678"
+ */
+function normalizePhone(phone: string): string[] {
+  const stripped = phone.replace(/[\s.\-()]/g, '')
+  const digitsOnly = stripped.replace(/[^\d+]/g, '')
+
+  const variants: string[] = [digitsOnly]
+
+  // French number: convert 0X → +33X and vice versa
+  if (digitsOnly.startsWith('+33')) {
+    variants.push('0' + digitsOnly.slice(3))
+    variants.push(digitsOnly.slice(1)) // without +
+  } else if (digitsOnly.startsWith('33') && digitsOnly.length === 11) {
+    variants.push('+' + digitsOnly)
+    variants.push('0' + digitsOnly.slice(2))
+  } else if (digitsOnly.startsWith('0') && digitsOnly.length === 10) {
+    variants.push('+33' + digitsOnly.slice(1))
+    variants.push('33' + digitsOnly.slice(1))
+  }
+
+  return [...new Set(variants)]
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -48,7 +70,6 @@ Deno.serve(async (req) => {
     const signature = req.headers.get('x-cal-signature-256')
     const isValid = await verifySignature(rawBody, signature)
     if (!isValid) {
-      console.error('Invalid webhook signature')
       return new Response(JSON.stringify({ error: 'Invalid signature' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -56,13 +77,14 @@ Deno.serve(async (req) => {
     }
 
     const body = JSON.parse(rawBody)
-    const triggerEvent = body.triggerEvent
-    const payload = body.payload
 
-    console.log(`[calcom-webhook] Received event: ${triggerEvent}`)
+    // Cal.com v1: { triggerEvent, payload }
+    // Cal.com v2: event data might be at root level
+    const triggerEvent = body.triggerEvent || body.event || body.type
+    const payload = body.payload || body
 
-    if (!triggerEvent || !payload) {
-      return new Response(JSON.stringify({ error: 'Invalid payload' }), {
+    if (!triggerEvent) {
+      return new Response(JSON.stringify({ error: 'No trigger event' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -74,7 +96,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     if (triggerEvent === 'BOOKING_CREATED' || triggerEvent === 'BOOKING_RESCHEDULED') {
-      const result = await handleBookingCreated(supabase, payload, triggerEvent)
+      const result = await handleBookingCreated(supabase, payload)
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -106,32 +128,31 @@ Deno.serve(async (req) => {
 async function handleBookingCreated(
   supabase: ReturnType<typeof createClient>,
   payload: Record<string, unknown>,
-  eventType: string,
 ) {
   // Extract cal.com booking data
   const startTime = payload.startTime as string
   const endTime = payload.endTime as string
 
-  // Cal.com sends the video call URL in different places depending on version/config
-  const metadata = payload.metadata as Record<string, unknown> | undefined
+  // Cal.com sends metadata in different places depending on version/config
+  const payloadMetadata = payload.metadata as Record<string, unknown> | undefined
+  const responsesMetadata = (payload.responses as Record<string, unknown>)?.metadata as Record<string, unknown> | undefined
+  const metadata = payloadMetadata || responsesMetadata || {}
+
+  // Cal.com sends the video call URL in different places
   const videoCallData = payload.videoCallData as { url?: string } | undefined
   const meetingUrl =
     videoCallData?.url
-    || metadata?.videoCallUrl as string | undefined
-    || payload.meetingUrl as string | undefined
+    || (metadata.videoCallUrl as string | undefined)
+    || (payload.meetingUrl as string | undefined)
     || (typeof payload.location === 'string' && payload.location.startsWith('http') ? payload.location : null)
     || null
 
   const location = payload.location as string | undefined || null
   const title = payload.title as string || 'RDV'
-  const bookingId = String(payload.uid || payload.bookingId || '')
+  const bookingId = String(payload.uid || payload.bookingId || payload.id || '')
   const attendees = (payload.attendees as Array<{ email?: string; name?: string; phone?: string }>) || []
   const responses = payload.responses as Record<string, { value?: string }> | undefined
   const organizer = payload.organizer as { email?: string; name?: string } | undefined
-
-  console.log('Webhook payload keys:', Object.keys(payload))
-  console.log('Meeting URL resolved:', meetingUrl)
-  console.log('Metadata:', JSON.stringify(metadata))
 
   // Compute duration
   let durationMinutes = 30
@@ -153,21 +174,28 @@ async function handleBookingCreated(
   }
   if (meetingUrl) rdvType = 'visio'
 
-  // Try to find the prospect — prioritise metadata.prospect_id (set by CRM button)
+  // --- Try to find the prospect ---
+
   let prospectId: string | null = null
 
-  if (metadata?.prospect_id) {
-    // Validate UUID format to avoid injection
-    const uuid = String(metadata.prospect_id)
+  // 1. metadata.prospect_id (set by CRM button in the Cal.com URL)
+  const metaProspectId = metadata.prospect_id as string | undefined
+  if (metaProspectId) {
+    const uuid = String(metaProspectId)
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)) {
-      prospectId = uuid
+      // Verify the prospect actually exists
+      const { data } = await supabase
+        .from('prospects')
+        .select('id')
+        .eq('id', uuid)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (data) prospectId = data.id
     }
   }
 
-  // Fallback: match by attendee email or phone
+  // 2. Match by attendee email
   const attendeeEmail = attendees[0]?.email || null
-  const attendeePhone = responses?.phone?.value || attendees[0]?.phone || null
-
   if (attendeeEmail && !prospectId) {
     const { data } = await supabase
       .from('prospects')
@@ -179,28 +207,12 @@ async function handleBookingCreated(
     if (data) prospectId = data.id
   }
 
-  // Match prospect by phone — try multiple normalised formats
+  // 3. Match by phone (with French number normalization)
+  const attendeePhone = responses?.phone?.value || attendees[0]?.phone || (metadata.phone as string | undefined) || null
   if (attendeePhone && !prospectId) {
-    const digitsOnly = attendeePhone.replace(/[^\d]/g, '')
-    // Build possible variants: raw, digits-only, local (0x), international (+33x)
-    const variants = new Set<string>([
-      attendeePhone,
-      digitsOnly,
-    ])
-    // +33612345678 → 0612345678
-    if (digitsOnly.startsWith('33') && digitsOnly.length === 11) {
-      variants.add('0' + digitsOnly.slice(2))
-      variants.add('+' + digitsOnly)
-    }
-    // 0612345678 → +33612345678
-    if (digitsOnly.startsWith('0') && digitsOnly.length === 10) {
-      variants.add('+33' + digitsOnly.slice(1))
-      variants.add('33' + digitsOnly.slice(1))
-    }
-
-    console.log('Phone matching variants:', [...variants])
-
-    for (const variant of variants) {
+    const phoneVariants = normalizePhone(attendeePhone)
+    for (const variant of phoneVariants) {
+      if (prospectId) break
       const { data } = await supabase
         .from('prospects')
         .select('id')
@@ -208,25 +220,15 @@ async function handleBookingCreated(
         .eq('phone', variant)
         .limit(1)
         .maybeSingle()
-      if (data) {
-        prospectId = data.id
-        break
-      }
+      if (data) prospectId = data.id
     }
   }
 
   if (!prospectId) {
-    console.error('NO PROSPECT MATCHED — booking will be ignored:', {
-      attendeeEmail,
-      attendeePhone,
-      bookingId,
-      metadataProspectId: metadata?.prospect_id ?? 'none',
-      eventType,
-    })
-    return { ok: true, warning: 'No prospect matched', bookingId }
+    return { ok: true, warning: 'No prospect matched', bookingId, attendeeEmail, attendeePhone: attendeePhone?.slice(0, 6) }
   }
 
-  // Deduplicate: check if a RDV already exists for this booking ID
+  // --- Deduplicate: check if a RDV already exists for this booking ID ---
   if (bookingId) {
     const { data: existing } = await supabase
       .from('rendez_vous')
@@ -255,7 +257,7 @@ async function handleBookingCreated(
     }
   }
 
-  // Find the commercial (organizer) by email
+  // --- Find the commercial (organizer) by email ---
   let commercialId: string | null = null
   if (organizer?.email) {
     const { data } = await supabase
@@ -291,7 +293,7 @@ async function handleBookingCreated(
     return { ok: false, error: 'No commercial found' }
   }
 
-  // Create the RDV
+  // --- Create the RDV ---
   const notes = bookingId ? `[cal.com:${bookingId}]` : `[cal.com] ${title}`
   const { data: rdv, error: insertErr } = await supabase
     .from('rendez_vous')
@@ -310,11 +312,10 @@ async function handleBookingCreated(
     .single()
 
   if (insertErr) {
-    console.error('RDV insert error:', insertErr)
     return { ok: false, error: insertErr.message }
   }
 
-  // Update prospect status to rdv_pris
+  // Update prospect status to rdv_pris (only if not already in a later stage)
   await supabase
     .from('prospects')
     .update({ status: 'rdv_pris', updated_at: new Date().toISOString() })
@@ -328,7 +329,7 @@ async function handleBookingCancelled(
   supabase: ReturnType<typeof createClient>,
   payload: Record<string, unknown>,
 ) {
-  const bookingId = String(payload.uid || payload.bookingId || '')
+  const bookingId = String(payload.uid || payload.bookingId || payload.id || '')
   if (!bookingId) return { ok: true, warning: 'No booking ID' }
 
   // Find RDV by cal.com booking ref in notes

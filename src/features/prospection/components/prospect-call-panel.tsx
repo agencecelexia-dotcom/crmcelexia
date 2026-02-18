@@ -279,8 +279,8 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
             />
           </div>
 
-          {/* Cal.com direct booking (not shown if status is already rdv_pris — use "RDV pris" button instead) */}
-          {calcomLink && prospect.status !== 'rdv_pris' && (
+          {/* Cal.com direct booking — always available when configured */}
+          {calcomLink && (
             <button
               onClick={() => {
                 const bookingUrl = buildCalcomUrl(calcomLink, prospect)
