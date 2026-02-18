@@ -16,7 +16,6 @@ import { ReminderForm } from '../components/reminder-form'
 import { ReminderList } from '../components/reminder-list'
 import { RdvForm } from '@/features/rendez-vous/components/rdv-form'
 import { RdvListForProspect } from '@/features/rendez-vous/components/rdv-list-for-prospect'
-import { useCreateRdv } from '@/features/rendez-vous/hooks/use-rdv'
 import { formatDate } from '@/lib/format'
 import { ArrowLeft, Phone, Clock, Globe, MapPin, Pencil, Save, X, CalendarDays } from 'lucide-react'
 import { useState } from 'react'
@@ -26,10 +25,9 @@ import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
 export function ProspectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isFounder, profile } = useAuth()
+  const { isFounder } = useAuth()
   const { data: prospect, isLoading, error } = useProspect(id)
   const updateProspect = useUpdateProspect()
-  const createRdv = useCreateRdv()
   const { data: calcomLink } = useCalcomLink()
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, string>>({})
@@ -105,39 +103,16 @@ export function ProspectDetailPage() {
     }
   }
 
-  async function handleCallSuccess(callId: string, result: CallResult) {
+  function handleCallSuccess(callId: string, result: CallResult) {
     setLastCallId(callId)
 
-    // Only create RDV and open Cal.com when result is "RDV pris"
-    if (result !== 'reached_rdv' || !profile) return
-
-    // Create a placeholder RDV so the card appears immediately
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    tomorrow.setHours(10, 0, 0, 0)
-    const placeholderDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}T10:00:00`
-
-    try {
-      await createRdv.mutateAsync({
-        prospect_id: prospect!.id,
-        commercial_id: profile.id,
-        scheduled_at: placeholderDate,
-        duration_minutes: 30,
-        type: 'visio',
-        meeting_url: calcomLink || null,
-        notes: '[en attente Cal.com]',
-        created_from_call_id: callId,
-      })
-    } catch {
-      console.error('Failed to create placeholder RDV')
-    }
-
-    // Open Cal.com so the user can pick a real time slot
-    if (calcomLink) {
+    // Only open Cal.com when result is "RDV pris"
+    // The webhook will automatically create the RDV card with the visio link
+    if (result === 'reached_rdv' && calcomLink) {
       const bookingUrl = buildCalcomUrl(calcomLink, prospect!)
       if (bookingUrl) {
         window.open(bookingUrl, '_blank', 'noopener,noreferrer')
-        toast.info('Choisissez un créneau sur Cal.com — le RDV sera mis à jour')
+        toast.info('Réservez un créneau sur Cal.com — le RDV sera créé automatiquement')
       }
     }
   }
