@@ -195,3 +195,211 @@ export const CLIENT_STATUS = {
 } as const
 
 export type ClientStatus = (typeof CLIENT_STATUS)[keyof typeof CLIENT_STATUS]
+
+// ── Loss Reasons ──
+export const LOSS_REASON = {
+  PRIX_TROP_ELEVE: 'prix_trop_eleve',
+  PAS_DE_BUDGET: 'pas_de_budget',
+  CONCURRENT_CHOISI: 'concurrent_choisi',
+  PAS_DE_BESOIN: 'pas_de_besoin',
+  TIMING_MAUVAIS: 'timing_mauvais',
+  PAS_DE_REPONSE: 'pas_de_reponse',
+  MAUVAISE_EXPERIENCE: 'mauvaise_experience',
+  PROJET_REPORTE: 'projet_reporte',
+  DECISION_INTERNE: 'decision_interne',
+  AUTRE: 'autre',
+} as const
+
+export type LossReason = (typeof LOSS_REASON)[keyof typeof LOSS_REASON]
+
+export const LOSS_REASON_LABELS: Record<LossReason, string> = {
+  prix_trop_eleve: 'Prix trop élevé',
+  pas_de_budget: 'Pas de budget',
+  concurrent_choisi: 'Concurrent choisi',
+  pas_de_besoin: 'Pas de besoin',
+  timing_mauvais: 'Timing mauvais',
+  pas_de_reponse: 'Pas de réponse',
+  mauvaise_experience: 'Mauvaise expérience',
+  projet_reporte: 'Projet reporté',
+  decision_interne: 'Décision interne',
+  autre: 'Autre',
+}
+
+export const LOSS_REASON_COLORS: Record<LossReason, string> = {
+  prix_trop_eleve: 'bg-red-100 text-red-800',
+  pas_de_budget: 'bg-orange-100 text-orange-800',
+  concurrent_choisi: 'bg-yellow-100 text-yellow-800',
+  pas_de_besoin: 'bg-gray-100 text-gray-800',
+  timing_mauvais: 'bg-blue-100 text-blue-800',
+  pas_de_reponse: 'bg-purple-100 text-purple-800',
+  mauvaise_experience: 'bg-red-200 text-red-900',
+  projet_reporte: 'bg-amber-100 text-amber-800',
+  decision_interne: 'bg-slate-100 text-slate-800',
+  autre: 'bg-gray-100 text-gray-700',
+}
+
+// ── Payment Status ──
+export const PAYMENT_STATUS = {
+  PAYE: 'paye',
+  EN_ATTENTE: 'en_attente',
+  EN_RETARD: 'en_retard',
+  IMPAYE: 'impaye',
+} as const
+
+export type PaymentStatus = (typeof PAYMENT_STATUS)[keyof typeof PAYMENT_STATUS]
+
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  paye: 'Payé',
+  en_attente: 'En attente',
+  en_retard: 'En retard',
+  impaye: 'Impayé',
+}
+
+export const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
+  paye: 'bg-green-100 text-green-800',
+  en_attente: 'bg-yellow-100 text-yellow-800',
+  en_retard: 'bg-orange-100 text-orange-800',
+  impaye: 'bg-red-100 text-red-800',
+}
+
+// ── Action Types ──
+export const ACTION_TYPE = {
+  APPEL: 'appel',
+  EMAIL: 'email',
+  RDV: 'rdv',
+  RELANCE: 'relance',
+  DEVIS: 'devis',
+  PRESENTATION: 'presentation',
+  SUIVI: 'suivi',
+  AUTRE: 'autre',
+} as const
+
+export type ActionType = (typeof ACTION_TYPE)[keyof typeof ACTION_TYPE]
+
+export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
+  appel: 'Appel',
+  email: 'Email',
+  rdv: 'Rendez-vous',
+  relance: 'Relance',
+  devis: 'Devis',
+  presentation: 'Présentation',
+  suivi: 'Suivi',
+  autre: 'Autre',
+}
+
+// ── Opportunity Status ──
+export const OPPORTUNITY_STATUS = {
+  QUALIFICATION: 'qualification',
+  PROPOSITION: 'proposition',
+  NEGOCIATION: 'negociation',
+  CLOSING: 'closing',
+  GAGNE: 'gagne',
+  PERDU: 'perdu',
+} as const
+
+export type OpportunityStatus = (typeof OPPORTUNITY_STATUS)[keyof typeof OPPORTUNITY_STATUS]
+
+export const OPPORTUNITY_STATUS_LABELS: Record<OpportunityStatus, string> = {
+  qualification: 'Qualification',
+  proposition: 'Proposition',
+  negociation: 'Négociation',
+  closing: 'Closing',
+  gagne: 'Gagné',
+  perdu: 'Perdu',
+}
+
+export const OPPORTUNITY_STATUS_COLORS: Record<OpportunityStatus, string> = {
+  qualification: 'bg-gray-100 text-gray-800',
+  proposition: 'bg-blue-100 text-blue-800',
+  negociation: 'bg-yellow-100 text-yellow-800',
+  closing: 'bg-purple-100 text-purple-800',
+  gagne: 'bg-green-100 text-green-800',
+  perdu: 'bg-red-100 text-red-800',
+}
+
+// ── Alert Types ──
+export const ALERT_TYPE = {
+  PROSPECT_CHAUD_NON_RELANCE: 'prospect_chaud_non_relance',
+  DEVIS_SANS_REPONSE: 'devis_sans_reponse',
+  CLIENT_RENOUVELLEMENT: 'client_renouvellement',
+  RAPPEL_EN_RETARD: 'rappel_en_retard',
+  OBJECTIF_NON_ATTEINT: 'objectif_non_atteint',
+  PROSPECT_SANS_ACTION: 'prospect_sans_action',
+} as const
+
+export type AlertType = (typeof ALERT_TYPE)[keyof typeof ALERT_TYPE]
+
+export const ALERT_TYPE_LABELS: Record<AlertType, string> = {
+  prospect_chaud_non_relance: 'Prospect chaud non relancé',
+  devis_sans_reponse: 'Devis sans réponse > 3 jours',
+  client_renouvellement: 'Client proche renouvellement',
+  rappel_en_retard: 'Rappel en retard',
+  objectif_non_atteint: 'Objectif non atteint',
+  prospect_sans_action: 'Prospect sans action planifiée',
+}
+
+export const ALERT_TYPE_COLORS: Record<AlertType, string> = {
+  prospect_chaud_non_relance: 'bg-red-100 text-red-800',
+  devis_sans_reponse: 'bg-orange-100 text-orange-800',
+  client_renouvellement: 'bg-blue-100 text-blue-800',
+  rappel_en_retard: 'bg-yellow-100 text-yellow-800',
+  objectif_non_atteint: 'bg-purple-100 text-purple-800',
+  prospect_sans_action: 'bg-gray-100 text-gray-800',
+}
+
+// ── Contract Status ──
+export const CONTRACT_STATUS = {
+  ACTIF: 'actif',
+  EXPIRE: 'expire',
+  RESILIE: 'resilie',
+  EN_ATTENTE: 'en_attente',
+} as const
+
+export type ContractStatus = (typeof CONTRACT_STATUS)[keyof typeof CONTRACT_STATUS]
+
+export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
+  actif: 'Actif',
+  expire: 'Expiré',
+  resilie: 'Résilié',
+  en_attente: 'En attente',
+}
+
+export const CONTRACT_STATUS_COLORS: Record<ContractStatus, string> = {
+  actif: 'bg-green-100 text-green-800',
+  expire: 'bg-gray-100 text-gray-800',
+  resilie: 'bg-red-100 text-red-800',
+  en_attente: 'bg-yellow-100 text-yellow-800',
+}
+
+// ── Follow-up Period ──
+export const FOLLOWUP_PERIOD = {
+  SIX_MOIS: '6_mois',
+  UN_AN: '1_an',
+  DEUX_ANS: '2_ans',
+} as const
+
+export type FollowupPeriod = (typeof FOLLOWUP_PERIOD)[keyof typeof FOLLOWUP_PERIOD]
+
+export const FOLLOWUP_PERIOD_LABELS: Record<FollowupPeriod, string> = {
+  '6_mois': '6 mois',
+  '1_an': '1 an',
+  '2_ans': '2 ans',
+}
+
+// Devis status colors
+export const DEVIS_STATUS_COLORS: Record<DevisStatus, string> = {
+  brouillon: 'bg-gray-100 text-gray-800',
+  envoye: 'bg-blue-100 text-blue-800',
+  signe: 'bg-green-100 text-green-800',
+  refuse: 'bg-red-100 text-red-800',
+  expire: 'bg-orange-100 text-orange-800',
+}
+
+// Project status colors
+export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
+  onboarding: 'bg-blue-100 text-blue-800',
+  en_cours: 'bg-green-100 text-green-800',
+  en_attente: 'bg-yellow-100 text-yellow-800',
+  termine: 'bg-gray-100 text-gray-800',
+  resilie: 'bg-red-100 text-red-800',
+}

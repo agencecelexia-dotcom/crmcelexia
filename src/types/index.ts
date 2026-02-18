@@ -1,4 +1,4 @@
-import type { UserRole, ProspectStatus, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus } from './enums'
+import type { UserRole, ProspectStatus, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus, LossReason, PaymentStatus, ActionType, OpportunityStatus, ContractStatus, FollowupPeriod } from './enums'
 
 export interface Profile {
   id: string
@@ -253,6 +253,182 @@ export interface Notification {
   link: string | null
   is_read: boolean
   created_at: string
+}
+
+// ── Opportunity (advanced) ──
+export interface Opportunity {
+  id: string
+  prospect_id: string
+  client_id: string | null
+  commercial_id: string
+  name: string
+  status: OpportunityStatus
+  estimated_value: number
+  probability: number // 0-100
+  projected_revenue: number // estimated_value * probability / 100
+  monthly_recurring: number | null
+  expected_close_date: string | null
+  loss_reason: LossReason | null
+  loss_notes: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  prospect?: Prospect
+  client?: Client
+  commercial?: Profile
+}
+
+// ── Contract ──
+export interface Contract {
+  id: string
+  client_id: string
+  project_id: string | null
+  devis_id: string | null
+  reference: string
+  name: string
+  status: ContractStatus
+  amount_ht: number
+  amount_ttc: number
+  monthly_amount: number | null
+  start_date: string
+  end_date: string | null
+  renewal_date: string | null
+  signed_at: string
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  client?: Client
+  project?: Project
+}
+
+// ── Payment Tracking ──
+export interface PaymentTracking {
+  id: string
+  contract_id: string | null
+  devis_id: string | null
+  client_id: string
+  reference: string
+  amount: number
+  due_date: string
+  paid_date: string | null
+  status: PaymentStatus
+  notes: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  client?: Client
+  contract?: Contract
+}
+
+// ── Next Action (mandatory for prospects) ──
+export interface NextAction {
+  id: string
+  prospect_id: string
+  commercial_id: string
+  action_type: ActionType
+  planned_date: string
+  description: string | null
+  is_completed: boolean
+  completed_at: string | null
+  created_at: string
+}
+
+// ── Lead Score ──
+export interface LeadScore {
+  prospect_id: string
+  budget_score: number // 0-20
+  company_size_score: number // 0-20
+  monthly_potential_score: number // 0-20
+  urgency_score: number // 0-20
+  decision_maker_score: number // 0-20
+  total_score: number // 0-100
+  budget_estimate: number | null
+  company_size: string | null
+  monthly_potential: number | null
+  urgency_level: 'faible' | 'moyen' | 'eleve' | 'urgent'
+  has_decision_maker: boolean
+}
+
+// ── Smart Alert ──
+export interface SmartAlert {
+  id: string
+  type: string
+  title: string
+  message: string
+  severity: 'info' | 'warning' | 'critical'
+  entity_type: string
+  entity_id: string
+  commercial_id: string | null
+  is_dismissed: boolean
+  created_at: string
+  // Derived
+  link?: string
+}
+
+// ── Commercial Objectives (advanced) ──
+export interface CommercialObjective {
+  id: string
+  commercial_id: string
+  month: string // YYYY-MM
+  target_mrr: number
+  target_ca: number
+  target_closing_rate: number
+  target_rdv_rate: number
+  actual_mrr: number
+  actual_ca: number
+  actual_closing_rate: number
+  actual_rdv_rate: number
+  created_at: string
+  updated_at: string
+  // Joined
+  commercial?: Profile
+}
+
+// ── Key Rates ──
+export interface KeyRates {
+  call_to_rdv_rate: number
+  rdv_to_closing_rate: number
+  global_closing_rate: number
+  cac: number // cost per acquisition
+  ca_this_month: number
+  mrr_this_month: number
+  average_basket: number
+}
+
+// ── Long-term Follow-up ──
+export interface LongTermFollowup {
+  id: string
+  client_id: string
+  commercial_id: string
+  followup_period: FollowupPeriod
+  scheduled_date: string
+  is_completed: boolean
+  completed_at: string | null
+  notes: string | null
+  created_at: string
+  // Joined
+  client?: Client
+}
+
+// ── Pipeline Stats ──
+export interface PipelineStats {
+  total_in_progress: number
+  forecast_closing: number
+  projection_month: number
+  by_stage: { stage: string; amount: number; count: number }[]
+}
+
+// ── Performance Stats ──
+export interface PerformanceStats {
+  ca_generated: number
+  closing_rate: number
+  average_basket: number
+  mrr_generated: number
+  ca_this_month: number
+  deals_won: number
+  deals_lost: number
 }
 
 // Pagination

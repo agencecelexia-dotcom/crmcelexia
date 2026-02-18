@@ -21,6 +21,15 @@ const TeamManagementPage = lazy(() => import('@/features/settings/pages/team-man
 const CompanySettingsPage = lazy(() => import('@/features/settings/pages/company-settings-page').then(m => ({ default: m.CompanySettingsPage })))
 const TargetsPage = lazy(() => import('@/features/settings/pages/targets-page').then(m => ({ default: m.TargetsPage })))
 
+// New pages
+const CalendarPage = lazy(() => import('@/features/calendar/pages/calendar-page').then(m => ({ default: m.CalendarPage })))
+const OpportunitiesPage = lazy(() => import('@/features/opportunities/pages/opportunities-page').then(m => ({ default: m.OpportunitiesPage })))
+const ContractsPage = lazy(() => import('@/features/contracts/pages/contracts-page').then(m => ({ default: m.ContractsPage })))
+const PaymentsPage = lazy(() => import('@/features/payments/pages/payments-page').then(m => ({ default: m.PaymentsPage })))
+const PerformancePage = lazy(() => import('@/features/analytics/pages/performance-page').then(m => ({ default: m.PerformancePage })))
+const ObjectivesPage = lazy(() => import('@/features/analytics/pages/objectives-page').then(m => ({ default: m.ObjectivesPage })))
+const FollowupPage = lazy(() => import('@/features/clients/pages/followup-page').then(m => ({ default: m.FollowupPage })))
+
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[400px]">
@@ -74,6 +83,26 @@ export const router = createBrowserRouter([
             path: '/rdv',
             element: <LazyPage><RdvListPage /></LazyPage>,
           },
+          // Calendar (all users)
+          {
+            path: '/calendar',
+            element: <LazyPage><CalendarPage /></LazyPage>,
+          },
+          // Opportunities (all users)
+          {
+            path: '/opportunities',
+            element: <LazyPage><OpportunitiesPage /></LazyPage>,
+          },
+          // Performance (all users)
+          {
+            path: '/performance',
+            element: <LazyPage><PerformancePage /></LazyPage>,
+          },
+          // Objectives (all users)
+          {
+            path: '/objectives',
+            element: <LazyPage><ObjectivesPage /></LazyPage>,
+          },
           // Founder-only routes
           {
             element: <FounderGuard />,
@@ -89,6 +118,18 @@ export const router = createBrowserRouter([
               {
                 path: '/billing',
                 element: <LazyPage><BillingListPage /></LazyPage>,
+              },
+              {
+                path: '/contracts',
+                element: <LazyPage><ContractsPage /></LazyPage>,
+              },
+              {
+                path: '/payments',
+                element: <LazyPage><PaymentsPage /></LazyPage>,
+              },
+              {
+                path: '/followup',
+                element: <LazyPage><FollowupPage /></LazyPage>,
               },
               {
                 path: '/settings/team',
