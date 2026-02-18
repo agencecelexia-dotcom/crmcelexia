@@ -212,11 +212,17 @@ export function RdvListPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Rendez-vous</h1>
-        <p className="text-sm text-muted-foreground">
-          Gérez et suivez vos rendez-vous
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Rendez-vous</h1>
+          <p className="text-sm text-muted-foreground">
+            Gérez et suivez vos rendez-vous
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => navigate('/calendar')}>
+          <CalendarDays className="mr-2 h-4 w-4" />
+          Voir le calendrier
+        </Button>
       </div>
 
       {/* Stats Cards */}

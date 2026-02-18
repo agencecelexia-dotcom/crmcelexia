@@ -8,19 +8,56 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/status-badge'
-import { PROSPECT_STATUS_LABELS, PROSPECT_STATUS_COLORS, type CallResult } from '@/types/enums'
+import {
+  PROSPECT_STATUS_LABELS,
+  PROSPECT_STATUS_COLORS,
+  LOSS_REASON_LABELS,
+  LOSS_REASON_COLORS,
+  type CallResult,
+  type LossReason,
+} from '@/types/enums'
 import { CallLogger } from '../components/call-logger'
 import { CallHistory } from '../components/call-history'
 import { ReminderForm } from '../components/reminder-form'
 import { ReminderList } from '../components/reminder-list'
 import { RdvForm } from '@/features/rendez-vous/components/rdv-form'
 import { RdvListForProspect } from '@/features/rendez-vous/components/rdv-list-for-prospect'
+import { LeadScoring } from '@/features/opportunities/components/lead-scoring'
 import { formatDate } from '@/lib/format'
-import { ArrowLeft, Phone, Clock, Globe, MapPin, Pencil, Save, X, CalendarDays } from 'lucide-react'
-import { useState } from 'react'
+import {
+  ArrowLeft,
+  Phone,
+  Clock,
+  Globe,
+  MapPin,
+  Pencil,
+  Save,
+  X,
+  CalendarDays,
+  AlertTriangle,
+  Zap,
+  XCircle,
+} from 'lucide-react'
+import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import type { LeadScore } from '@/types'
 
 export function ProspectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -35,6 +72,35 @@ export function ProspectDetailPage() {
   const [reminderFormOpen, setReminderFormOpen] = useState(false)
   const [rdvFormOpen, setRdvFormOpen] = useState(false)
   const [lastCallId, setLastCallId] = useState<string | null>(null)
+
+  // Loss reason dialog
+  const [lossDialogOpen, setLossDialogOpen] = useState(false)
+  const [selectedLossReason, setSelectedLossReason] = useState<LossReason | ''>('')
+  const [lossNotes, setLossNotes] = useState('')
+
+  // Lead score from custom_fields
+  const savedLeadScore = useMemo(() => {
+    if (!prospect?.custom_fields?.lead_score) return undefined
+    return prospect.custom_fields.lead_score as Partial<LeadScore>
+  }, [prospect])
+
+  // Saved loss reason from custom_fields
+  const savedLossReason = useMemo(() => {
+    if (!prospect?.custom_fields?.loss_reason) return null
+    return prospect.custom_fields.loss_reason as { reason: LossReason; notes?: string }
+  }, [prospect])
+
+  // Check if prospect has no planned action
+  const hasNoPlannedAction = useMemo(() => {
+    if (!prospect) return false
+    const activeStatuses = ['interesse', 'a_rappeler', 'rdv_pris']
+    if (!activeStatuses.includes(prospect.status)) return false
+    // If no reminder planned and status is active
+    if (!prospect.next_reminder_at) return true
+    // If reminder is in the past
+    const reminderDate = new Date(prospect.next_reminder_at)
+    return reminderDate < new Date()
+  }, [prospect])
 
   if (isLoading) {
     return (
@@ -103,11 +169,63 @@ export function ProspectDetailPage() {
     }
   }
 
+  async function saveLossReason() {
+    if (!selectedLossReason) {
+      toast.error('Veuillez sélectionner une raison de perte')
+      return
+    }
+    try {
+      const currentFields = prospect!.custom_fields ?? {}
+      await updateProspect.mutateAsync({
+        id: prospect!.id,
+        updates: {
+          status: 'perdu',
+          custom_fields: {
+            ...currentFields,
+            loss_reason: {
+              reason: selectedLossReason,
+              notes: lossNotes.trim() || undefined,
+              date: new Date().toISOString(),
+            },
+          },
+        } as Record<string, unknown> as never,
+      })
+      toast.success('Raison de perte enregistrée')
+      setLossDialogOpen(false)
+      setSelectedLossReason('')
+      setLossNotes('')
+    } catch {
+      toast.error('Erreur lors de la sauvegarde')
+    }
+  }
+
+  async function saveLeadScore(score: LeadScore) {
+    try {
+      const currentFields = prospect!.custom_fields ?? {}
+      await updateProspect.mutateAsync({
+        id: prospect!.id,
+        updates: {
+          custom_fields: {
+            ...currentFields,
+            lead_score: { ...score, prospect_id: prospect!.id },
+          },
+        } as Record<string, unknown> as never,
+      })
+      toast.success('Score mis à jour')
+    } catch {
+      toast.error('Erreur lors de la sauvegarde du score')
+    }
+  }
+
   function handleCallSuccess(callId: string, result: CallResult) {
     setLastCallId(callId)
 
+    // Open loss reason dialog for negative results
+    if (result === 'reached_not_interested') {
+      setLossDialogOpen(true)
+    }
+
     // Only open Cal.com when result is "RDV pris"
-    // The webhook will automatically create the RDV card with the visio link
     if (result === 'reached_rdv' && calcomLink) {
       const bookingUrl = buildCalcomUrl(calcomLink, prospect!)
       if (bookingUrl) {
@@ -152,6 +270,17 @@ export function ProspectDetailPage() {
             label={PROSPECT_STATUS_LABELS[prospect.status]}
             colorClass={PROSPECT_STATUS_COLORS[prospect.status]}
           />
+          {savedLeadScore?.total_score != null && (
+            <Badge className={`text-xs ${
+              savedLeadScore.total_score >= 80 ? 'bg-green-100 text-green-800' :
+              savedLeadScore.total_score >= 60 ? 'bg-blue-100 text-blue-800' :
+              savedLeadScore.total_score >= 40 ? 'bg-yellow-100 text-yellow-800' :
+              'bg-red-100 text-red-800'
+            }`}>
+              <Zap className="h-3 w-3 mr-1" />
+              Score: {savedLeadScore.total_score}/100
+            </Badge>
+          )}
         </div>
         <div className="flex gap-2">
           {isEditing ? (
@@ -170,6 +299,55 @@ export function ProspectDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Alert: No planned action */}
+      {hasNoPlannedAction && (
+        <div className="flex items-center gap-3 rounded-lg border border-orange-300 bg-orange-50 p-3">
+          <AlertTriangle className="h-5 w-5 text-orange-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-orange-800">Aucune action planifiée</p>
+            <p className="text-xs text-orange-600">Ce prospect actif n'a pas de rappel ou d'action à venir. Planifiez un rappel ou un RDV.</p>
+          </div>
+          <Button size="sm" variant="outline" className="shrink-0" onClick={() => setReminderFormOpen(true)}>
+            <Clock className="h-3.5 w-3.5 mr-1" /> Planifier
+          </Button>
+        </div>
+      )}
+
+      {/* Loss reason display */}
+      {prospect.status === 'perdu' && savedLossReason && (
+        <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50/50 p-3">
+          <XCircle className="h-5 w-5 text-red-500 shrink-0" />
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-red-800">Raison de perte :</p>
+              <Badge className={LOSS_REASON_COLORS[savedLossReason.reason]}>
+                {LOSS_REASON_LABELS[savedLossReason.reason]}
+              </Badge>
+            </div>
+            {savedLossReason.notes && (
+              <p className="text-xs text-red-600 mt-1">{savedLossReason.notes}</p>
+            )}
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => { setSelectedLossReason(savedLossReason.reason); setLossNotes(savedLossReason.notes ?? ''); setLossDialogOpen(true) }}>
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
+      {/* Mark as lost button if perdu but no reason */}
+      {prospect.status === 'perdu' && !savedLossReason && (
+        <div className="flex items-center gap-3 rounded-lg border border-red-300 bg-red-50 p-3">
+          <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-800">Raison de perte manquante</p>
+            <p className="text-xs text-red-600">Ce prospect est marqué comme perdu sans raison. Veuillez documenter la raison.</p>
+          </div>
+          <Button size="sm" variant="destructive" onClick={() => setLossDialogOpen(true)}>
+            Documenter
+          </Button>
+        </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-3">
         {/* Left: Prospect info */}
@@ -217,6 +395,12 @@ export function ProspectDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Lead Scoring */}
+          <LeadScoring
+            initialScore={savedLeadScore}
+            onChange={saveLeadScore}
+          />
 
           {/* Rendez-vous */}
           <Card>
@@ -282,6 +466,17 @@ export function ProspectDetailPage() {
                   <Clock className="mr-2 h-4 w-4" />
                   Planifier un rappel
                 </Button>
+                {prospect.status !== 'perdu' && prospect.status !== 'converti_client' && (
+                  <Button
+                    variant="ghost"
+                    className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                    size="sm"
+                    onClick={() => setLossDialogOpen(true)}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Marquer comme perdu
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -295,6 +490,20 @@ export function ProspectDetailPage() {
                 <span className="text-muted-foreground">Appels</span>
                 <span className="font-medium">{prospect.call_count}</span>
               </div>
+              {prospect.last_called_at && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Dernier appel</span>
+                  <span className="font-medium">{formatDate(prospect.last_called_at)}</span>
+                </div>
+              )}
+              {prospect.next_reminder_at && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Prochain rappel</span>
+                  <span className={`font-medium ${new Date(prospect.next_reminder_at) < new Date() ? 'text-red-600' : 'text-blue-600'}`}>
+                    {formatDate(prospect.next_reminder_at)}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Source</span>
                 <span className="font-medium">{prospect.source === 'csv_import' ? 'CSV' : prospect.source}</span>
@@ -331,6 +540,16 @@ export function ProspectDetailPage() {
                   Site web
                 </a>
               )}
+              <Separator />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-primary"
+                onClick={() => navigate('/opportunities')}
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Voir les opportunités
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -355,6 +574,52 @@ export function ProspectDetailPage() {
         callId={lastCallId}
         defaultType={lastCallId ? 'visio' : undefined}
       />
+
+      {/* Loss Reason Dialog */}
+      <Dialog open={lossDialogOpen} onOpenChange={setLossDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Raison de la perte</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Pourquoi ce prospect est-il perdu ? Cette information est obligatoire pour améliorer votre taux de conversion.
+            </p>
+            <div className="space-y-2">
+              <Label>Raison *</Label>
+              <Select value={selectedLossReason} onValueChange={(v) => setSelectedLossReason(v as LossReason)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une raison..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.entries(LOSS_REASON_LABELS) as [LossReason, string][]).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Notes complémentaires</Label>
+              <Textarea
+                value={lossNotes}
+                onChange={(e) => setLossNotes(e.target.value)}
+                placeholder="Détails supplémentaires..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setLossDialogOpen(false)}>Annuler</Button>
+            <Button
+              onClick={saveLossReason}
+              disabled={!selectedLossReason || updateProspect.isPending}
+              variant="destructive"
+            >
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

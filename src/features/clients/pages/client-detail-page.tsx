@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import {
   useClient,
@@ -14,7 +14,7 @@ import {
   useUpdateDevis,
 } from '../hooks/use-clients'
 import type { ClientStatus, ProjectStatus, DevisStatus } from '@/types/enums'
-import { PROJECT_STATUS_LABELS, DEVIS_STATUS_LABELS } from '@/types/enums'
+import { PROJECT_STATUS_LABELS, DEVIS_STATUS_LABELS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS } from '@/types/enums'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -22,8 +22,17 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StatusBadge } from '@/components/shared/status-badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import {
   Select,
   SelectContent,
@@ -44,6 +53,11 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  FileCheck,
+  CreditCard,
+  RefreshCcw,
+  Calendar,
+  Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -195,10 +209,19 @@ export function ClientDetailPage() {
       </div>
 
       <Tabs defaultValue="fiche">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="fiche">Fiche</TabsTrigger>
           <TabsTrigger value="projet">Projet</TabsTrigger>
           <TabsTrigger value="devis">Devis</TabsTrigger>
+          <TabsTrigger value="contrats">
+            <FileCheck className="h-3.5 w-3.5 mr-1" /> Contrats
+          </TabsTrigger>
+          <TabsTrigger value="paiements">
+            <CreditCard className="h-3.5 w-3.5 mr-1" /> Paiements
+          </TabsTrigger>
+          <TabsTrigger value="suivi">
+            <RefreshCcw className="h-3.5 w-3.5 mr-1" /> Suivi
+          </TabsTrigger>
         </TabsList>
 
         {/* Fiche tab */}
@@ -285,13 +308,34 @@ export function ClientDetailPage() {
           <ProjectTab clientId={client.id} />
         </TabsContent>
 
-        {/* Devis tab */}
+        {/* Devis tab - now passes projectId from ProjectTab context */}
         <TabsContent value="devis">
-          <DevisTab clientId={client.id} projectId={undefined} />
+          <DevisTabWithProject clientId={client.id} />
+        </TabsContent>
+
+        {/* Contrats tab */}
+        <TabsContent value="contrats">
+          <ContratsTab clientId={client.id} />
+        </TabsContent>
+
+        {/* Paiements tab */}
+        <TabsContent value="paiements">
+          <PaiementsTab clientId={client.id} />
+        </TabsContent>
+
+        {/* Suivi tab */}
+        <TabsContent value="suivi">
+          <SuiviTab clientId={client.id} convertedAt={client.converted_at} />
         </TabsContent>
       </Tabs>
     </div>
   )
+}
+
+// DevisTab wrapper that fetches project and passes its ID
+function DevisTabWithProject({ clientId }: { clientId: string }) {
+  const { data: project } = useProjectForClient(clientId)
+  return <DevisTab clientId={clientId} projectId={project?.id} />
 }
 
 function ProjectTab({ clientId }: { clientId: string }) {
@@ -663,6 +707,321 @@ function DevisTab({ clientId, projectId }: { clientId: string; projectId: string
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// Contrats tab - shows signed devis as contracts
+function ContratsTab({ clientId }: { clientId: string }) {
+  const { data: devisList, isLoading } = useDevisForClient(clientId)
+  const { data: project } = useProjectForClient(clientId)
+
+  const contracts = useMemo(() => {
+    if (!devisList) return []
+    return devisList
+      .filter(d => d.status === 'signe')
+      .map(d => ({
+        id: d.id,
+        reference: d.reference || `CTR-${d.id.slice(0, 8)}`,
+        amount_ht: d.amount_ht,
+        amount_ttc: d.amount_ttc,
+        signed_at: d.signed_at,
+        project_name: project?.name ?? '—',
+        monthly_amount: project?.monthly_amount,
+      }))
+  }, [devisList, project])
+
+  if (isLoading) return <Skeleton className="h-48" />
+
+  if (contracts.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <FileCheck className="h-12 w-12 text-muted-foreground mb-4" />
+          <p className="text-lg font-medium">Aucun contrat</p>
+          <p className="text-sm text-muted-foreground">Les devis signés apparaîtront ici comme contrats.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <FileCheck className="h-4 w-4 text-primary" />
+          Contrats ({contracts.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Référence</TableHead>
+                <TableHead>Projet</TableHead>
+                <TableHead className="text-right">Montant HT</TableHead>
+                <TableHead className="text-right">Montant TTC</TableHead>
+                <TableHead className="text-right">Mensuel</TableHead>
+                <TableHead>Signé le</TableHead>
+                <TableHead>Statut</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {contracts.map(c => (
+                <TableRow key={c.id}>
+                  <TableCell className="font-mono text-sm font-medium">{c.reference}</TableCell>
+                  <TableCell>{c.project_name}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(c.amount_ht)}</TableCell>
+                  <TableCell className="text-right font-medium">{formatCurrency(c.amount_ttc)}</TableCell>
+                  <TableCell className="text-right">{c.monthly_amount ? formatCurrency(c.monthly_amount) : '—'}</TableCell>
+                  <TableCell>{c.signed_at ? formatDateShort(c.signed_at) : '—'}</TableCell>
+                  <TableCell>
+                    <Badge className="bg-green-100 text-green-800">Actif</Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Paiements tab - shows payment status derived from devis
+function PaiementsTab({ clientId }: { clientId: string }) {
+  const { data: devisList, isLoading } = useDevisForClient(clientId)
+
+  const payments = useMemo(() => {
+    if (!devisList) return []
+    return devisList
+      .filter(d => d.status !== 'brouillon')
+      .map(d => {
+        let paymentStatus: 'paye' | 'en_attente' | 'en_retard' | 'impaye' = 'en_attente'
+        if (d.status === 'signe') paymentStatus = 'paye'
+        else if (d.status === 'refuse') paymentStatus = 'impaye'
+        else if (d.status === 'expire') paymentStatus = 'en_retard'
+        else if (d.status === 'envoye') {
+          // Check if sent more than 30 days ago
+          if (d.sent_at) {
+            const sentDate = new Date(d.sent_at)
+            const now = new Date()
+            const diffDays = Math.floor((now.getTime() - sentDate.getTime()) / (1000 * 60 * 60 * 24))
+            if (diffDays > 30) paymentStatus = 'en_retard'
+          }
+        }
+        return {
+          id: d.id,
+          reference: d.reference || `DEV-${d.id.slice(0, 8)}`,
+          amount_ttc: d.amount_ttc,
+          status: paymentStatus,
+          devis_status: d.status,
+          created_at: d.created_at,
+          sent_at: d.sent_at,
+          signed_at: d.signed_at,
+        }
+      })
+  }, [devisList])
+
+  if (isLoading) return <Skeleton className="h-48" />
+
+  if (payments.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <CreditCard className="h-12 w-12 text-muted-foreground mb-4" />
+          <p className="text-lg font-medium">Aucun paiement</p>
+          <p className="text-sm text-muted-foreground">Les paiements seront dérivés des devis envoyés.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Stats
+  const stats = {
+    paye: payments.filter(p => p.status === 'paye').reduce((s, p) => s + p.amount_ttc, 0),
+    en_attente: payments.filter(p => p.status === 'en_attente').reduce((s, p) => s + p.amount_ttc, 0),
+    en_retard: payments.filter(p => p.status === 'en_retard').reduce((s, p) => s + p.amount_ttc, 0),
+    impaye: payments.filter(p => p.status === 'impaye').reduce((s, p) => s + p.amount_ttc, 0),
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Mini stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {(Object.entries(stats) as [keyof typeof stats, number][]).map(([status, amount]) => (
+          <Card key={status}>
+            <CardContent className="p-3">
+              <Badge className={`text-xs mb-1 ${PAYMENT_STATUS_COLORS[status]}`}>
+                {PAYMENT_STATUS_LABELS[status]}
+              </Badge>
+              <p className="text-lg font-bold">{formatCurrency(amount)}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-primary" />
+            Suivi des paiements ({payments.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Référence</TableHead>
+                  <TableHead className="text-right">Montant TTC</TableHead>
+                  <TableHead>Statut paiement</TableHead>
+                  <TableHead>Statut devis</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payments.map(p => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-mono text-sm">{p.reference}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(p.amount_ttc)}</TableCell>
+                    <TableCell>
+                      <Badge className={PAYMENT_STATUS_COLORS[p.status]}>
+                        {PAYMENT_STATUS_LABELS[p.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        label={DEVIS_STATUS_LABELS[p.devis_status]}
+                        colorClass={DEVIS_STATUS_COLORS[p.devis_status]}
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {p.signed_at ? formatDateShort(p.signed_at) : p.sent_at ? formatDateShort(p.sent_at) : formatDateShort(p.created_at)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// Suivi tab - long-term follow-up info
+function SuiviTab({ clientId, convertedAt }: { clientId: string; convertedAt: string }) {
+  const now = new Date()
+  const convertedDate = new Date(convertedAt)
+  const monthsSince = (now.getFullYear() - convertedDate.getFullYear()) * 12 + (now.getMonth() - convertedDate.getMonth())
+
+  // Fetch recent activities for this client (devis, projects)
+  const { data: devisList } = useDevisForClient(clientId)
+  const { data: project } = useProjectForClient(clientId)
+
+  // Build timeline
+  const timeline = useMemo(() => {
+    const events: { date: string; label: string; type: 'info' | 'success' | 'warning' }[] = []
+
+    events.push({ date: convertedAt, label: 'Converti en client', type: 'success' })
+
+    if (project?.start_date) {
+      events.push({ date: project.start_date, label: `Projet "${project.name}" démarré`, type: 'info' })
+    }
+    if (project?.end_date) {
+      events.push({ date: project.end_date, label: `Projet "${project.name}" terminé`, type: 'warning' })
+    }
+
+    devisList?.forEach(d => {
+      if (d.signed_at) events.push({ date: d.signed_at, label: `Devis ${d.reference || d.id.slice(0, 8)} signé`, type: 'success' })
+      if (d.sent_at) events.push({ date: d.sent_at, label: `Devis ${d.reference || d.id.slice(0, 8)} envoyé`, type: 'info' })
+    })
+
+    return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [convertedAt, project, devisList])
+
+  let category = 'Récent'
+  if (monthsSince >= 24) category = 'Relance 2 ans+'
+  else if (monthsSince >= 12) category = 'Relance 1 an'
+  else if (monthsSince >= 6) category = 'Relance 6 mois'
+
+  return (
+    <div className="space-y-6">
+      {/* Summary cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-100">
+                <Calendar className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{monthsSince}</p>
+                <p className="text-sm text-muted-foreground">mois d'ancienneté</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-purple-100">
+                <RefreshCcw className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-lg font-bold">{category}</p>
+                <p className="text-sm text-muted-foreground">Catégorie de suivi</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-100">
+                <FileCheck className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{devisList?.filter(d => d.status === 'signe').length ?? 0}</p>
+                <p className="text-sm text-muted-foreground">devis signés</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Timeline */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            Historique client
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {timeline.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Aucun événement</p>
+          ) : (
+            <div className="space-y-3">
+              {timeline.map((event, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${
+                    event.type === 'success' ? 'bg-green-500' :
+                    event.type === 'warning' ? 'bg-orange-500' :
+                    'bg-blue-500'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm">{event.label}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(event.date)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
