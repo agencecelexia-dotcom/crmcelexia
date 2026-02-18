@@ -59,6 +59,24 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+async function invokeFunction(action: string, params: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke(
+    'generate-prospects',
+    { body: { action, ...params } },
+  )
+  if (error) {
+    // Try to extract actual error from response context
+    let detail = error.message
+    try {
+      if (data && typeof data === 'object' && 'error' in data) {
+        detail = (data as { error: string }).error
+      }
+    } catch { /* ignore */ }
+    throw new Error(detail)
+  }
+  return data
+}
+
 export async function generateProspects(
   niche: string,
   quantity: number,
@@ -86,12 +104,7 @@ export async function generateProspects(
   while (rawLeads.length < targetRaw) {
     if (abortSignal?.aborted) throw new Error('Annulé')
 
-    const { data, error } = await supabase.functions.invoke(
-      'generate-prospects',
-      { body: { action: 'fetch_sirene', niche, cursor } },
-    )
-
-    if (error) throw new Error(`Erreur SIRENE: ${error.message}`)
+    const data = await invokeFunction('fetch_sirene', { niche, cursor })
     if (data.rateLimited) {
       await sleep(5000)
       continue
@@ -151,13 +164,7 @@ export async function generateProspects(
 
     const batch = newLeads.slice(i, i + batchSize)
 
-    const { data, error } = await supabase.functions.invoke(
-      'generate-prospects',
-      { body: { action: 'enrich_batch', leads: batch, niche } },
-    )
-
-    if (error)
-      throw new Error(`Erreur enrichissement: ${error.message}`)
+    const data = await invokeFunction('enrich_batch', { leads: batch, niche })
 
     const results = data.results as EnrichResult[]
     for (const r of results) {
