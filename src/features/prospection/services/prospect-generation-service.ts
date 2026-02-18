@@ -100,21 +100,53 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function invokeFunction(action: string, params: Record<string, unknown>) {
-  const { data, error } = await supabase.functions.invoke(
-    'generate-prospects',
-    { body: { action, ...params } },
-  )
-  if (error) {
-    let detail = error.message
+async function invokeFunction(
+  action: string,
+  params: Record<string, unknown>,
+  retries = 2,
+): Promise<any> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const { data, error, response } = await supabase.functions.invoke(
+      'generate-prospects',
+      { body: { action, ...params } },
+    ) as { data: any; error: any; response?: Response }
+
+    if (!error) return data
+
+    // Extract the real error message from the response body
+    let detail = error.message || 'Erreur inconnue'
     try {
-      if (data && typeof data === 'object' && 'error' in data) {
+      // The SDK stores the Response object in error.context
+      const ctx = error.context || response
+      if (ctx && typeof ctx.json === 'function') {
+        const body = await ctx.json()
+        if (body && typeof body === 'object' && 'error' in body) {
+          detail = body.error
+        }
+      } else if (data && typeof data === 'object' && 'error' in data) {
         detail = (data as { error: string }).error
       }
-    } catch { /* ignore */ }
-    throw new Error(detail)
+    } catch { /* could not parse response body */ }
+
+    // Retry on transient errors (network, 500, relay errors)
+    const isTransient =
+      detail.includes('FunctionsFetchError') ||
+      detail.includes('FunctionsRelayError') ||
+      detail.includes('network') ||
+      detail.includes('timeout') ||
+      detail.includes('Failed to fetch') ||
+      error.name === 'FunctionsRelayError' ||
+      error.name === 'FunctionsFetchError'
+
+    if (isTransient && attempt < retries) {
+      await sleep(1000 * (attempt + 1))
+      continue
+    }
+
+    throw new Error(`[${action}] ${detail}`)
   }
-  return data
+
+  throw new Error(`[${action}] Échec après ${retries + 1} tentatives`)
 }
 
 /**
