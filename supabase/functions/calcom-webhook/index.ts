@@ -59,6 +59,8 @@ Deno.serve(async (req) => {
     const triggerEvent = body.triggerEvent
     const payload = body.payload
 
+    console.log(`[calcom-webhook] Received event: ${triggerEvent}`)
+
     if (!triggerEvent || !payload) {
       return new Response(JSON.stringify({ error: 'Invalid payload' }), {
         status: 400,
@@ -177,21 +179,50 @@ async function handleBookingCreated(
     if (data) prospectId = data.id
   }
 
-  // Fix: use .eq() instead of .or() with string interpolation to prevent injection
+  // Match prospect by phone — try multiple normalised formats
   if (attendeePhone && !prospectId) {
-    const normalized = attendeePhone.replace(/[^\d+]/g, '')
-    const { data } = await supabase
-      .from('prospects')
-      .select('id')
-      .is('deleted_at', null)
-      .eq('phone', normalized)
-      .limit(1)
-      .maybeSingle()
-    if (data) prospectId = data.id
+    const digitsOnly = attendeePhone.replace(/[^\d]/g, '')
+    // Build possible variants: raw, digits-only, local (0x), international (+33x)
+    const variants = new Set<string>([
+      attendeePhone,
+      digitsOnly,
+    ])
+    // +33612345678 → 0612345678
+    if (digitsOnly.startsWith('33') && digitsOnly.length === 11) {
+      variants.add('0' + digitsOnly.slice(2))
+      variants.add('+' + digitsOnly)
+    }
+    // 0612345678 → +33612345678
+    if (digitsOnly.startsWith('0') && digitsOnly.length === 10) {
+      variants.add('+33' + digitsOnly.slice(1))
+      variants.add('33' + digitsOnly.slice(1))
+    }
+
+    console.log('Phone matching variants:', [...variants])
+
+    for (const variant of variants) {
+      const { data } = await supabase
+        .from('prospects')
+        .select('id')
+        .is('deleted_at', null)
+        .eq('phone', variant)
+        .limit(1)
+        .maybeSingle()
+      if (data) {
+        prospectId = data.id
+        break
+      }
+    }
   }
 
   if (!prospectId) {
-    console.warn('No prospect matched for booking:', { attendeeEmail, attendeePhone, bookingId })
+    console.error('NO PROSPECT MATCHED — booking will be ignored:', {
+      attendeeEmail,
+      attendeePhone,
+      bookingId,
+      metadataProspectId: metadata?.prospect_id ?? 'none',
+      eventType,
+    })
     return { ok: true, warning: 'No prospect matched', bookingId }
   }
 
@@ -304,7 +335,7 @@ async function handleBookingCancelled(
   const { data: rdv } = await supabase
     .from('rendez_vous')
     .select('id')
-    .like('notes', `[cal.com:${bookingId}]`)
+    .like('notes', `%[cal.com:${bookingId}]%`)
     .eq('status', 'prevu')
     .is('deleted_at', null)
     .limit(1)
