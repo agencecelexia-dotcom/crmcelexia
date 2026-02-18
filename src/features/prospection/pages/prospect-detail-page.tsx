@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useProspect, useUpdateProspect } from '../hooks/use-prospects'
+import { useConvertProspect } from '@/features/clients/hooks/use-clients'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,6 +40,7 @@ import {
   AlertTriangle,
   Zap,
   XCircle,
+  UserCheck,
 } from 'lucide-react'
 import { useState, useMemo } from 'react'
 import { toast } from 'sonner'
@@ -65,6 +67,7 @@ export function ProspectDetailPage() {
   const { isFounder } = useAuth()
   const { data: prospect, isLoading, error } = useProspect(id)
   const updateProspect = useUpdateProspect()
+  const convertProspect = useConvertProspect()
   const { data: calcomLink } = useCalcomLink()
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, string>>({})
@@ -466,6 +469,26 @@ export function ProspectDetailPage() {
                   <Clock className="mr-2 h-4 w-4" />
                   Planifier un rappel
                 </Button>
+                {prospect.status === 'rdv_pris' || prospect.status === 'interesse' ? (
+                  <Button
+                    variant="default"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700"
+                    size="sm"
+                    disabled={convertProspect.isPending}
+                    onClick={async () => {
+                      try {
+                        const clientId = await convertProspect.mutateAsync(prospect.id)
+                        toast.success('Prospect converti en client !')
+                        navigate(`/clients/${clientId}`)
+                      } catch {
+                        toast.error('Erreur lors de la conversion')
+                      }
+                    }}
+                  >
+                    <UserCheck className="mr-2 h-4 w-4" />
+                    {convertProspect.isPending ? 'Conversion...' : 'Convertir en client'}
+                  </Button>
+                ) : null}
                 {prospect.status !== 'perdu' && prospect.status !== 'converti_client' && (
                   <Button
                     variant="ghost"
@@ -541,6 +564,17 @@ export function ProspectDetailPage() {
                 </a>
               )}
               <Separator />
+              {prospect.client_id && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-emerald-600"
+                  onClick={() => navigate(`/clients/${prospect.client_id}`)}
+                >
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  Voir la fiche client
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"

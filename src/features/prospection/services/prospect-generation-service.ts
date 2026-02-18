@@ -154,7 +154,7 @@ async function invokeFunction(
 
     const detail = extractErrorDetail(error, data)
 
-    console.error(`[${action}] attempt ${attempt + 1}/${retries + 1}: ${detail}`)
+    void detail // retry logged silently
 
     // Retry on transient errors (network, 500, relay errors)
     const isTransient =

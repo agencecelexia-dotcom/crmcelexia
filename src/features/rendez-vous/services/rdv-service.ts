@@ -61,8 +61,8 @@ export async function getRendezVous({
   }
 
   if (filters.search) {
-    // Search via prospect company name - requires RPC or filtering client-side
-    // For now we filter after fetch
+    const s = filters.search.replace(/[%_\\]/g, '\\$&')
+    query = query.or(`notes.ilike.%${s}%`)
   }
 
   const from = (page - 1) * pageSize

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { logCall, getCallsForProspect, getMyCallsToday } from '../services/call-service'
 import type { CallResult, ProspectStatus } from '@/types/enums'
+import { toast } from 'sonner'
 
 interface LogCallParams {
   prospect_id: string
@@ -40,5 +41,6 @@ export function useLogCall() {
       queryClient.invalidateQueries({ queryKey: ['calls', 'today'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
+    onError: () => toast.error('Erreur lors de l\'enregistrement de l\'appel'),
   })
 }

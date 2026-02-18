@@ -380,7 +380,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
                       {r.note && <p className="text-muted-foreground mt-0.5">{r.note}</p>}
                     </div>
                     <button
-                      onClick={() => completeReminder.mutate(r.id)}
+                      onClick={() => completeReminder.mutate({ id: r.id, prospectId: prospect.id })}
                       className="p-1 hover:bg-green-100 rounded"
                       title="Terminer"
                     >

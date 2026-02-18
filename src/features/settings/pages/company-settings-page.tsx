@@ -47,7 +47,6 @@ export function CompanySettingsPage() {
         if (fetchErr) throw fetchErr
         if (data) setSettings(data as CompanySettings)
       } catch (err) {
-        console.error('Failed to load company settings:', err)
         setError(err instanceof Error ? err.message : String(err))
       } finally {
         setLoading(false)
@@ -332,7 +331,8 @@ function CalcomSettingsCard({
   onUpdate: (field: keyof CompanySettings, value: string) => void
 }) {
   const [copied, setCopied] = useState(false)
-  const webhookUrl = `https://zsbrhftzjqqqbwbboyqe.supabase.co/functions/v1/calcom-webhook`
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
+  const webhookUrl = supabaseUrl ? `${supabaseUrl}/functions/v1/calcom-webhook` : ''
 
   function handleCopy() {
     navigator.clipboard.writeText(webhookUrl)

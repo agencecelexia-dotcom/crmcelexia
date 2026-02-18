@@ -30,7 +30,8 @@ export async function getClients({
     .is('deleted_at', null)
 
   if (filters.search) {
-    query = query.or(`company_name.ilike.%${filters.search}%,contact_name.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`)
+    const s = filters.search.replace(/[%_\\]/g, '\\$&')
+    query = query.or(`company_name.ilike.%${s}%,contact_name.ilike.%${s}%,phone.ilike.%${s}%`)
   }
 
   if (filters.status && filters.status.length > 0) {
@@ -181,18 +182,25 @@ export async function getDevisForClient(clientId: string): Promise<Devis[]> {
 export async function getAllDevis(params?: {
   page?: number
   pageSize?: number
+  commercialId?: string
 }) {
   const page = params?.page ?? 1
   const pageSize = params?.pageSize ?? DEFAULT_PAGE_SIZE
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
-  const { data, error, count } = await supabase
+  let query = supabase
     .from('devis')
-    .select('*, client:clients!devis_client_id_fkey(id, company_name)', { count: 'exact' })
+    .select('*, client:clients!devis_client_id_fkey(id, company_name, commercial_id)', { count: 'exact' })
     .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .range(from, to)
+
+  if (params?.commercialId) {
+    query = query.eq('created_by', params.commercialId)
+  }
+
+  query = query.order('created_at', { ascending: false }).range(from, to)
+
+  const { data, error, count } = await query
 
   if (error) throw error
 

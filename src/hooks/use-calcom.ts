@@ -60,7 +60,6 @@ export function buildCalcomUrl(
 
     return url.toString()
   } catch {
-    console.error('Invalid Cal.com URL:', calcomLink)
     return ''
   }
 }

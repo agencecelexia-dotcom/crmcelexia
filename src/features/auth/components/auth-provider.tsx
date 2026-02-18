@@ -20,7 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .single()
 
         if (error) {
-          console.error(`Profile fetch attempt ${attempt + 1} error:`, error.message)
+          void error.message
           if (attempt === 0) {
             await new Promise((r) => setTimeout(r, 1000))
             continue
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         return data as Profile
       } catch (err) {
-        console.error(`Profile fetch attempt ${attempt + 1} network error:`, err)
+        void err
         if (attempt === 0) {
           await new Promise((r) => setTimeout(r, 1000))
           continue
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Safety timeout — hard cap at 8 seconds
     const timeout = setTimeout(() => {
       if (mounted) {
-        console.warn('Auth: safety timeout reached (8s), forcing loaded state')
+        // Safety timeout reached (8s), force loaded state
         setIsLoading(false)
       }
     }, 8_000)
