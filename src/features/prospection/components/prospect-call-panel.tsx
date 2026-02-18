@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { useLogCall } from '../hooks/use-calls'
 import { useUpdateProspect } from '../hooks/use-prospects'
@@ -7,9 +7,10 @@ import { useRdvForProspect } from '@/features/rendez-vous/hooks/use-rdv'
 import { useCallsForProspect } from '../hooks/use-calls'
 import { useRemindersForProspect, useCompleteReminder } from '../hooks/use-reminders'
 import type { Prospect } from '@/types'
-import type { CallResult } from '@/types/enums'
+import type { CallResult, ProspectStatus } from '@/types/enums'
 import {
   CALL_RESULT_TO_STATUS,
+  PROSPECT_STATUS_TRANSITIONS,
   CALL_RESULTS_REQUIRING_NOTE,
   PROSPECT_STATUS_LABELS,
   PROSPECT_STATUS_COLORS,
@@ -82,6 +83,17 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
   const pendingReminders = reminders?.filter((r) => !r.is_completed) ?? []
   const upcomingRdvs = rdvs?.filter((r) => r.status === 'prevu') ?? []
 
+  // Filter quick actions based on valid status transitions
+  const availableQuickActions = useMemo(() => {
+    const currentStatus = prospect.status as ProspectStatus
+    const validTargets = PROSPECT_STATUS_TRANSITIONS[currentStatus] ?? []
+    if (currentStatus === 'converti_client') return []
+    return QUICK_CALL_ACTIONS.filter(({ result }) => {
+      const targetStatus = CALL_RESULT_TO_STATUS[result]
+      return validTargets.includes(targetStatus) || targetStatus === currentStatus
+    })
+  }, [prospect.status])
+
   async function handleQuickCall(result: CallResult) {
     if (!profile) return
 
@@ -104,13 +116,16 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
       toast.success(`Appel enregistré — ${PROSPECT_STATUS_LABELS[newStatus]}`)
       setCallNote('')
 
-      // When result is "RDV pris", open Cal.com with prospect tracking info
-      // The webhook will automatically create the RDV card with visio link
-      if (result === 'reached_rdv' && calcomLink) {
-        const bookingUrl = buildCalcomUrl(calcomLink, prospect)
-        if (bookingUrl) {
-          window.open(bookingUrl, '_blank', 'noopener,noreferrer')
-          toast.info('Réservez un créneau sur Cal.com — le RDV sera créé automatiquement')
+      // "RDV pris" → open Cal.com to book, webhook creates the RDV automatically
+      if (result === 'reached_rdv') {
+        if (calcomLink) {
+          const bookingUrl = buildCalcomUrl(calcomLink, prospect)
+          if (bookingUrl) {
+            window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+            toast.info('Réservez un créneau sur Cal.com — le RDV sera créé automatiquement')
+          }
+        } else {
+          toast.warning('Cal.com non configuré — pensez à créer le RDV manuellement depuis la fiche prospect')
         }
       }
 
@@ -236,7 +251,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
             Résultat de l'appel
           </h3>
           <div className="grid grid-cols-2 gap-2">
-            {QUICK_CALL_ACTIONS.map(({ result, label, icon: Icon, color }) => (
+            {availableQuickActions.map(({ result, label, icon: Icon, color }) => (
               <button
                 key={result}
                 onClick={() => handleQuickCall(result)}
@@ -264,17 +279,21 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
             />
           </div>
 
-          {/* Book via Cal.com */}
-          {calcomLink && (
-            <a
-              href={buildCalcomUrl(calcomLink, prospect)}
-              target="_blank"
-              rel="noopener noreferrer"
+          {/* Cal.com direct booking (not shown if status is already rdv_pris — use "RDV pris" button instead) */}
+          {calcomLink && prospect.status !== 'rdv_pris' && (
+            <button
+              onClick={() => {
+                const bookingUrl = buildCalcomUrl(calcomLink, prospect)
+                if (bookingUrl) {
+                  window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+                  toast.info('Réservez un créneau — le RDV sera créé automatiquement')
+                }
+              }}
               className="mt-3 flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-sm font-medium text-primary transition-colors"
             >
               <CalendarPlus className="h-4 w-4" />
-              Booker un RDV (Cal.com)
-            </a>
+              Réserver un créneau (Cal.com)
+            </button>
           )}
         </div>
 

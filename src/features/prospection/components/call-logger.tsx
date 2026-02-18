@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { useLogCall } from '../hooks/use-calls'
 import type { Prospect } from '@/types'
@@ -8,6 +8,7 @@ import {
   CALL_RESULT_TO_STATUS,
   CALL_RESULTS_REQUIRING_NOTE,
   PROSPECT_STATUS_LABELS,
+  PROSPECT_STATUS_TRANSITIONS,
 } from '@/types/enums'
 import {
   Dialog,
@@ -27,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { formatPhone } from '@/lib/format'
-import { Phone, Loader2 } from 'lucide-react'
+import { Phone, Loader2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface CallLoggerProps {
@@ -46,6 +47,31 @@ export function CallLogger({ prospect, open, onOpenChange, onSuccess }: CallLogg
 
   const suggestedStatus = result ? CALL_RESULT_TO_STATUS[result as CallResult] : null
   const noteRequired = result ? CALL_RESULTS_REQUIRING_NOTE.includes(result as CallResult) : false
+
+  // Filter available call results based on valid status transitions from current status
+  const availableResults = useMemo(() => {
+    const currentStatus = prospect.status as ProspectStatus
+    const validTargets = PROSPECT_STATUS_TRANSITIONS[currentStatus] ?? []
+    const allResults = Object.entries(CALL_RESULT_LABELS) as [CallResult, string][]
+
+    // For terminal statuses (perdu, converti_client) — no calls allowed
+    if (currentStatus === 'converti_client') return []
+
+    // For all other statuses, show results whose target status is valid
+    // Also always allow staying at the same status
+    return allResults.filter(([callResult]) => {
+      const targetStatus = CALL_RESULT_TO_STATUS[callResult]
+      return validTargets.includes(targetStatus) || targetStatus === currentStatus
+    })
+  }, [prospect.status])
+
+  // Check if the selected result leads to a valid transition
+  const isValidTransition = useMemo(() => {
+    if (!suggestedStatus) return true
+    const currentStatus = prospect.status as ProspectStatus
+    const validTargets = PROSPECT_STATUS_TRANSITIONS[currentStatus] ?? []
+    return validTargets.includes(suggestedStatus) || suggestedStatus === currentStatus
+  }, [prospect.status, suggestedStatus])
 
   function reset() {
     setResult('')
@@ -102,53 +128,74 @@ export function CallLogger({ prospect, open, onOpenChange, onSuccess }: CallLogg
                 {[prospect.contact_firstname, prospect.contact_name].filter(Boolean).join(' ')}
               </p>
             )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Statut actuel : {PROSPECT_STATUS_LABELS[prospect.status]}
+            </p>
           </div>
 
-          {/* Result (required) */}
-          <div className="space-y-2">
-            <Label>Résultat de l'appel *</Label>
-            <Select value={result} onValueChange={(v) => setResult(v as CallResult)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner le résultat..." />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.entries(CALL_RESULT_LABELS) as [CallResult, string][]).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Suggested new status */}
-          {suggestedStatus && (
-            <div className="rounded-lg border p-3 text-sm">
-              <p className="text-muted-foreground">Nouveau statut :</p>
-              <p className="font-medium">{PROSPECT_STATUS_LABELS[suggestedStatus]}</p>
+          {/* No actions for converted prospects */}
+          {prospect.status === 'converti_client' ? (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Ce prospect est déjà converti en client.
             </div>
-          )}
+          ) : (
+            <>
+              {/* Result (required) */}
+              <div className="space-y-2">
+                <Label>Résultat de l'appel *</Label>
+                <Select value={result} onValueChange={(v) => setResult(v as CallResult)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner le résultat..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableResults.map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Note */}
-          <div className="space-y-2">
-            <Label>
-              Note {noteRequired ? '*' : '(optionnelle)'}
-            </Label>
-            <Textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={noteRequired ? 'Note obligatoire pour ce résultat...' : 'Ajouter une note...'}
-              rows={3}
-            />
-          </div>
+              {/* Suggested new status */}
+              {suggestedStatus && (
+                <div className={`rounded-lg border p-3 text-sm ${!isValidTransition ? 'border-orange-300 bg-orange-50' : ''}`}>
+                  <p className="text-muted-foreground">Nouveau statut :</p>
+                  <p className="font-medium">{PROSPECT_STATUS_LABELS[suggestedStatus]}</p>
+                  {!isValidTransition && (
+                    <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Transition inhabituelle depuis « {PROSPECT_STATUS_LABELS[prospect.status]} »
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Note */}
+              <div className="space-y-2">
+                <Label>
+                  Note {noteRequired ? '*' : '(optionnelle)'}
+                </Label>
+                <Textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder={noteRequired ? 'Note obligatoire pour ce résultat...' : 'Ajouter une note...'}
+                  rows={3}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          <Button onClick={handleSubmit} disabled={!result || logCall.isPending}>
-            {logCall.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Enregistrer l'appel
-          </Button>
+          {prospect.status !== 'converti_client' && (
+            <Button onClick={handleSubmit} disabled={!result || logCall.isPending}>
+              {logCall.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enregistrer l'appel
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
