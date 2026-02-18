@@ -91,19 +91,19 @@ export function RdvListPage() {
       case 'today':
         f.date_from = todayStart
         f.date_to = tomorrowStart
-        f.status = ['prevu']
+        f.status = ['prevu', 'confirme']
         break
       case 'week':
         f.date_from = todayStart
         f.date_to = weekEnd
-        f.status = ['prevu']
+        f.status = ['prevu', 'confirme']
         break
       case 'upcoming':
         f.date_from = todayStart
-        f.status = ['prevu']
+        f.status = ['prevu', 'confirme']
         break
       case 'past':
-        f.status = ['fait', 'no_show', 'annule']
+        f.status = ['fait', 'show', 'no_show', 'close', 'annule', 'perdu']
         break
       case 'all':
         break
@@ -132,11 +132,8 @@ export function RdvListPage() {
   async function quickStatusChange(rdvId: string, newStatus: RdvStatus) {
     try {
       const updates: Record<string, unknown> = { status: newStatus }
-      if (newStatus === 'fait') {
-        updates.result = 'Fait'
-      }
       await updateRdv.mutateAsync({ id: rdvId, updates: updates as never })
-      toast.success('Statut mis à jour')
+      toast.success(`Statut mis à jour → ${RDV_STATUS_LABELS[newStatus]}`)
     } catch {
       toast.error('Erreur')
     }
@@ -148,11 +145,11 @@ export function RdvListPage() {
       await updateRdv.mutateAsync({
         id: resultRdv.id,
         updates: {
-          status: 'fait',
-          result: resultText.trim() || 'Fait',
+          status: 'show',
+          result: resultText.trim() || 'Show',
         } as never,
       })
-      toast.success('RDV marqué comme fait')
+      toast.success('RDV marqué comme show (effectué)')
       setResultRdv(null)
       setResultText('')
     } catch {
@@ -451,8 +448,25 @@ export function RdvListPage() {
                               </span>
                             )}
 
-                            {rdv.status === 'prevu' && (
+                            {/* Actions for À venir / Confirmé */}
+                            {(rdv.status === 'prevu' || rdv.status === 'confirme') && (
                               <div className="flex gap-1">
+                                {rdv.status === 'prevu' && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 px-2"
+                                    disabled={updateRdv.isPending}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      quickStatusChange(rdv.id, 'confirme')
+                                    }}
+                                    title="Confirmer"
+                                  >
+                                    <CalendarCheck className="h-4 w-4 text-cyan-600 mr-1" />
+                                    <span className="text-xs">Confirmer</span>
+                                  </Button>
+                                )}
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -467,7 +481,7 @@ export function RdvListPage() {
                                   title="Résultat du RDV"
                                 >
                                   <CheckCircle2 className="h-4 w-4 text-green-600 mr-1" />
-                                  <span className="text-xs">Fait</span>
+                                  <span className="text-xs">Show</span>
                                 </Button>
                                 <Button
                                   size="sm"
@@ -496,6 +510,40 @@ export function RdvListPage() {
                                   title="Annuler"
                                 >
                                   {updateRdv.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-gray-500" />}
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* Actions for Show (after RDV took place) */}
+                            {rdv.status === 'show' && (
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 px-2"
+                                  disabled={updateRdv.isPending}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    quickStatusChange(rdv.id, 'close')
+                                  }}
+                                  title="Closé"
+                                >
+                                  <CheckCircle2 className="h-4 w-4 text-purple-600 mr-1" />
+                                  <span className="text-xs">Closé</span>
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 px-2"
+                                  disabled={updateRdv.isPending}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    quickStatusChange(rdv.id, 'perdu')
+                                  }}
+                                  title="Perdu"
+                                >
+                                  <XCircle className="h-4 w-4 text-red-500 mr-1" />
+                                  <span className="text-xs">Perdu</span>
                                 </Button>
                               </div>
                             )}
@@ -557,11 +605,11 @@ export function RdvListPage() {
                 </p>
               </div>
 
-              {/* Mark as done */}
+              {/* Mark as show */}
               <div className="space-y-2">
                 <h4 className="text-sm font-medium flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  Marquer comme fait
+                  Show (le prospect s'est présenté)
                 </h4>
                 <Textarea
                   value={resultText}
@@ -573,7 +621,7 @@ export function RdvListPage() {
                 <Button onClick={handleMarkDone} disabled={updateRdv.isPending} className="w-full">
                   {updateRdv.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   <CheckCircle2 className="h-4 w-4 mr-2" />
-                  RDV effectué
+                  Marquer Show
                 </Button>
               </div>
 
