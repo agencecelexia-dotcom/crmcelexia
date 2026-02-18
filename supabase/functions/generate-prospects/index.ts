@@ -226,6 +226,7 @@ async function handleFetchSirene({
   cursor: string
 }) {
   if (!codes || codes.length === 0) throw new Error('Codes NAF requis')
+  if (!cursor) cursor = '*'
 
   const sixMonthsAgo = new Date()
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
@@ -243,28 +244,44 @@ async function handleFetchSirene({
     curseur: cursor,
   })
 
-  const response = await fetch(
-    `https://api.insee.fr/api-sirene/3.11/siret?${params}`,
-    {
-      headers: {
-        'X-INSEE-Api-Key-Integration': SIRENE_API_KEY,
-        Accept: 'application/json',
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000)
+
+  let response: Response
+  try {
+    response = await fetch(
+      `https://api.insee.fr/api-sirene/3.11/siret?${params}`,
+      {
+        headers: {
+          'X-INSEE-Api-Key-Integration': SIRENE_API_KEY,
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
       },
-    },
-  )
+    )
+  } catch (err) {
+    clearTimeout(timeout)
+    throw new Error(`SIRENE API inaccessible: ${err instanceof Error ? err.message : 'timeout'}`)
+  }
+  clearTimeout(timeout)
 
   if (response.status === 429) {
     return { leads: [], nextCursor: cursor, total: 0, rateLimited: true }
   }
 
   if (!response.ok) {
-    const text = await response.text()
+    const text = await response.text().catch(() => '')
     throw new Error(
       `SIRENE API ${response.status}: ${text.slice(0, 200)}`,
     )
   }
 
-  const data = await response.json()
+  let data: any
+  try {
+    data = await response.json()
+  } catch {
+    throw new Error('SIRENE API: réponse JSON invalide')
+  }
   const etablissements = data.etablissements || []
   const nextCursor = data.header?.curseurSuivant || null
   const total = data.header?.total || 0
@@ -335,48 +352,61 @@ async function handleEnrichBatch({
   leads: RawLead[]
   niche: string
 }) {
+  if (!leads || leads.length === 0) {
+    return { results: [] }
+  }
+
   const results: EnrichResult[] = await Promise.all(
     leads.map(async (lead) => {
-      // Step 1: DNS check
-      const hasSite = await hasWebsite(lead.nom_societe)
-      if (hasSite) {
+      try {
+        // Step 1: DNS check
+        const hasSite = await hasWebsite(lead.nom_societe)
+        if (hasSite) {
+          return {
+            lead: { ...lead, telephone: '', email: '', niche, role_dirigeant: '' },
+            excluded: true,
+            exclusion_reason: 'website_dns',
+          }
+        }
+
+        // Step 2: Mappy + Annuaire in parallel
+        const [mappy, annuaire] = await Promise.all([
+          enrichMappy(lead.nom_societe, lead.ville),
+          enrichAnnuaire(lead.siren),
+        ])
+
+        // If Mappy found a website, exclude
+        if (mappy.excluded) {
+          return {
+            lead: { ...lead, telephone: '', email: '', niche, role_dirigeant: '' },
+            excluded: true,
+            exclusion_reason: 'website_mappy',
+          }
+        }
+
+        // Fill in dirigeant from Annuaire only if SIRENE data is empty
+        const prenom = lead.prenom || annuaire.prenom
+        const nom = lead.nom || annuaire.nom
+
+        return {
+          lead: {
+            ...lead,
+            prenom,
+            nom,
+            telephone: mappy.telephone,
+            email: mappy.email,
+            niche,
+            role_dirigeant: annuaire.role,
+          },
+          excluded: false,
+        }
+      } catch {
+        // If enrichment fails for one lead, skip it instead of crashing the batch
         return {
           lead: { ...lead, telephone: '', email: '', niche, role_dirigeant: '' },
           excluded: true,
-          exclusion_reason: 'website_dns',
+          exclusion_reason: 'enrichment_error',
         }
-      }
-
-      // Step 2: Mappy + Annuaire in parallel
-      const [mappy, annuaire] = await Promise.all([
-        enrichMappy(lead.nom_societe, lead.ville),
-        enrichAnnuaire(lead.siren),
-      ])
-
-      // If Mappy found a website, exclude
-      if (mappy.excluded) {
-        return {
-          lead: { ...lead, telephone: '', email: '', niche, role_dirigeant: '' },
-          excluded: true,
-          exclusion_reason: 'website_mappy',
-        }
-      }
-
-      // Fill in dirigeant from Annuaire only if SIRENE data is empty
-      const prenom = lead.prenom || annuaire.prenom
-      const nom = lead.nom || annuaire.nom
-
-      return {
-        lead: {
-          ...lead,
-          prenom,
-          nom,
-          telephone: mappy.telephone,
-          email: mappy.email,
-          niche,
-          role_dirigeant: annuaire.role,
-        },
-        excluded: false,
       }
     }),
   )
@@ -424,7 +454,19 @@ Deno.serve(async (req) => {
   try {
     verifyAuth(req)
 
-    const body = await req.json()
+    let body: Record<string, unknown>
+    try {
+      body = await req.json()
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Corps de requête JSON invalide' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
+    }
+
     const { action, ...params } = body
 
     let result: unknown
@@ -454,6 +496,7 @@ Deno.serve(async (req) => {
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erreur interne'
+    console.error('Edge function error:', message)
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
