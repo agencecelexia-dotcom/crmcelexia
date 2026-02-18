@@ -384,6 +384,35 @@ async function handleEnrichBatch({
   return { results }
 }
 
+// --- Cleanup handler (service role) ---
+
+async function handleCleanupNoPhone(): Promise<{ deleted: number }> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/prospects?deleted_at=is.null&or=(phone.is.null,phone.eq.)`,
+    {
+      method: 'PATCH',
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify({ deleted_at: new Date().toISOString() }),
+    },
+  )
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(`Cleanup failed: ${response.status} ${text.slice(0, 200)}`)
+  }
+
+  const data = await response.json()
+  return { deleted: Array.isArray(data) ? data.length : 0 }
+}
+
 // --- Main handler ---
 
 Deno.serve(async (req) => {
@@ -403,6 +432,9 @@ Deno.serve(async (req) => {
         break
       case 'enrich_batch':
         result = await handleEnrichBatch(params as { leads: RawLead[]; niche: string })
+        break
+      case 'cleanup_no_phone':
+        result = await handleCleanupNoPhone()
         break
       case 'get_niches':
         result = { niches: Object.keys(NICHES) }

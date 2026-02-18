@@ -121,17 +121,11 @@ async function invokeFunction(action: string, params: Record<string, unknown>) {
 
 /**
  * Delete (soft-delete) all prospects that have no phone number.
+ * Uses the edge function which has service role access to bypass RLS.
  */
 export async function deleteProspectsWithoutPhone(): Promise<number> {
-  const { data, error } = await supabase
-    .from('prospects')
-    .update({ deleted_at: new Date().toISOString() })
-    .is('deleted_at', null)
-    .or('phone.is.null,phone.eq.')
-    .select('id')
-
-  if (error) throw new Error(`Erreur suppression: ${error.message}`)
-  return data?.length || 0
+  const data = await invokeFunction('cleanup_no_phone', {})
+  return data.deleted || 0
 }
 
 export async function generateProspects(
