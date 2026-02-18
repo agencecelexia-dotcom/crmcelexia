@@ -34,8 +34,11 @@ export function buildCalcomUrl(
 ): string {
   if (!calcomLink) return ''
 
-  // Ensure the link starts with https://
+  // Clean and normalise the link
   let base = calcomLink.trim()
+  // Strip markdown-style angle brackets and duplicated protocol prefixes
+  base = base.replace(/^<+|>+$/g, '')
+  base = base.replace(/^https?:\/\/\s*<?\s*https?:\/\//, 'https://')
   if (!base.startsWith('http')) base = `https://${base}`
 
   const url = new URL(base)
