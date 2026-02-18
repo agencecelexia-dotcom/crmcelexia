@@ -8,3 +8,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Export the anon key so edge function calls can bypass JWT verification
+export { supabaseAnonKey }

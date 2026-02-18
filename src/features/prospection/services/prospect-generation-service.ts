@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase/client'
+import { supabase, supabaseAnonKey } from '@/lib/supabase/client'
 
 // --- Niche categories with sub-niches ---
 
@@ -137,9 +137,17 @@ async function invokeFunction(
   retries = 2,
 ): Promise<any> {
   for (let attempt = 0; attempt <= retries; attempt++) {
+    // Use the anon key directly as Authorization header.
+    // The Supabase SDK normally sends the user's session JWT, which can
+    // expire and get rejected by the gateway (401). The edge function
+    // doesn't need user-level auth, so using the anon key (which never
+    // expires) avoids this issue entirely.
     const { data, error } = await supabase.functions.invoke(
       'generate-prospects',
-      { body: { action, ...params } },
+      {
+        body: { action, ...params },
+        headers: { Authorization: `Bearer ${supabaseAnonKey}` },
+      },
     )
 
     if (!error) return data
@@ -147,20 +155,6 @@ async function invokeFunction(
     const detail = extractErrorDetail(error, data)
 
     console.error(`[${action}] attempt ${attempt + 1}/${retries + 1}: ${detail}`)
-
-    // On JWT/auth errors, refresh the session and retry once
-    const isAuthError =
-      detail.includes('Invalid JWT') ||
-      detail.includes('JWT expired') ||
-      detail.includes('Non autorisé') ||
-      (error?.context?.code === 401)
-
-    if (isAuthError && attempt < retries) {
-      console.warn(`[${action}] Auth error, refreshing session...`)
-      await supabase.auth.refreshSession()
-      await sleep(500)
-      continue
-    }
 
     // Retry on transient errors (network, 500, relay errors)
     const isTransient =
