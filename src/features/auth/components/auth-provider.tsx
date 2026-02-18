@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react'
-import { supabase } from '@/lib/supabase/client'
+import { supabase, supabaseMisconfigured } from '@/lib/supabase/client'
 import { AuthContext, type AuthContextType } from '../hooks/use-auth'
 import type { Session } from '@supabase/supabase-js'
 import type { Profile } from '@/types'
@@ -42,6 +42,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true
+
+    // If Supabase is misconfigured, stop loading immediately
+    if (supabaseMisconfigured) {
+      setIsLoading(false)
+      return
+    }
 
     // Safety timeout — hard cap at 8 seconds
     const timeout = setTimeout(() => {
