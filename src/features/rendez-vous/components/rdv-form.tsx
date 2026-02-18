@@ -69,9 +69,18 @@ export function RdvForm({ prospect, open, onOpenChange, callId, defaultType, def
       toast.error('La date et l\'heure sont obligatoires')
       return
     }
+    if (type === 'visio' && !meetingUrl.trim()) {
+      toast.error('Le lien de la visio est obligatoire pour un RDV visio')
+      return
+    }
+    if (type === 'presentiel' && !location.trim()) {
+      toast.error('Le lieu est obligatoire pour un RDV présentiel')
+      return
+    }
     if (!profile) return
 
-    const scheduledAt = new Date(`${date}T${time}`).toISOString()
+    // Build ISO string preserving local time (avoid UTC shift)
+    const scheduledAt = `${date}T${time}:00`
 
     try {
       await createRdv.mutateAsync({
@@ -107,9 +116,9 @@ export function RdvForm({ prospect, open, onOpenChange, callId, defaultType, def
           {/* Prospect info */}
           <div className="rounded-lg bg-muted p-3">
             <p className="font-medium">{prospect.company_name}</p>
-            {prospect.contact_name && (
+            {(prospect.contact_firstname || prospect.contact_name) && (
               <p className="text-sm text-muted-foreground">
-                {prospect.contact_firstname} {prospect.contact_name}
+                {[prospect.contact_firstname, prospect.contact_name].filter(Boolean).join(' ')}
               </p>
             )}
           </div>
@@ -171,7 +180,7 @@ export function RdvForm({ prospect, open, onOpenChange, callId, defaultType, def
           {/* Location (for presentiel) */}
           {type === 'presentiel' && (
             <div className="space-y-2">
-              <Label>Lieu</Label>
+              <Label>Lieu *</Label>
               <Input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
@@ -183,7 +192,7 @@ export function RdvForm({ prospect, open, onOpenChange, callId, defaultType, def
           {/* Meeting URL (for visio) */}
           {type === 'visio' && (
             <div className="space-y-2">
-              <Label>Lien de la visio</Label>
+              <Label>Lien de la visio *</Label>
               <Input
                 value={meetingUrl}
                 onChange={(e) => setMeetingUrl(e.target.value)}

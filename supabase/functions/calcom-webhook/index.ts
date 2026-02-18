@@ -6,6 +6,32 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+/** HMAC-SHA256 signature verification for Cal.com webhooks */
+async function verifySignature(body: string, signature: string | null): Promise<boolean> {
+  const secret = Deno.env.get('CALCOM_WEBHOOK_SECRET')
+  // If no secret configured, skip verification (but log warning)
+  if (!secret) {
+    console.warn('CALCOM_WEBHOOK_SECRET not set — skipping signature verification')
+    return true
+  }
+  if (!signature) return false
+
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const signed = await crypto.subtle.sign('HMAC', key, encoder.encode(body))
+  const expected = Array.from(new Uint8Array(signed))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+
+  return signature === expected
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -16,7 +42,20 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json()
+    const rawBody = await req.text()
+
+    // Verify webhook signature
+    const signature = req.headers.get('x-cal-signature-256')
+    const isValid = await verifySignature(rawBody, signature)
+    if (!isValid) {
+      console.error('Invalid webhook signature')
+      return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const body = JSON.parse(rawBody)
     const triggerEvent = body.triggerEvent
     const payload = body.payload
 
@@ -55,7 +94,7 @@ Deno.serve(async (req) => {
     })
   } catch (err) {
     console.error('Webhook error:', err)
-    return new Response(JSON.stringify({ error: String(err) }), {
+    return new Response(JSON.stringify({ error: 'Internal error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
@@ -104,9 +143,9 @@ async function handleBookingCreated(
   let rdvType: 'telephone' | 'visio' | 'presentiel' = 'visio'
   if (location) {
     const loc = location.toLowerCase()
-    if (loc.includes('phone') || loc.includes('tel') || loc.includes('appel')) {
+    if (loc.includes('phone') || loc.includes('tel') || loc.includes('appel') || loc.includes('téléphone')) {
       rdvType = 'telephone'
-    } else if (loc.includes('address') || loc.includes('bureau') || loc.includes('agence')) {
+    } else if (loc.includes('address') || loc.includes('bureau') || loc.includes('agence') || loc.includes('présentiel')) {
       rdvType = 'presentiel'
     }
   }
@@ -116,7 +155,11 @@ async function handleBookingCreated(
   let prospectId: string | null = null
 
   if (metadata?.prospect_id) {
-    prospectId = metadata.prospect_id as string
+    // Validate UUID format to avoid injection
+    const uuid = String(metadata.prospect_id)
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid)) {
+      prospectId = uuid
+    }
   }
 
   // Fallback: match by attendee email or phone
@@ -134,13 +177,14 @@ async function handleBookingCreated(
     if (data) prospectId = data.id
   }
 
+  // Fix: use .eq() instead of .or() with string interpolation to prevent injection
   if (attendeePhone && !prospectId) {
-    const normalized = attendeePhone.replace(/[\s\-\.]/g, '')
+    const normalized = attendeePhone.replace(/[^\d+]/g, '')
     const { data } = await supabase
       .from('prospects')
       .select('id')
       .is('deleted_at', null)
-      .or(`phone.eq.${normalized},phone.eq.${attendeePhone}`)
+      .eq('phone', normalized)
       .limit(1)
       .maybeSingle()
     if (data) prospectId = data.id
@@ -151,53 +195,18 @@ async function handleBookingCreated(
     return { ok: true, warning: 'No prospect matched', bookingId }
   }
 
-  // Find the commercial (organizer) by email
-  let commercialId: string | null = null
-  if (organizer?.email) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', organizer.email)
-      .limit(1)
-      .maybeSingle()
-    if (data) commercialId = data.id
-  }
-
-  // Fallback: pick the prospect's assigned_to or first founder
-  if (!commercialId) {
-    const { data: prospect } = await supabase
-      .from('prospects')
-      .select('assigned_to')
-      .eq('id', prospectId)
-      .single()
-    if (prospect?.assigned_to) {
-      commercialId = prospect.assigned_to
-    } else {
-      const { data: founder } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'fondateur')
-        .limit(1)
-        .maybeSingle()
-      if (founder) commercialId = founder.id
-    }
-  }
-
-  if (!commercialId) {
-    return { ok: false, error: 'No commercial found' }
-  }
-
-  // For BOOKING_RESCHEDULED, update existing RDV if we find one with the same booking ref
-  if (eventType === 'BOOKING_RESCHEDULED' && bookingId) {
+  // Deduplicate: check if a RDV already exists for this booking ID
+  if (bookingId) {
     const { data: existing } = await supabase
       .from('rendez_vous')
       .select('id')
-      .eq('notes', `[cal.com:${bookingId}]`)
+      .like('notes', `[cal.com:${bookingId}]`)
       .is('deleted_at', null)
       .limit(1)
       .maybeSingle()
 
     if (existing) {
+      // Already exists — update it (handles both CREATED retries and RESCHEDULED)
       await supabase
         .from('rendez_vous')
         .update({
@@ -212,6 +221,42 @@ async function handleBookingCreated(
 
       return { ok: true, action: 'updated', rdvId: existing.id }
     }
+  }
+
+  // Find the commercial (organizer) by email
+  let commercialId: string | null = null
+  if (organizer?.email) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', organizer.email)
+      .limit(1)
+      .maybeSingle()
+    if (data) commercialId = data.id
+  }
+
+  // Fallback: pick the prospect's commercial_id or first founder
+  if (!commercialId) {
+    const { data: prospect } = await supabase
+      .from('prospects')
+      .select('commercial_id')
+      .eq('id', prospectId)
+      .single()
+    if (prospect?.commercial_id) {
+      commercialId = prospect.commercial_id
+    } else {
+      const { data: founder } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'fondateur')
+        .limit(1)
+        .maybeSingle()
+      if (founder) commercialId = founder.id
+    }
+  }
+
+  if (!commercialId) {
+    return { ok: false, error: 'No commercial found' }
   }
 
   // Create the RDV
@@ -258,7 +303,7 @@ async function handleBookingCancelled(
   const { data: rdv } = await supabase
     .from('rendez_vous')
     .select('id')
-    .eq('notes', `[cal.com:${bookingId}]`)
+    .like('notes', `[cal.com:${bookingId}]`)
     .eq('status', 'prevu')
     .is('deleted_at', null)
     .limit(1)

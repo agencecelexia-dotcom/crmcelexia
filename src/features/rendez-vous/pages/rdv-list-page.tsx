@@ -389,9 +389,9 @@ export function RdvListPage() {
                                 {rdv.prospect?.company_name ?? 'Prospect'}
                               </button>
                               <div className="flex items-center gap-2 mt-0.5 text-sm text-muted-foreground">
-                                {rdv.prospect?.contact_firstname && (
+                                {(rdv.prospect?.contact_firstname || rdv.prospect?.contact_name) && (
                                   <span>
-                                    {rdv.prospect.contact_firstname} {rdv.prospect.contact_name}
+                                    {[rdv.prospect.contact_firstname, rdv.prospect.contact_name].filter(Boolean).join(' ')}
                                   </span>
                                 )}
                                 {rdv.prospect?.phone && (
@@ -404,7 +404,7 @@ export function RdvListPage() {
                                   </a>
                                 )}
                               </div>
-                              {rdv.meeting_url && rdv.status === 'prevu' && (
+                              {rdv.meeting_url && (
                                 <a
                                   href={rdv.meeting_url}
                                   target="_blank"
@@ -451,6 +451,7 @@ export function RdvListPage() {
                                   size="sm"
                                   variant="ghost"
                                   className="h-8 px-2"
+                                  disabled={updateRdv.isPending}
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     setResultRdv(rdv)
@@ -466,6 +467,7 @@ export function RdvListPage() {
                                   size="sm"
                                   variant="ghost"
                                   className="h-8 px-2"
+                                  disabled={updateRdv.isPending}
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     setResultRdv(rdv)
@@ -480,13 +482,14 @@ export function RdvListPage() {
                                   size="sm"
                                   variant="ghost"
                                   className="h-8 px-2"
+                                  disabled={updateRdv.isPending}
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     quickStatusChange(rdv.id, 'annule')
                                   }}
                                   title="Annuler"
                                 >
-                                  <XCircle className="h-4 w-4 text-gray-500" />
+                                  {updateRdv.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-gray-500" />}
                                 </Button>
                               </div>
                             )}
