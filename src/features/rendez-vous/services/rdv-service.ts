@@ -156,7 +156,7 @@ export async function getMyUpcomingRdv(commercialId: string): Promise<RendezVous
     .from('rendez_vous')
     .select('*, prospect:prospects!rendez_vous_prospect_id_fkey(id, company_name, phone, contact_name, contact_firstname)')
     .eq('commercial_id', commercialId)
-    .eq('status', 'prevu')
+    .in('status', ['prevu', 'confirme'])
     .is('deleted_at', null)
     .gte('scheduled_at', new Date().toISOString())
     .order('scheduled_at', { ascending: true })

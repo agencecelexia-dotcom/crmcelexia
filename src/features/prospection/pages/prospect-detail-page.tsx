@@ -46,6 +46,7 @@ import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
+import { supabase } from '@/lib/supabase/client'
 import {
   Dialog,
   DialogContent,
@@ -84,7 +85,50 @@ export function ProspectDetailPage() {
   const [selectedLossReason, setSelectedLossReason] = useState<LossReason | ''>('')
   const [lossNotes, setLossNotes] = useState('')
 
-  // Poll for new RDV after Cal.com booking — webhook creates it asynchronously
+  // Supabase Realtime: listen for new RDVs created for this prospect (by webhook)
+  useEffect(() => {
+    if (!id) return
+
+    const channel = supabase
+      .channel(`rdv-prospect-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'rendez_vous',
+          filter: `prospect_id=eq.${id}`,
+        },
+        () => {
+          // New RDV created (likely from Cal.com webhook) → refresh data
+          queryClient.invalidateQueries({ queryKey: ['rdv', 'prospect', id] })
+          queryClient.invalidateQueries({ queryKey: ['prospect', id] })
+          queryClient.invalidateQueries({ queryKey: ['rdv'] })
+          setWaitingForCalcom(false)
+          toast.success('Nouveau RDV détecté depuis Cal.com !')
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'rendez_vous',
+          filter: `prospect_id=eq.${id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['rdv', 'prospect', id] })
+          queryClient.invalidateQueries({ queryKey: ['rdv'] })
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [id, queryClient])
+
+  // Also poll as fallback (Realtime may not be enabled on all Supabase plans)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollingCountRef = useRef(0)
 
@@ -97,8 +141,8 @@ export function ProspectDetailPage() {
       // Refresh RDV data for this prospect
       queryClient.invalidateQueries({ queryKey: ['rdv', 'prospect', id] })
       queryClient.invalidateQueries({ queryKey: ['prospect', id] })
-      // Stop after 3 minutes (36 x 5s)
-      if (pollingCountRef.current >= 36) {
+      // Stop after 10 minutes (120 x 5s)
+      if (pollingCountRef.current >= 120) {
         if (pollingRef.current) clearInterval(pollingRef.current)
         pollingRef.current = null
         setWaitingForCalcom(false)

@@ -422,7 +422,7 @@ export function RdvListPage() {
                               {rdv.notes && !rdv.notes.startsWith('[cal.com') && (
                                 <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{rdv.notes}</p>
                               )}
-                              {rdv.result && rdv.status === 'fait' && (
+                              {rdv.result && ['fait', 'show', 'close', 'perdu'].includes(rdv.status) && (
                                 <p className="text-xs text-green-700 mt-1 line-clamp-1">
                                   Résultat: {rdv.result}
                                 </p>
