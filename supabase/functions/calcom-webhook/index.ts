@@ -54,6 +54,41 @@ function normalizePhone(phone: string): string[] {
   return [...new Set(variants)]
 }
 
+/** Extract a value from Cal.com responses, trying multiple possible keys */
+function extractFromResponses(
+  responses: Record<string, unknown> | undefined,
+  keys: string[],
+): string | null {
+  if (!responses) return null
+  for (const key of keys) {
+    // Try exact key
+    const val = responses[key]
+    if (val !== undefined && val !== null) {
+      if (typeof val === 'string' && val.trim()) return val.trim()
+      if (typeof val === 'object' && val !== null) {
+        const obj = val as Record<string, unknown>
+        if (typeof obj.value === 'string' && obj.value.trim()) return obj.value.trim()
+        if (typeof obj.label === 'string' && obj.label.trim()) return obj.label.trim()
+      }
+    }
+    // Try case-insensitive match on response keys
+    const lowerKey = key.toLowerCase()
+    for (const [rKey, rVal] of Object.entries(responses)) {
+      if (rKey.toLowerCase() === lowerKey || rKey.toLowerCase().replace(/[-_\s]/g, '') === lowerKey.replace(/[-_\s]/g, '')) {
+        if (rVal !== undefined && rVal !== null) {
+          if (typeof rVal === 'string' && rVal.trim()) return rVal.trim()
+          if (typeof rVal === 'object' && rVal !== null) {
+            const obj = rVal as Record<string, unknown>
+            if (typeof obj.value === 'string' && obj.value.trim()) return obj.value.trim()
+            if (typeof obj.label === 'string' && obj.label.trim()) return obj.label.trim()
+          }
+        }
+      }
+    }
+  }
+  return null
+}
+
 /** Log a webhook event to the database */
 async function logWebhookEvent(
   supabase: ReturnType<typeof createClient>,
@@ -367,26 +402,108 @@ async function handleBookingCreated(
   }
 
   if (!prospectId) {
-    const warning = `No prospect matched. Email: ${attendeeEmail}, Phone: ${attendeePhone?.slice(0, 6)}***, MetadataId: ${metaProspectId}`
-    console.warn(`[calcom-webhook] ${warning}`)
+    console.log(`[calcom-webhook] No existing prospect found. Creating new prospect from Cal.com data.`)
 
-    await logWebhookEvent(supabase, {
-      event_type: triggerEvent,
-      trigger_id: bookingId,
-      status: 'failed',
-      error_message: warning,
-      payload: {
-        attendeeEmail,
-        attendeePhone: attendeePhone?.slice(0, 6),
-        metaProspectId,
-        matchMethod,
-      },
-    })
+    // Extract data from Cal.com responses and attendees
+    const calFirstName = extractFromResponses(responsesObj, [
+      'prenom', 'prénom', 'firstname', 'first_name', 'firstName',
+    ]) || null
 
-    return { ok: false, warning, bookingId }
+    const calLastName = extractFromResponses(responsesObj, [
+      'nom', 'lastName', 'last_name', 'lastname',
+    ]) || null
+
+    const calEmail = extractFromResponses(responsesObj, [
+      'email', 'mail',
+    ]) || attendeeEmail || null
+
+    const calPhone = extractFromResponses(responsesObj, [
+      'phone', 'telephone', 'téléphone', 'tel', 'phoneNumber', 'phone_number',
+    ]) || attendeePhone || null
+
+    const calCompany = extractFromResponses(responsesObj, [
+      'company', 'entreprise', 'company_name', 'companyName', 'nom_entreprise',
+      'nomEntreprise', 'societe', 'société', 'nom de lentreprise',
+    ]) || null
+
+    // Build company name: prefer explicit company, fallback to full name
+    const companyName = calCompany
+      || (calLastName ? `${calFirstName || ''} ${calLastName}`.trim() : null)
+      || attendeeName
+      || calEmail
+      || 'Prospect Cal.com'
+
+    const phoneForProspect = calPhone || 'Non renseigné'
+
+    console.log(`[calcom-webhook] Cal.com data — company: ${companyName}, firstName: ${calFirstName}, lastName: ${calLastName}, email: ${calEmail}, phone: ${calPhone?.slice(0, 6)}***`)
+
+    // Find commercial to assign (organizer or founder)
+    let newProspectCommercialId: string | null = null
+    if (organizer?.email) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', organizer.email)
+        .limit(1)
+        .maybeSingle()
+      if (data) newProspectCommercialId = data.id
+    }
+    if (!newProspectCommercialId) {
+      const { data: founder } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'fondateur')
+        .limit(1)
+        .maybeSingle()
+      if (founder) newProspectCommercialId = founder.id
+    }
+
+    if (!newProspectCommercialId) {
+      const error = 'No commercial found to assign new prospect'
+      console.error(`[calcom-webhook] ${error}`)
+      await logWebhookEvent(supabase, {
+        event_type: triggerEvent,
+        trigger_id: bookingId,
+        status: 'failed',
+        error_message: error,
+      })
+      return { ok: false, error }
+    }
+
+    // Create the prospect
+    const { data: newProspect, error: prospectErr } = await supabase
+      .from('prospects')
+      .insert({
+        company_name: companyName,
+        contact_firstname: calFirstName,
+        contact_name: calLastName,
+        contact_email: calEmail,
+        phone: phoneForProspect,
+        status: 'rdv_pris',
+        commercial_id: newProspectCommercialId,
+        source: 'manual',
+        notes: `Prospect créé automatiquement via Cal.com — Booking: ${bookingId}`,
+      })
+      .select('id')
+      .single()
+
+    if (prospectErr) {
+      console.error(`[calcom-webhook] Failed to create prospect:`, prospectErr)
+      await logWebhookEvent(supabase, {
+        event_type: triggerEvent,
+        trigger_id: bookingId,
+        status: 'failed',
+        error_message: `Failed to create prospect: ${prospectErr.message}`,
+      })
+      return { ok: false, error: `Failed to create prospect: ${prospectErr.message}` }
+    }
+
+    prospectId = newProspect.id
+    matchMethod = 'created_new'
+    console.log(`[calcom-webhook] New prospect created: ${prospectId}`)
   }
 
-  console.log(`[calcom-webhook] Prospect matched: ${prospectId} via ${matchMethod}`)
+  console.log(`[calcom-webhook] Prospect ${matchMethod === 'created_new' ? 'created' : 'matched'}: ${prospectId} via ${matchMethod}`)
 
   // --- Deduplicate: check if a RDV already exists for this booking ---
   if (bookingId) {
