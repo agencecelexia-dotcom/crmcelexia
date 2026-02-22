@@ -303,13 +303,66 @@ export interface NicheHeatmapData {
   hours: number[]  // 7-19
 }
 
+// Map NAF code → sub-niche label using the generation categories
+function nafToSubNiche(codeNaf: string | null, profession: string | null): string {
+  if (!codeNaf) return profession || 'Non renseigné'
+
+  // Lazy-import to avoid circular deps at module level
+  const categories: { label: string; subNiches: { label: string; codes: string[] }[] }[] = [
+    {
+      label: 'Artisan Batiment',
+      subNiches: [
+        { label: 'Couvreur', codes: ['43.91B'] },
+        { label: 'Charpentier', codes: ['43.91A'] },
+        { label: 'Électricien', codes: ['43.21A', '43.21B'] },
+        { label: 'Plombier', codes: ['43.22A'] },
+        { label: 'Chauffagiste', codes: ['43.22B'] },
+        { label: 'Peintre', codes: ['43.34Z'] },
+        { label: 'Plaquiste', codes: ['43.31Z'] },
+        { label: 'Menuisier', codes: ['43.32A', '43.32B'] },
+        { label: 'Carreleur', codes: ['43.33Z'] },
+        { label: 'Maçon', codes: ['43.99C'] },
+        { label: 'Isolation', codes: ['43.29A'] },
+        { label: 'Terrassement', codes: ['43.12A', '43.12B'] },
+        { label: 'Démolition', codes: ['43.11Z'] },
+        { label: 'Étanchéité', codes: ['43.99A'] },
+        { label: 'Structure métal.', codes: ['43.99B'] },
+        { label: 'Paysagiste', codes: ['81.30Z'] },
+      ],
+    },
+    {
+      label: 'Beauté / Bien-être',
+      subNiches: [
+        { label: 'Coiffure', codes: ['96.02A'] },
+        { label: 'Soins beauté', codes: ['96.02B'] },
+        { label: 'Entretien corporel', codes: ['96.04Z'] },
+        { label: 'Autres soins', codes: ['96.09Z'] },
+      ],
+    },
+  ]
+
+  const code = codeNaf.trim()
+  for (const cat of categories) {
+    for (const sub of cat.subNiches) {
+      if (sub.codes.includes(code)) return sub.label
+    }
+  }
+
+  // Fallback: use profession field, strip category prefix if present
+  if (profession) {
+    const parts = profession.split(' > ')
+    return parts.length > 1 ? parts[parts.length - 1] : profession
+  }
+  return 'Autre'
+}
+
 export async function getCallHeatmapData(commercialId?: string): Promise<NicheHeatmapData> {
   const now = new Date()
   const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString()
 
   let query = supabase
     .from('calls')
-    .select('called_at, result, commercial_id, prospect:prospects!calls_prospect_id_fkey(profession)')
+    .select('called_at, result, commercial_id, prospect:prospects!calls_prospect_id_fkey(profession, code_naf)')
     .gte('called_at', threeMonthsAgo)
 
   if (commercialId) {
@@ -317,16 +370,16 @@ export async function getCallHeatmapData(commercialId?: string): Promise<NicheHe
   }
 
   const { data } = await query
-  const calls = (data ?? []) as unknown as { called_at: string; result: string; prospect?: { profession: string | null } }[]
+  const calls = (data ?? []) as unknown as { called_at: string; result: string; prospect?: { profession: string | null; code_naf: string | null } }[]
 
   const reachedResults = new Set(['reached_interested', 'reached_not_interested', 'reached_callback', 'reached_rdv'])
 
-  // Aggregate by niche x hour
+  // Aggregate by sub-niche x hour
   const grid: Record<string, { total: number; reached: number }> = {}
   const nicheStats: Record<string, { total: number; reached: number }> = {}
 
   for (const c of calls) {
-    const niche = c.prospect?.profession || 'Non renseigné'
+    const niche = nafToSubNiche(c.prospect?.code_naf ?? null, c.prospect?.profession ?? null)
     const dt = new Date(c.called_at)
     const hour = dt.getHours()
     if (hour < 7 || hour > 19) continue // business hours only
@@ -341,11 +394,11 @@ export async function getCallHeatmapData(commercialId?: string): Promise<NicheHe
     if (reachedResults.has(c.result)) nicheStats[niche].reached++
   }
 
-  // Keep top 10 niches with at least 5 calls, sorted by contact rate
+  // Keep top 12 sub-niches with at least 3 calls, sorted by contact rate
   const niches = Object.entries(nicheStats)
-    .filter(([, v]) => v.total >= 5)
+    .filter(([, v]) => v.total >= 3)
     .sort((a, b) => (b[1].reached / b[1].total) - (a[1].reached / a[1].total))
-    .slice(0, 10)
+    .slice(0, 12)
     .map(([n]) => n)
 
   const hours = Array.from({ length: 13 }, (_, i) => i + 7)
@@ -384,7 +437,7 @@ export async function getPerformanceByNiche(commercialId?: string): Promise<Nich
 
   let query = supabase
     .from('calls')
-    .select('result, commercial_id, prospect:prospects!calls_prospect_id_fkey(profession)')
+    .select('result, commercial_id, prospect:prospects!calls_prospect_id_fkey(profession, code_naf)')
     .gte('called_at', threeMonthsAgo)
 
   if (commercialId) {
@@ -392,13 +445,13 @@ export async function getPerformanceByNiche(commercialId?: string): Promise<Nich
   }
 
   const { data } = await query
-  const calls = (data ?? []) as unknown as { result: string; prospect?: { profession: string | null } }[]
+  const calls = (data ?? []) as unknown as { result: string; prospect?: { profession: string | null; code_naf: string | null } }[]
 
   const reachedResults = new Set(['reached_interested', 'reached_not_interested', 'reached_callback', 'reached_rdv'])
   const nicheMap: Record<string, { total: number; reached: number; rdv: number }> = {}
 
   for (const c of calls) {
-    const niche = c.prospect?.profession || 'Non renseigné'
+    const niche = nafToSubNiche(c.prospect?.code_naf ?? null, c.prospect?.profession ?? null)
     if (!nicheMap[niche]) nicheMap[niche] = { total: 0, reached: 0, rdv: 0 }
     nicheMap[niche].total++
     if (reachedResults.has(c.result)) nicheMap[niche].reached++

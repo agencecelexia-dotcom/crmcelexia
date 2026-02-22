@@ -1,55 +1,50 @@
-import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { supabase, supabaseMisconfigured } from '@/lib/supabase/client'
 import { AuthContext, type AuthContextType } from '../hooks/use-auth'
 import type { Session } from '@supabase/supabase-js'
 import type { Profile } from '@/types'
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const initializedRef = useRef(false)
+async function fetchProfileFromDB(userId: string): Promise<Profile | null> {
+  const profilePromise = (async () => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single()
 
-  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
-    const profilePromise = (async () => {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single()
-
-          if (error) {
-            if (attempt === 0) {
-              await new Promise((r) => setTimeout(r, 1000))
-              continue
-            }
-            return null
-          }
-          return data as Profile
-        } catch {
+        if (error) {
           if (attempt === 0) {
             await new Promise((r) => setTimeout(r, 1000))
             continue
           }
           return null
         }
+        return data as Profile
+      } catch {
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 1000))
+          continue
+        }
+        return null
       }
-      return null
-    })()
+    }
+    return null
+  })()
 
-    return Promise.race([
-      profilePromise,
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
-    ])
-  }, [])
+  return Promise.race([
+    profilePromise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+  ])
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Only set up the auth listener ONCE
-    if (initializedRef.current) return
-    initializedRef.current = true
-
     let mounted = true
 
     if (supabaseMisconfigured) {
@@ -72,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         if (s?.user) {
-          const p = await fetchProfile(s.user.id)
+          const p = await fetchProfileFromDB(s.user.id)
           if (mounted) setProfile(p)
         } else {
           if (mounted) setProfile(null)
@@ -87,7 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeout)
       subscription.unsubscribe()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
