@@ -287,23 +287,29 @@ export async function getLossReasonStats(commercialId?: string): Promise<LossRea
     .sort((a, b) => b.count - a.count)
 }
 
-// ── Call Heatmap (hour x day of week) ──
+// ── Niche x Hour Heatmap — which niche to call at which hour ──
 
-export interface HeatmapCell {
-  hour: number // 0-23
-  day: number // 0=Mon, 6=Sun
+export interface NicheHourCell {
+  niche: string
+  hour: number // 7-19
   total: number
   reached: number
   rate: number // contact rate %
 }
 
-export async function getCallHeatmapData(commercialId?: string): Promise<HeatmapCell[]> {
+export interface NicheHeatmapData {
+  cells: NicheHourCell[]
+  niches: string[] // sorted by overall contact rate (best first)
+  hours: number[]  // 7-19
+}
+
+export async function getCallHeatmapData(commercialId?: string): Promise<NicheHeatmapData> {
   const now = new Date()
   const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString()
 
   let query = supabase
     .from('calls')
-    .select('called_at, result, commercial_id')
+    .select('called_at, result, commercial_id, prospect:prospects!calls_prospect_id_fkey(profession)')
     .gte('called_at', threeMonthsAgo)
 
   if (commercialId) {
@@ -311,39 +317,54 @@ export async function getCallHeatmapData(commercialId?: string): Promise<Heatmap
   }
 
   const { data } = await query
-  const calls = (data ?? []) as { called_at: string; result: string; commercial_id: string }[]
+  const calls = (data ?? []) as unknown as { called_at: string; result: string; prospect?: { profession: string | null } }[]
 
   const reachedResults = new Set(['reached_interested', 'reached_not_interested', 'reached_callback', 'reached_rdv'])
 
-  // Grid: 7 days x 24 hours
+  // Aggregate by niche x hour
   const grid: Record<string, { total: number; reached: number }> = {}
-  for (let d = 0; d < 7; d++) {
-    for (let h = 0; h < 24; h++) {
-      grid[`${d}-${h}`] = { total: 0, reached: 0 }
-    }
-  }
+  const nicheStats: Record<string, { total: number; reached: number }> = {}
 
   for (const c of calls) {
+    const niche = c.prospect?.profession || 'Non renseigné'
     const dt = new Date(c.called_at)
-    const day = (dt.getDay() + 6) % 7 // Mon=0, Sun=6
     const hour = dt.getHours()
-    const key = `${day}-${hour}`
+    if (hour < 7 || hour > 19) continue // business hours only
+
+    const key = `${niche}|${hour}`
+    if (!grid[key]) grid[key] = { total: 0, reached: 0 }
     grid[key].total++
-    if (reachedResults.has(c.result)) {
-      grid[key].reached++
+    if (reachedResults.has(c.result)) grid[key].reached++
+
+    if (!nicheStats[niche]) nicheStats[niche] = { total: 0, reached: 0 }
+    nicheStats[niche].total++
+    if (reachedResults.has(c.result)) nicheStats[niche].reached++
+  }
+
+  // Keep top 10 niches with at least 5 calls, sorted by contact rate
+  const niches = Object.entries(nicheStats)
+    .filter(([, v]) => v.total >= 5)
+    .sort((a, b) => (b[1].reached / b[1].total) - (a[1].reached / a[1].total))
+    .slice(0, 10)
+    .map(([n]) => n)
+
+  const hours = Array.from({ length: 13 }, (_, i) => i + 7)
+
+  const cells: NicheHourCell[] = []
+  for (const niche of niches) {
+    for (const hour of hours) {
+      const v = grid[`${niche}|${hour}`] ?? { total: 0, reached: 0 }
+      cells.push({
+        niche,
+        hour,
+        total: v.total,
+        reached: v.reached,
+        rate: v.total > 0 ? Math.round((v.reached / v.total) * 100) : 0,
+      })
     }
   }
 
-  return Object.entries(grid).map(([key, v]) => {
-    const [day, hour] = key.split('-').map(Number)
-    return {
-      hour,
-      day,
-      total: v.total,
-      reached: v.reached,
-      rate: v.total > 0 ? Math.round((v.reached / v.total) * 100) : 0,
-    }
-  })
+  return { cells, niches, hours }
 }
 
 // ── Performance by Niche ──

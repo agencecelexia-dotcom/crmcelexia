@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { supabase, supabaseMisconfigured } from '@/lib/supabase/client'
 import { AuthContext, type AuthContextType } from '../hooks/use-auth'
 import type { Session } from '@supabase/supabase-js'
@@ -8,9 +8,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const initializedRef = useRef(false)
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
-    // Wrap in a 5-second timeout to prevent infinite hang
     const profilePromise = (async () => {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
@@ -46,15 +46,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    // Only set up the auth listener ONCE
+    if (initializedRef.current) return
+    initializedRef.current = true
+
     let mounted = true
 
-    // If Supabase is misconfigured, stop loading immediately
     if (supabaseMisconfigured) {
       setIsLoading(false)
       return
     }
 
-    // Safety timeout — hard cap at 5 seconds
     const timeout = setTimeout(() => {
       if (mounted) {
         setIsLoading(false)
@@ -76,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (mounted) setProfile(null)
         }
       } finally {
-        // ALWAYS stop loading regardless of profile fetch outcome
         if (mounted) setIsLoading(false)
       }
     })
@@ -86,7 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeout)
       subscription.unsubscribe()
     }
-  }, [fetchProfile])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })

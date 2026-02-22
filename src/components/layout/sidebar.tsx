@@ -94,7 +94,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     <div className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 px-6">
-        <img src="/logo.png" alt="Celexia" className="h-8 w-8 rounded-lg" />
+        <img src="/logo.jpg" alt="Celexia" className="h-8 w-8 rounded-lg" />
         <span className="text-lg font-bold tracking-tight text-white">Celexia</span>
       </div>
       <Separator className="bg-sidebar-border" />
