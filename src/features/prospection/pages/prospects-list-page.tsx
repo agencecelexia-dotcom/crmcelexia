@@ -60,7 +60,7 @@ import {
 } from 'lucide-react'
 import { exportToCsv } from '@/lib/export-csv'
 import { ProspectGenerationModal } from '../components/prospect-generation-modal'
-import { toast } from 'sonner'
+
 
 const STATUS_OPTIONS = Object.entries(PROSPECT_STATUS_LABELS) as [ProspectStatus, string][]
 
