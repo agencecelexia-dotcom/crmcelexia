@@ -55,6 +55,7 @@ import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
+import { useUndo } from '@/hooks/use-undo'
 import { supabase } from '@/lib/supabase/client'
 import {
   Dialog,
@@ -97,6 +98,7 @@ export function ProspectDetailPage() {
   const [undoing, setUndoing] = useState(false)
   const logCallMutation = useLogCall()
   const createReminder = useCreateReminder()
+  const { setUndoAction } = useUndo()
   // ── Keyboard navigation: Arrow Up/Down to switch prospects ──
   const { data: prospectListData } = useProspects({ page: 1, pageSize: 200, sortBy: 'created_at', sortDesc: true })
   const prospectIds = useMemo(() => (prospectListData?.data ?? []).map((p) => p.id), [prospectListData])
@@ -296,6 +298,7 @@ export function ProspectDetailPage() {
       return
     }
     try {
+      const previousStatus = prospect!.status
       const currentFields = prospect!.custom_fields ?? {}
       await updateProspect.mutateAsync({
         id: prospect!.id,
@@ -312,6 +315,17 @@ export function ProspectDetailPage() {
         } as Record<string, unknown> as never,
       })
       toast.success('Raison de perte enregistrée')
+      // Register undo
+      setUndoInfo({ previousStatus: previousStatus as ProspectStatus, newStatus: 'perdu' as ProspectStatus })
+      setUndoAction({
+        label: `Annuler: ${prospect!.company_name} → Perdu`,
+        undo: async () => {
+          await updateProspect.mutateAsync({
+            id: prospect!.id,
+            updates: { status: previousStatus },
+          })
+        },
+      })
       // Auto-log a call for status change
       if (session?.user) {
         try {
@@ -383,9 +397,18 @@ export function ProspectDetailPage() {
     const previousStatus = prospect!.status
     const newStatus = CALL_RESULT_TO_STATUS[result]
 
-    // Show persistent undo banner if status changed
+    // Show persistent undo banner + global sidebar undo if status changed
     if (newStatus && newStatus !== previousStatus) {
       setUndoInfo({ previousStatus, newStatus })
+      setUndoAction({
+        label: `Annuler: ${prospect!.company_name} → ${PROSPECT_STATUS_LABELS[newStatus]}`,
+        undo: async () => {
+          await updateProspect.mutateAsync({
+            id: prospect!.id,
+            updates: { status: previousStatus },
+          })
+        },
+      })
       toast.success(`Statut : ${PROSPECT_STATUS_LABELS[previousStatus]} → ${PROSPECT_STATUS_LABELS[newStatus]}`)
     }
 
@@ -1010,6 +1033,7 @@ export function ProspectDetailPage() {
                   return
                 }
                 try {
+                  const previousStatus = prospect.status
                   // 1. Change status to à_rappeler
                   await updateProspect.mutateAsync({
                     id: prospect.id,
@@ -1024,6 +1048,17 @@ export function ProspectDetailPage() {
                       note: rappelerNote.trim(),
                     })
                   }
+                  // Register undo
+                  setUndoInfo({ previousStatus: previousStatus as ProspectStatus, newStatus: 'a_rappeler' as ProspectStatus })
+                  setUndoAction({
+                    label: `Annuler: ${prospect.company_name} → À rappeler`,
+                    undo: async () => {
+                      await updateProspect.mutateAsync({
+                        id: prospect.id,
+                        updates: { status: previousStatus },
+                      })
+                    },
+                  })
                   toast.success('Statut → À rappeler, rappel planifié')
                   setRappelerDialogOpen(false)
                   setRappelerDate('')
