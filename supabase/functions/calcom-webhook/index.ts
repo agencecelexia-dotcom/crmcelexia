@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
     const hasWebhookSecret = !!Deno.env.get('CALCOM_WEBHOOK_SECRET')
     return new Response(JSON.stringify({
       status: 'ok',
-      version: '2.0.0',
+      version: '3.1.0',
       timestamp: new Date().toISOString(),
       config: {
         supabase_url: supabaseUrl ? 'configured' : 'MISSING',
@@ -348,7 +348,14 @@ async function handleBookingCreated(
   }
 
   // 3. Match by phone (with French number normalization)
-  const attendeePhone = responses?.phone?.value || attendees[0]?.phone || (metadata.phone as string | undefined) || null
+  // Cal.com puts phone in responses.attendeePhoneNumber (string) or responses.phone.value (object)
+  const attendeePhone =
+    (typeof responsesObj?.attendeePhoneNumber === 'string' ? responsesObj.attendeePhoneNumber : null)
+    || (typeof responsesObj?.phone === 'string' ? responsesObj.phone : null)
+    || responses?.phone?.value
+    || (attendees[0]?.phone as string | undefined)
+    || (metadata.phone as string | undefined)
+    || null
   if (attendeePhone && !prospectId) {
     const phoneVariants = normalizePhone(attendeePhone)
     console.log(`[calcom-webhook] Trying phone variants:`, phoneVariants)
@@ -419,6 +426,7 @@ async function handleBookingCreated(
 
     const calPhone = extractFromResponses(responsesObj, [
       'phone', 'telephone', 'téléphone', 'tel', 'phoneNumber', 'phone_number',
+      'attendeePhoneNumber', 'attendeephonenumber',
     ]) || attendeePhone || null
 
     const calCompany = extractFromResponses(responsesObj, [
