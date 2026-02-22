@@ -5,7 +5,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useNavigate } from 'react-router-dom'
 import {
   ChevronLeft,
   ChevronRight,
@@ -20,17 +19,18 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addW
 import { fr } from 'date-fns/locale'
 import type { CalendarEvent } from '../services/calendar-service'
 import { AddEventDialog } from '../components/add-event-dialog'
+import { EventDetailDialog } from '../components/event-detail-dialog'
 import { toast } from 'sonner'
 
 type ViewMode = 'day' | 'week' | 'month'
 
 export function CalendarPage() {
   const { profile, isFounder } = useAuth()
-  const navigate = useNavigate()
   const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showAddEvent, setShowAddEvent] = useState(false)
   const deleteEvent = useDeleteCalendarEvent()
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
 
   // Drag-to-create state
   const [dragEventDate, setDragEventDate] = useState<Date | undefined>()
@@ -111,9 +111,7 @@ export function CalendarPage() {
   }
 
   const handleEventClick = (e: CalendarEvent) => {
-    if (e.prospectId) {
-      navigate(`/prospects/${e.prospectId}`)
-    }
+    setSelectedEvent(e)
   }
 
   const handleDeleteManualEvent = async (rawId: string) => {
@@ -209,7 +207,7 @@ export function CalendarPage() {
       {isLoading ? (
         <Skeleton className="h-96" />
       ) : viewMode === 'month' ? (
-        <MonthView days={days} getEventsForDay={getEventsForDay} eventTypeIcon={eventTypeIcon} navigate={navigate} onDeleteManual={handleDeleteManualEvent} />
+        <MonthView days={days} getEventsForDay={getEventsForDay} eventTypeIcon={eventTypeIcon} onEventClick={handleEventClick} onDeleteManual={handleDeleteManualEvent} />
       ) : viewMode === 'week' ? (
         <WeekView days={days} getEventsForDay={getEventsForDay} onEventClick={handleEventClick} onDeleteManual={handleDeleteManualEvent} onDragCreate={handleDragCreate} />
       ) : (
@@ -223,6 +221,12 @@ export function CalendarPage() {
         defaultStartTime={dragEventStartTime}
         defaultEndTime={dragEventEndTime}
       />
+
+      <EventDetailDialog
+        event={selectedEvent}
+        open={!!selectedEvent}
+        onOpenChange={(open) => { if (!open) setSelectedEvent(null) }}
+      />
     </div>
   )
 }
@@ -231,13 +235,13 @@ function MonthView({
   days,
   getEventsForDay,
   eventTypeIcon,
-  navigate,
+  onEventClick,
   onDeleteManual,
 }: {
   days: Date[]
   getEventsForDay: (day: Date) => CalendarEvent[]
   eventTypeIcon: (type: string) => React.ReactNode
-  navigate: (path: string) => void
+  onEventClick: (e: CalendarEvent) => void
   onDeleteManual: (id: string) => void
 }) {
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
@@ -271,7 +275,7 @@ function MonthView({
                       key={e.id}
                       className="text-[10px] rounded px-1 py-0.5 cursor-pointer truncate flex items-center gap-1 group/evt"
                       style={{ backgroundColor: e.color + '20', color: e.color }}
-                      onClick={() => e.prospectId && navigate(`/prospects/${e.prospectId}`)}
+                      onClick={() => onEventClick(e)}
                     >
                       {eventTypeIcon(e.type)}
                       <span className="truncate flex-1">{e.prospectName ?? e.title}</span>

@@ -9,6 +9,7 @@ import type { ProspectStatus } from '@/types/enums'
 import {
   PROSPECT_STATUS_LABELS,
   PROSPECT_STATUS_COLORS,
+  PROSPECT_STATUS_ROW_COLORS,
 } from '@/types/enums'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -614,7 +615,7 @@ export function ProspectsListPage() {
                             ? 'bg-primary/10'
                             : isPanelSelected
                             ? 'bg-primary/5 border-l-2 border-l-primary'
-                            : 'hover:bg-muted/50'
+                            : `${PROSPECT_STATUS_ROW_COLORS[prospect.status]} hover:bg-muted/50`
                         }`}
                         onClick={() => setSelectedProspect(prospect)}
                       >

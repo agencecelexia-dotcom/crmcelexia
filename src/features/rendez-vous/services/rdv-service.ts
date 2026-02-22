@@ -151,6 +151,51 @@ export async function updateRdv({ id, updates }: UpdateRdvParams): Promise<Rende
   return data as unknown as RendezVous
 }
 
+interface RescheduleRdvParams {
+  rdvId: string
+  newScheduledAt: string
+  newDurationMinutes?: number
+}
+
+export async function rescheduleRdv({ rdvId, newScheduledAt, newDurationMinutes }: RescheduleRdvParams): Promise<RendezVous> {
+  // 1. Fetch the existing RDV
+  const { data: oldRdv, error: fetchError } = await supabase
+    .from('rendez_vous')
+    .select('*')
+    .eq('id', rdvId)
+    .single()
+
+  if (fetchError || !oldRdv) throw fetchError ?? new Error('RDV introuvable')
+
+  // 2. Mark old RDV as no_show
+  const { error: updateError } = await supabase
+    .from('rendez_vous')
+    .update({ status: 'no_show' as RdvStatus })
+    .eq('id', rdvId)
+
+  if (updateError) throw updateError
+
+  // 3. Create new RDV with same details but new date
+  const { data: newRdv, error: createError } = await supabase
+    .from('rendez_vous')
+    .insert({
+      prospect_id: oldRdv.prospect_id,
+      commercial_id: oldRdv.commercial_id,
+      scheduled_at: newScheduledAt,
+      duration_minutes: newDurationMinutes ?? oldRdv.duration_minutes,
+      type: oldRdv.type,
+      status: 'prevu' as RdvStatus,
+      location: oldRdv.location,
+      meeting_url: oldRdv.meeting_url,
+      notes: oldRdv.notes,
+    })
+    .select()
+    .single()
+
+  if (createError) throw createError
+  return newRdv as unknown as RendezVous
+}
+
 export async function getMyUpcomingRdv(commercialId: string): Promise<RendezVous[]> {
   const { data, error } = await supabase
     .from('rendez_vous')

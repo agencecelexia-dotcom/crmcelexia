@@ -69,6 +69,12 @@ export async function getCalendarEvents(
         prospectId: rdv.prospect_id,
         prospectName: rdv.prospect?.company_name ?? null,
         color: rdv.status === 'fait' ? '#10B981' : rdv.status === 'annule' ? '#6B7280' : rdv.status === 'no_show' ? '#EF4444' : '#3B82F6',
+        meta: {
+          rawId: rdv.id,
+          rdvType: rdv.type,
+          durationMinutes: rdv.duration_minutes,
+          commercialId: rdv.commercial_id,
+        },
       })
     }
   }
@@ -99,7 +105,11 @@ export async function getCalendarEvents(
         prospectId: r.prospect_id,
         prospectName: r.prospect?.company_name ?? null,
         color: '#F59E0B',
-        meta: { note: r.note },
+        meta: {
+          rawId: r.id,
+          note: r.note,
+          commercialId: r.commercial_id,
+        },
       })
     }
   }

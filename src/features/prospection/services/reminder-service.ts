@@ -64,6 +64,27 @@ export async function getMyReminders(commercialId: string, options?: {
   return (data ?? []) as unknown as Reminder[]
 }
 
+export async function updateReminder(id: string, updates: { remind_at?: string; note?: string }): Promise<Reminder> {
+  const { data, error } = await supabase
+    .from('reminders')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Reminder
+}
+
+export async function deleteReminder(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('reminders')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw error
+}
+
 export async function completeReminder(id: string): Promise<Reminder> {
   const { data, error } = await supabase
     .from('reminders')

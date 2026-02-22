@@ -39,6 +39,20 @@ export const PROSPECT_STATUS_COLORS: Record<ProspectStatus, string> = {
   faux_numero: 'bg-amber-100 text-amber-800',
 }
 
+// Light row background colors for prospect list
+export const PROSPECT_STATUS_ROW_COLORS: Record<ProspectStatus, string> = {
+  nouveau: 'bg-gray-50/60',
+  appele_sans_reponse: 'bg-orange-50/60',
+  messagerie: 'bg-orange-50/60',
+  interesse: 'bg-blue-50/60',
+  negatif: 'bg-red-50/60',
+  a_rappeler: 'bg-purple-50/60',
+  rdv_pris: 'bg-green-50/60',
+  perdu: 'bg-red-100/40',
+  converti_client: 'bg-emerald-50/60',
+  faux_numero: 'bg-amber-50/60',
+}
+
 // Valid status transitions
 export const PROSPECT_STATUS_TRANSITIONS: Record<ProspectStatus, ProspectStatus[]> = {
   nouveau: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu', 'faux_numero'],
