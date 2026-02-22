@@ -14,17 +14,18 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import {
   PROSPECT_STATUS_LABELS,
   PROSPECT_STATUS_COLORS,
-  CALL_RESULT_LABELS,
+  CALL_RESULT_TO_STATUS,
   LOSS_REASON_LABELS,
   LOSS_REASON_COLORS,
   type CallResult,
   type ProspectStatus,
   type LossReason,
 } from '@/types/enums'
-import { useLogCall, useCallsForProspect } from '../hooks/use-calls'
+import { useLogCall } from '../hooks/use-calls'
 import { CallLogger } from '../components/call-logger'
 import { CallHistory } from '../components/call-history'
 import { ReminderForm } from '../components/reminder-form'
+import { useCreateReminder } from '../hooks/use-reminders'
 import { ReminderList } from '../components/reminder-list'
 import { RdvForm } from '@/features/rendez-vous/components/rdv-form'
 import { RdvListForProspect } from '@/features/rendez-vous/components/rdv-list-for-prospect'
@@ -46,6 +47,8 @@ import {
   UserCheck,
   ChevronUp,
   ChevronDown,
+  Loader2,
+  PhoneForwarded,
 } from 'lucide-react'
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -83,14 +86,14 @@ export function ProspectDetailPage() {
   const [callLoggerOpen, setCallLoggerOpen] = useState(false)
   const [reminderFormOpen, setReminderFormOpen] = useState(false)
   const [rdvFormOpen, setRdvFormOpen] = useState(false)
+  const [rappelerDialogOpen, setRappelerDialogOpen] = useState(false)
+  const [rappelerDate, setRappelerDate] = useState('')
+  const [rappelerTime, setRappelerTime] = useState('09:00')
+  const [rappelerNote, setRappelerNote] = useState('')
   const [lastCallId, setLastCallId] = useState<string | null>(null)
   const [waitingForCalcom, setWaitingForCalcom] = useState(false)
   const logCallMutation = useLogCall()
-  const { data: calls } = useCallsForProspect(id)
-
-  // Filter calls that have notes
-  const callsWithNotes = useMemo(() => (calls ?? []).filter((c) => c.note), [calls])
-
+  const createReminder = useCreateReminder()
   // ── Keyboard navigation: Arrow Up/Down to switch prospects ──
   const { data: prospectListData } = useProspects({ page: 1, pageSize: 200, sortBy: 'created_at', sortDesc: true })
   const prospectIds = useMemo(() => (prospectListData?.data ?? []).map((p) => p.id), [prospectListData])
@@ -107,7 +110,7 @@ export function ProspectDetailPage() {
       const tag = (e.target as HTMLElement)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       // Don't navigate if a dialog is open
-      if (callLoggerOpen || reminderFormOpen || rdvFormOpen || lossDialogOpen || isEditing) return
+      if (callLoggerOpen || reminderFormOpen || rdvFormOpen || lossDialogOpen || rappelerDialogOpen || isEditing) return
 
       if (e.key === 'ArrowDown' && currentIndex >= 0 && currentIndex < prospectIds.length - 1) {
         e.preventDefault()
@@ -119,7 +122,7 @@ export function ProspectDetailPage() {
     }
     document.addEventListener('keydown', handleKeyNav)
     return () => document.removeEventListener('keydown', handleKeyNav)
-  }, [currentIndex, prospectIds, navigate, callLoggerOpen, reminderFormOpen, rdvFormOpen, lossDialogOpen, isEditing])
+  }, [currentIndex, prospectIds, navigate, callLoggerOpen, reminderFormOpen, rdvFormOpen, lossDialogOpen, rappelerDialogOpen, isEditing])
 
   // Supabase Realtime: listen for new RDVs created for this prospect (by webhook)
   useEffect(() => {
@@ -353,7 +356,7 @@ export function ProspectDetailPage() {
       window.open(bookingUrl, '_blank', 'noopener,noreferrer')
 
       // Immediately update prospect status to rdv_pris
-      const statusesToUpdate = ['nouveau', 'appele_sans_reponse', 'messagerie', 'interesse', 'a_rappeler', 'negatif']
+      const statusesToUpdate = ['nouveau', 'messagerie', 'interesse', 'a_rappeler', 'negatif']
       if (statusesToUpdate.includes(prospect.status)) {
         try {
           await updateProspect.mutateAsync({
@@ -373,6 +376,33 @@ export function ProspectDetailPage() {
 
   function handleCallSuccess(callId: string, result: CallResult) {
     setLastCallId(callId)
+
+    const previousStatus = prospect!.status
+    const newStatus = CALL_RESULT_TO_STATUS[result]
+
+    // Show undo toast if status changed
+    if (newStatus && newStatus !== previousStatus) {
+      toast.success(
+        `Statut : ${PROSPECT_STATUS_LABELS[previousStatus]} → ${PROSPECT_STATUS_LABELS[newStatus]}`,
+        {
+          duration: 8000,
+          action: {
+            label: 'Annuler',
+            onClick: async () => {
+              try {
+                await updateProspect.mutateAsync({
+                  id: prospect!.id,
+                  updates: { status: previousStatus } as Record<string, unknown> as never,
+                })
+                toast.success(`Statut rétabli → ${PROSPECT_STATUS_LABELS[previousStatus]}`)
+              } catch {
+                toast.error('Erreur lors de l\'annulation')
+              }
+            },
+          },
+        },
+      )
+    }
 
     // Open loss reason dialog for negative results
     if (result === 'reached_not_interested') {
@@ -579,34 +609,6 @@ export function ProspectDetailPage() {
             </Card>
           )}
 
-          {/* Call Notes */}
-          {callsWithNotes.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  Notes d'appels ({callsWithNotes.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {callsWithNotes.map((call) => (
-                  <div key={call.id} className="rounded-lg border p-3 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-primary">
-                        {CALL_RESULT_LABELS[call.result]}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(call.called_at)}
-                        {call.commercial && ` — ${call.commercial.full_name}`}
-                      </span>
-                    </div>
-                    <p className="text-sm whitespace-pre-wrap">{call.note}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
           {/* Lead Scoring */}
           <LeadScoring
             initialScore={savedLeadScore}
@@ -684,6 +686,15 @@ export function ProspectDetailPage() {
                     <Button className="w-full" size="sm" onClick={() => setCallLoggerOpen(true)}>
                       <Phone className="mr-2 h-4 w-4" />
                       Logger un appel
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
+                      size="sm"
+                      onClick={() => setRappelerDialogOpen(true)}
+                    >
+                      <PhoneForwarded className="mr-2 h-4 w-4" />
+                      À rappeler
                     </Button>
                     {calcomLink ? (
                       <Button variant="outline" className="w-full" size="sm" onClick={openCalcom}>
@@ -903,6 +914,96 @@ export function ProspectDetailPage() {
           defaultType={lastCallId ? 'visio' : undefined}
         />
       )}
+
+      {/* À rappeler Dialog */}
+      <Dialog open={rappelerDialogOpen} onOpenChange={(o) => { if (!o) { setRappelerDate(''); setRappelerTime('09:00'); setRappelerNote('') }; setRappelerDialogOpen(o) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PhoneForwarded className="h-5 w-5" />
+              À rappeler
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg bg-muted p-3">
+              <p className="font-medium">{prospect.company_name}</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Date du rappel *</Label>
+                <Input
+                  type="date"
+                  value={rappelerDate}
+                  onChange={(e) => setRappelerDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Heure *</Label>
+                <Input
+                  type="time"
+                  value={rappelerTime}
+                  onChange={(e) => setRappelerTime(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Note *</Label>
+              <Textarea
+                value={rappelerNote}
+                onChange={(e) => setRappelerNote(e.target.value)}
+                placeholder="Pourquoi rappeler ce prospect..."
+                rows={3}
+              />
+            </div>
+            {rappelerDate && (
+              <p className="text-sm text-muted-foreground">
+                Rappel le {new Date(`${rappelerDate}T${rappelerTime}`).toLocaleDateString('fr-FR', {
+                  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+                })} à {rappelerTime}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRappelerDialogOpen(false)}>Annuler</Button>
+            <Button
+              disabled={!rappelerDate || !rappelerNote.trim() || updateProspect.isPending || createReminder.isPending}
+              onClick={async () => {
+                if (!rappelerDate || !rappelerNote.trim()) {
+                  toast.error('La date et la note sont obligatoires')
+                  return
+                }
+                try {
+                  // 1. Change status to à_rappeler
+                  await updateProspect.mutateAsync({
+                    id: prospect.id,
+                    updates: { status: 'a_rappeler' } as Record<string, unknown> as never,
+                  })
+                  // 2. Create reminder
+                  if (session?.user) {
+                    await createReminder.mutateAsync({
+                      prospect_id: prospect.id,
+                      commercial_id: session.user.id,
+                      remind_at: `${rappelerDate}T${rappelerTime}:00`,
+                      note: rappelerNote.trim(),
+                    })
+                  }
+                  toast.success('Statut → À rappeler, rappel planifié')
+                  setRappelerDialogOpen(false)
+                  setRappelerDate('')
+                  setRappelerTime('09:00')
+                  setRappelerNote('')
+                } catch {
+                  toast.error('Erreur lors de la mise à jour')
+                }
+              }}
+            >
+              {(updateProspect.isPending || createReminder.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Loss Reason Dialog */}
       <Dialog open={lossDialogOpen} onOpenChange={setLossDialogOpen}>

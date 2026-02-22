@@ -10,6 +10,7 @@ import {
   getProjectNotes,
   createProjectNote,
   getDevisForClient,
+  getAllClientsForMap,
   createDevis,
   updateDevis,
   type ClientFilters,
@@ -147,6 +148,14 @@ export function useCreateDevis() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
     onError: () => toast.error('Erreur lors de la création du devis'),
+  })
+}
+
+export function useClientsForMap() {
+  return useQuery({
+    queryKey: ['clients', 'map'],
+    queryFn: getAllClientsForMap,
+    staleTime: STALE_TIME_LIST,
   })
 }
 

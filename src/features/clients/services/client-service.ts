@@ -236,6 +236,17 @@ export async function createDevis(params: {
   return data as Devis
 }
 
+// All clients for map (no pagination)
+export async function getAllClientsForMap(): Promise<Pick<Client, 'id' | 'company_name' | 'city' | 'address' | 'status'>[]> {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('id, company_name, city, address, status')
+    .is('deleted_at', null)
+
+  if (error) throw error
+  return (data ?? []) as Pick<Client, 'id' | 'company_name' | 'city' | 'address' | 'status'>[]
+}
+
 export async function updateDevis(id: string, updates: Partial<Devis>): Promise<Devis> {
   const { data, error } = await supabase
     .from('devis')

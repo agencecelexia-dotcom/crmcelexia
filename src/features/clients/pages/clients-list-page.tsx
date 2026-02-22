@@ -25,7 +25,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Search, Users, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Users, ChevronLeft, ChevronRight, List, Map } from 'lucide-react'
+import { ClientsMap } from '../components/clients-map'
 
 const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
   actif: 'Actif',
@@ -44,6 +45,7 @@ export function ClientsListPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<ClientStatus | 'all'>('all')
   const [page, setPage] = useState(1)
+  const [view, setView] = useState<'list' | 'map'>('list')
 
   const debouncedSearch = useDebounce(search, 300)
 
@@ -62,8 +64,8 @@ export function ClientsListPage() {
         </p>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
+      {/* Filters + view toggle */}
+      <div className="flex gap-3 flex-wrap items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -84,10 +86,31 @@ export function ClientsListPage() {
             ))}
           </SelectContent>
         </Select>
+        <div className="flex border rounded-md ml-auto">
+          <Button
+            variant={view === 'list' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setView('list')}
+            className="rounded-r-none"
+          >
+            <List className="h-4 w-4 mr-1" /> Liste
+          </Button>
+          <Button
+            variant={view === 'map' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setView('map')}
+            className="rounded-l-none"
+          >
+            <Map className="h-4 w-4 mr-1" /> Carte
+          </Button>
+        </div>
       </div>
 
+      {/* Map view */}
+      {view === 'map' && <ClientsMap />}
+
       {/* Table */}
-      <Card>
+      {view === 'list' && <Card>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="p-4 space-y-3">
@@ -145,10 +168,10 @@ export function ClientsListPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Pagination */}
-      {data && data.totalPages > 1 && (
+      {view === 'list' && data && data.totalPages > 1 && (
         <div className="flex items-center justify-between text-sm">
           <p className="text-muted-foreground">
             {data.count} clients — page {data.page}/{data.totalPages}

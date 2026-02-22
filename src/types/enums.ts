@@ -38,11 +38,11 @@ export const PROSPECT_STATUS_COLORS: Record<ProspectStatus, string> = {
 
 // Valid status transitions
 export const PROSPECT_STATUS_TRANSITIONS: Record<ProspectStatus, ProspectStatus[]> = {
-  nouveau: ['appele_sans_reponse', 'messagerie', 'interesse', 'negatif', 'rdv_pris', 'perdu'],
-  appele_sans_reponse: ['appele_sans_reponse', 'messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'],
-  messagerie: ['appele_sans_reponse', 'messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'],
+  nouveau: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'],
+  appele_sans_reponse: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'],
+  messagerie: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'],
   interesse: ['a_rappeler', 'rdv_pris', 'negatif', 'perdu'],
-  a_rappeler: ['appele_sans_reponse', 'messagerie', 'interesse', 'negatif', 'rdv_pris', 'perdu'],
+  a_rappeler: ['messagerie', 'interesse', 'negatif', 'rdv_pris', 'perdu'],
   rdv_pris: ['rdv_pris', 'converti_client', 'perdu', 'a_rappeler'],
   negatif: ['a_rappeler', 'rdv_pris'],
   perdu: ['a_rappeler', 'rdv_pris'],
@@ -75,14 +75,14 @@ export const CALL_RESULT_LABELS: Record<CallResult, string> = {
 
 // Map call result to suggested new prospect status
 export const CALL_RESULT_TO_STATUS: Record<CallResult, ProspectStatus> = {
-  no_answer: 'appele_sans_reponse',
+  no_answer: 'messagerie',
   voicemail: 'messagerie',
   reached_interested: 'interesse',
   reached_not_interested: 'negatif',
   reached_callback: 'a_rappeler',
   reached_rdv: 'rdv_pris',
   wrong_number: 'negatif',
-  other: 'appele_sans_reponse',
+  other: 'messagerie',
 }
 
 // Call results that require a mandatory note

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useAuth } from '@/features/auth/hooks/use-auth'
-import { useCalendarEvents } from '../hooks/use-calendar'
+import { useCalendarEvents, useDeleteCalendarEvent } from '../hooks/use-calendar'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,10 +12,15 @@ import {
   Clock,
   Phone,
   Video,
+  Plus,
+  CalendarPlus,
+  Trash2,
 } from 'lucide-react'
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, isSameDay, isToday, parseISO, eachDayOfInterval } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { CalendarEvent } from '../services/calendar-service'
+import { AddEventDialog } from '../components/add-event-dialog'
+import { toast } from 'sonner'
 
 type ViewMode = 'day' | 'week' | 'month'
 
@@ -24,6 +29,8 @@ export function CalendarPage() {
   const navigate = useNavigate()
   const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [showAddEvent, setShowAddEvent] = useState(false)
+  const deleteEvent = useDeleteCalendarEvent()
 
   const { startDate, endDate } = useMemo(() => {
     switch (viewMode) {
@@ -91,10 +98,26 @@ export function CalendarPage() {
     return (events ?? []).filter(e => isSameDay(parseISO(e.start), day))
   }
 
+  const handleEventClick = (e: CalendarEvent) => {
+    if (e.prospectId) {
+      navigate(`/prospects/${e.prospectId}`)
+    }
+  }
+
+  const handleDeleteManualEvent = async (rawId: string) => {
+    try {
+      await deleteEvent.mutateAsync(rawId)
+      toast.success('Événement supprimé')
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    }
+  }
+
   const eventTypeIcon = (type: string) => {
     switch (type) {
       case 'rdv': return <Video className="h-3 w-3" />
       case 'reminder': return <Clock className="h-3 w-3" />
+      case 'manual': return <CalendarPlus className="h-3 w-3" />
       default: return <Phone className="h-3 w-3" />
     }
   }
@@ -108,6 +131,10 @@ export function CalendarPage() {
             {isFounder ? 'Vue globale de l\'équipe' : 'Mes rendez-vous et rappels'}
           </p>
         </div>
+        <Button onClick={() => setShowAddEvent(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Ajouter
+        </Button>
       </div>
 
       {/* Controls */}
@@ -160,18 +187,28 @@ export function CalendarPage() {
           <div className="w-3 h-3 rounded-full bg-red-500" />
           <span>No-show</span>
         </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-full bg-violet-500" />
+          <span>Événement</span>
+        </div>
       </div>
 
       {/* Calendar Grid */}
       {isLoading ? (
         <Skeleton className="h-96" />
       ) : viewMode === 'month' ? (
-        <MonthView days={days} getEventsForDay={getEventsForDay} eventTypeIcon={eventTypeIcon} navigate={navigate} />
+        <MonthView days={days} getEventsForDay={getEventsForDay} eventTypeIcon={eventTypeIcon} navigate={navigate} onDeleteManual={handleDeleteManualEvent} />
       ) : viewMode === 'week' ? (
-        <WeekView days={days} getEventsForDay={getEventsForDay} onEventClick={(e) => e.prospectId && navigate(`/prospects/${e.prospectId}`)} />
+        <WeekView days={days} getEventsForDay={getEventsForDay} onEventClick={handleEventClick} onDeleteManual={handleDeleteManualEvent} />
       ) : (
-        <DayView events={getEventsForDay(currentDate)} onEventClick={(e) => e.prospectId && navigate(`/prospects/${e.prospectId}`)} eventTypeIcon={eventTypeIcon} />
+        <DayView events={getEventsForDay(currentDate)} onEventClick={handleEventClick} eventTypeIcon={eventTypeIcon} onDeleteManual={handleDeleteManualEvent} />
       )}
+
+      <AddEventDialog
+        open={showAddEvent}
+        onOpenChange={setShowAddEvent}
+        defaultDate={currentDate}
+      />
     </div>
   )
 }
@@ -181,11 +218,13 @@ function MonthView({
   getEventsForDay,
   eventTypeIcon,
   navigate,
+  onDeleteManual,
 }: {
   days: Date[]
   getEventsForDay: (day: Date) => CalendarEvent[]
   eventTypeIcon: (type: string) => React.ReactNode
   navigate: (path: string) => void
+  onDeleteManual: (id: string) => void
 }) {
   const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
   const currentMonth = days[Math.floor(days.length / 2)].getMonth()
@@ -216,12 +255,20 @@ function MonthView({
                   {dayEvents.slice(0, 3).map((e) => (
                     <div
                       key={e.id}
-                      className="text-[10px] rounded px-1 py-0.5 cursor-pointer truncate flex items-center gap-1"
+                      className="text-[10px] rounded px-1 py-0.5 cursor-pointer truncate flex items-center gap-1 group/evt"
                       style={{ backgroundColor: e.color + '20', color: e.color }}
                       onClick={() => e.prospectId && navigate(`/prospects/${e.prospectId}`)}
                     >
                       {eventTypeIcon(e.type)}
-                      <span className="truncate">{e.prospectName ?? e.title}</span>
+                      <span className="truncate flex-1">{e.prospectName ?? e.title}</span>
+                      {e.type === 'manual' && e.meta?.rawId ? (
+                        <button
+                          className="opacity-0 group-hover/evt:opacity-100 shrink-0"
+                          onClick={(ev) => { ev.stopPropagation(); onDeleteManual(e.meta!.rawId as string) }}
+                        >
+                          <Trash2 className="h-2.5 w-2.5" />
+                        </button>
+                      ) : null}
                     </div>
                   ))}
                   {dayEvents.length > 3 && (
@@ -241,10 +288,12 @@ function WeekView({
   days,
   getEventsForDay,
   onEventClick,
+  onDeleteManual,
 }: {
   days: Date[]
   getEventsForDay: (day: Date) => CalendarEvent[]
   onEventClick: (e: CalendarEvent) => void
+  onDeleteManual: (id: string) => void
 }) {
   const hours = Array.from({ length: 12 }, (_, i) => i + 8) // 8h-19h
 
@@ -281,12 +330,20 @@ function WeekView({
                     {hourEvents.map((e) => (
                       <div
                         key={e.id}
-                        className="text-[11px] rounded px-1.5 py-1 cursor-pointer mb-0.5 flex items-center gap-1"
+                        className="text-[11px] rounded px-1.5 py-1 cursor-pointer mb-0.5 flex items-center gap-1 group/evt"
                         style={{ backgroundColor: e.color + '25', borderLeft: `3px solid ${e.color}` }}
                         onClick={() => onEventClick(e)}
                       >
                         <span className="font-medium">{format(parseISO(e.start), 'HH:mm')}</span>
-                        <span className="truncate">{e.prospectName ?? e.title}</span>
+                        <span className="truncate flex-1">{e.prospectName ?? e.title}</span>
+                        {e.type === 'manual' && e.meta?.rawId ? (
+                          <button
+                            className="opacity-0 group-hover/evt:opacity-100 shrink-0"
+                            onClick={(ev) => { ev.stopPropagation(); onDeleteManual(e.meta!.rawId as string) }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -304,10 +361,12 @@ function DayView({
   events,
   onEventClick,
   eventTypeIcon,
+  onDeleteManual,
 }: {
   events: CalendarEvent[]
   onEventClick: (e: CalendarEvent) => void
   eventTypeIcon: (type: string) => React.ReactNode
+  onDeleteManual: (id: string) => void
 }) {
   const hours = Array.from({ length: 14 }, (_, i) => i + 7) // 7h-20h
 
@@ -325,7 +384,7 @@ function DayView({
                 {hourEvents.map((e) => (
                   <div
                     key={e.id}
-                    className="rounded-lg px-3 py-2 cursor-pointer flex items-center gap-3"
+                    className="rounded-lg px-3 py-2 cursor-pointer flex items-center gap-3 group/evt"
                     style={{ backgroundColor: e.color + '15', borderLeft: `4px solid ${e.color}` }}
                     onClick={() => onEventClick(e)}
                   >
@@ -334,8 +393,18 @@ function DayView({
                       <span className="text-sm font-medium">{format(parseISO(e.start), 'HH:mm')}</span>
                       {e.end && <span className="text-xs text-muted-foreground">- {format(parseISO(e.end), 'HH:mm')}</span>}
                     </div>
-                    <span className="text-sm font-medium">{e.title}</span>
-                    <Badge variant="secondary" className="text-[10px]">{e.type === 'rdv' ? 'RDV' : 'Rappel'}</Badge>
+                    <span className="text-sm font-medium flex-1">{e.title}</span>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {e.type === 'rdv' ? 'RDV' : e.type === 'manual' ? 'Événement' : 'Rappel'}
+                    </Badge>
+                    {e.type === 'manual' && e.meta?.rawId ? (
+                      <button
+                        className="opacity-0 group-hover/evt:opacity-100"
+                        onClick={(ev) => { ev.stopPropagation(); onDeleteManual(e.meta!.rawId as string) }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </button>
+                    ) : null}
                   </div>
                 ))}
               </div>
