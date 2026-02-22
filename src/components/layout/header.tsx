@@ -1,9 +1,10 @@
 import { useAuth } from '@/features/auth/hooks/use-auth'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { USER_ROLE_LABELS } from '@/types/enums'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Moon, Sun, Menu } from 'lucide-react'
+import { Moon, Sun, Menu, ArrowLeft } from 'lucide-react'
 import { useTheme } from '@/hooks/use-theme'
 
 interface HeaderProps {
@@ -13,6 +14,10 @@ interface HeaderProps {
 export function Header({ onToggleSidebar }: HeaderProps) {
   const { profile } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  const showBack = location.pathname !== '/dashboard' && location.pathname !== '/'
 
   const initials = profile?.full_name
     ?.split(' ')
@@ -32,6 +37,17 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         >
           <Menu className="h-5 w-5" />
         </Button>
+        {showBack && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="h-8 w-8"
+            title="Retour"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        )}
       </div>
       <div className="flex items-center gap-2 sm:gap-3">
         <Button

@@ -456,4 +456,5 @@ export interface ProspectFilters {
   date_to?: string
   last_called_from?: string
   last_called_to?: string
+  phone_prefixes?: string[]
 }

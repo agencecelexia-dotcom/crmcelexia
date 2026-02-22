@@ -82,6 +82,17 @@ export async function getProspects({
     query = query.lte('last_called_at', filters.last_called_to)
   }
 
+  if (filters.phone_prefixes && filters.phone_prefixes.length > 0) {
+    // Build OR filter for multiple phone prefixes: phone.like.06%,phone.like.07%
+    const orClauses = filters.phone_prefixes
+      .map((p) => {
+        const clean = p.replace(/[%_\\]/g, '\\$&').replace(/\s/g, '')
+        return `phone.like.${clean}%`
+      })
+      .join(',')
+    query = query.or(orClauses)
+  }
+
   // Pagination
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1

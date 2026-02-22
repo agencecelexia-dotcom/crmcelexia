@@ -82,6 +82,8 @@ export function ProspectsListPage() {
   const [dateTo, setDateTo] = useState('')
   const [lastCalledFrom, setLastCalledFrom] = useState('')
   const [lastCalledTo, setLastCalledTo] = useState('')
+  const [phonePrefixes, setPhonePrefixes] = useState<string[]>([])
+  const [phonePrefixInput, setPhonePrefixInput] = useState('')
   const [sortBy, setSortBy] = useState('created_at')
   const [sortDesc, setSortDesc] = useState(true)
 
@@ -110,6 +112,7 @@ export function ProspectsListPage() {
     date_to: dateTo || undefined,
     last_called_from: lastCalledFrom || undefined,
     last_called_to: lastCalledTo || undefined,
+    phone_prefixes: phonePrefixes.length > 0 ? phonePrefixes : undefined,
   }
 
   const { data, isLoading, isFetching } = useProspects({
@@ -147,8 +150,9 @@ export function ProspectsListPage() {
     if (dateTo) c++
     if (lastCalledFrom) c++
     if (lastCalledTo) c++
+    if (phonePrefixes.length > 0) c++
     return c
-  }, [statusFilter, cityFilter, professionFilter, neverCalled, hasOverdue, hasReminderToday, dateFrom, dateTo, lastCalledFrom, lastCalledTo])
+  }, [statusFilter, cityFilter, professionFilter, neverCalled, hasOverdue, hasReminderToday, dateFrom, dateTo, lastCalledFrom, lastCalledTo, phonePrefixes])
 
   // Clear selection when page/filters change
   useEffect(() => {
@@ -212,6 +216,8 @@ export function ProspectsListPage() {
     setDateTo('')
     setLastCalledFrom('')
     setLastCalledTo('')
+    setPhonePrefixes([])
+    setPhonePrefixInput('')
     setPage(1)
   }
 
@@ -437,6 +443,44 @@ export function ProspectsListPage() {
                       value={lastCalledTo}
                       onChange={(e) => { setLastCalledTo(e.target.value); setPage(1) }}
                       className="w-[130px] h-7 text-xs"
+                    />
+                  </div>
+                </div>
+                {/* Phone prefix filter */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <PhoneCall className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Préfixe tél.</span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {phonePrefixes.map((prefix) => (
+                      <span
+                        key={prefix}
+                        className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium"
+                      >
+                        {prefix}
+                        <button
+                          onClick={() => { setPhonePrefixes((p) => p.filter((x) => x !== prefix)); setPage(1) }}
+                          className="hover:text-destructive"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    <Input
+                      placeholder="ex: 06, 07..."
+                      value={phonePrefixInput}
+                      onChange={(e) => setPhonePrefixInput(e.target.value.replace(/[^0-9+ ]/g, ''))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') {
+                          e.preventDefault()
+                          const val = phonePrefixInput.trim().replace(/\s/g, '')
+                          if (val && !phonePrefixes.includes(val)) {
+                            setPhonePrefixes((p) => [...p, val])
+                            setPhonePrefixInput('')
+                            setPage(1)
+                          }
+                        }
+                      }}
+                      className="w-[100px] h-7 text-xs"
                     />
                   </div>
                 </div>

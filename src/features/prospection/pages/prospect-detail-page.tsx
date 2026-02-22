@@ -14,13 +14,14 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import {
   PROSPECT_STATUS_LABELS,
   PROSPECT_STATUS_COLORS,
+  CALL_RESULT_LABELS,
   LOSS_REASON_LABELS,
   LOSS_REASON_COLORS,
   type CallResult,
   type ProspectStatus,
   type LossReason,
 } from '@/types/enums'
-import { useLogCall } from '../hooks/use-calls'
+import { useLogCall, useCallsForProspect } from '../hooks/use-calls'
 import { CallLogger } from '../components/call-logger'
 import { CallHistory } from '../components/call-history'
 import { ReminderForm } from '../components/reminder-form'
@@ -85,6 +86,10 @@ export function ProspectDetailPage() {
   const [lastCallId, setLastCallId] = useState<string | null>(null)
   const [waitingForCalcom, setWaitingForCalcom] = useState(false)
   const logCallMutation = useLogCall()
+  const { data: calls } = useCallsForProspect(id)
+
+  // Filter calls that have notes
+  const callsWithNotes = useMemo(() => (calls ?? []).filter((c) => c.note), [calls])
 
   // ── Keyboard navigation: Arrow Up/Down to switch prospects ──
   const { data: prospectListData } = useProspects({ page: 1, pageSize: 200, sortBy: 'created_at', sortDesc: true })
@@ -570,6 +575,34 @@ export function ProspectDetailPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm whitespace-pre-wrap">{prospect.notes}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Call Notes */}
+          {callsWithNotes.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  Notes d'appels ({callsWithNotes.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {callsWithNotes.map((call) => (
+                  <div key={call.id} className="rounded-lg border p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-primary">
+                        {CALL_RESULT_LABELS[call.result]}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(call.called_at)}
+                        {call.commercial && ` — ${call.commercial.full_name}`}
+                      </span>
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap">{call.note}</p>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           )}
