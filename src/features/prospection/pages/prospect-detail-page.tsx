@@ -49,6 +49,7 @@ import {
   ChevronDown,
   Loader2,
   PhoneForwarded,
+  Undo2,
 } from 'lucide-react'
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -92,6 +93,8 @@ export function ProspectDetailPage() {
   const [rappelerNote, setRappelerNote] = useState('')
   const [lastCallId, setLastCallId] = useState<string | null>(null)
   const [waitingForCalcom, setWaitingForCalcom] = useState(false)
+  const [undoInfo, setUndoInfo] = useState<{ previousStatus: ProspectStatus; newStatus: ProspectStatus } | null>(null)
+  const [undoing, setUndoing] = useState(false)
   const logCallMutation = useLogCall()
   const createReminder = useCreateReminder()
   // ── Keyboard navigation: Arrow Up/Down to switch prospects ──
@@ -380,28 +383,10 @@ export function ProspectDetailPage() {
     const previousStatus = prospect!.status
     const newStatus = CALL_RESULT_TO_STATUS[result]
 
-    // Show undo toast if status changed
+    // Show persistent undo banner if status changed
     if (newStatus && newStatus !== previousStatus) {
-      toast.success(
-        `Statut : ${PROSPECT_STATUS_LABELS[previousStatus]} → ${PROSPECT_STATUS_LABELS[newStatus]}`,
-        {
-          duration: 8000,
-          action: {
-            label: 'Annuler',
-            onClick: async () => {
-              try {
-                await updateProspect.mutateAsync({
-                  id: prospect!.id,
-                  updates: { status: previousStatus } as Record<string, unknown> as never,
-                })
-                toast.success(`Statut rétabli → ${PROSPECT_STATUS_LABELS[previousStatus]}`)
-              } catch {
-                toast.error('Erreur lors de l\'annulation')
-              }
-            },
-          },
-        },
-      )
+      setUndoInfo({ previousStatus, newStatus })
+      toast.success(`Statut : ${PROSPECT_STATUS_LABELS[previousStatus]} → ${PROSPECT_STATUS_LABELS[newStatus]}`)
     }
 
     // Open loss reason dialog for negative results
@@ -517,6 +502,52 @@ export function ProspectDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Undo banner — persistent button after status change */}
+      {undoInfo && (
+        <div className="flex items-center gap-3 rounded-lg border border-violet-300 bg-violet-50 p-3 animate-in slide-in-from-top-2">
+          <Undo2 className="h-5 w-5 text-violet-600 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-violet-800">
+              Statut modifié : {PROSPECT_STATUS_LABELS[undoInfo.previousStatus]} → {PROSPECT_STATUS_LABELS[undoInfo.newStatus]}
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-violet-300 text-violet-700 hover:bg-violet-100"
+              disabled={undoing}
+              onClick={async () => {
+                setUndoing(true)
+                try {
+                  await updateProspect.mutateAsync({
+                    id: prospect!.id,
+                    updates: { status: undoInfo.previousStatus } as Record<string, unknown> as never,
+                  })
+                  toast.success(`Statut rétabli → ${PROSPECT_STATUS_LABELS[undoInfo.previousStatus]}`)
+                  setUndoInfo(null)
+                } catch {
+                  toast.error('Erreur lors de l\'annulation')
+                } finally {
+                  setUndoing(false)
+                }
+              }}
+            >
+              {undoing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Undo2 className="mr-1 h-4 w-4" />}
+              Annuler
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-violet-600"
+              onClick={() => setUndoInfo(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Alert: No planned action */}
       {hasNoPlannedAction && (
