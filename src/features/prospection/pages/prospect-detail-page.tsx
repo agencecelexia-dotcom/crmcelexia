@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useProspect, useUpdateProspect } from '../hooks/use-prospects'
+import { useProspect, useProspects, useUpdateProspect } from '../hooks/use-prospects'
 import { useConvertProspect } from '@/features/clients/hooks/use-clients'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { Button } from '@/components/ui/button'
@@ -17,8 +17,10 @@ import {
   LOSS_REASON_LABELS,
   LOSS_REASON_COLORS,
   type CallResult,
+  type ProspectStatus,
   type LossReason,
 } from '@/types/enums'
+import { useLogCall } from '../hooks/use-calls'
 import { CallLogger } from '../components/call-logger'
 import { CallHistory } from '../components/call-history'
 import { ReminderForm } from '../components/reminder-form'
@@ -41,6 +43,8 @@ import {
   Zap,
   XCircle,
   UserCheck,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react'
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -66,7 +70,7 @@ import type { LeadScore } from '@/types'
 export function ProspectDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isFounder } = useAuth()
+  const { isFounder, session } = useAuth()
   const { data: prospect, isLoading, error } = useProspect(id)
   const updateProspect = useUpdateProspect()
   const convertProspect = useConvertProspect()
@@ -79,11 +83,37 @@ export function ProspectDetailPage() {
   const [rdvFormOpen, setRdvFormOpen] = useState(false)
   const [lastCallId, setLastCallId] = useState<string | null>(null)
   const [waitingForCalcom, setWaitingForCalcom] = useState(false)
+  const logCallMutation = useLogCall()
+
+  // ── Keyboard navigation: Arrow Up/Down to switch prospects ──
+  const { data: prospectListData } = useProspects({ page: 1, pageSize: 200, sortBy: 'created_at', sortDesc: true })
+  const prospectIds = useMemo(() => (prospectListData?.data ?? []).map((p) => p.id), [prospectListData])
+  const currentIndex = useMemo(() => prospectIds.indexOf(id ?? ''), [prospectIds, id])
 
   // Loss reason dialog
   const [lossDialogOpen, setLossDialogOpen] = useState(false)
   const [selectedLossReason, setSelectedLossReason] = useState<LossReason | ''>('')
   const [lossNotes, setLossNotes] = useState('')
+
+  useEffect(() => {
+    function handleKeyNav(e: KeyboardEvent) {
+      // Don't navigate if user is typing in an input/textarea/select
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      // Don't navigate if a dialog is open
+      if (callLoggerOpen || reminderFormOpen || rdvFormOpen || lossDialogOpen || isEditing) return
+
+      if (e.key === 'ArrowDown' && currentIndex >= 0 && currentIndex < prospectIds.length - 1) {
+        e.preventDefault()
+        navigate(`/prospects/${prospectIds[currentIndex + 1]}`)
+      } else if (e.key === 'ArrowUp' && currentIndex > 0) {
+        e.preventDefault()
+        navigate(`/prospects/${prospectIds[currentIndex - 1]}`)
+      }
+    }
+    document.addEventListener('keydown', handleKeyNav)
+    return () => document.removeEventListener('keydown', handleKeyNav)
+  }, [currentIndex, prospectIds, navigate, callLoggerOpen, reminderFormOpen, rdvFormOpen, lossDialogOpen, isEditing])
 
   // Supabase Realtime: listen for new RDVs created for this prospect (by webhook)
   useEffect(() => {
@@ -270,6 +300,20 @@ export function ProspectDetailPage() {
         } as Record<string, unknown> as never,
       })
       toast.success('Raison de perte enregistrée')
+      // Auto-log a call for status change
+      if (session?.user) {
+        try {
+          await logCallMutation.mutateAsync({
+            prospect_id: prospect!.id,
+            commercial_id: session.user.id,
+            result: 'reached_not_interested' as CallResult,
+            new_status: 'perdu' as ProspectStatus,
+            note: `Perdu: ${LOSS_REASON_LABELS[selectedLossReason as LossReason]}${lossNotes ? ' - ' + lossNotes : ''}`,
+          })
+        } catch {
+          // Non-blocking
+        }
+      }
       setLossDialogOpen(false)
       setSelectedLossReason('')
       setLossNotes('')
@@ -359,9 +403,38 @@ export function ProspectDetailPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/prospects')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/prospects')}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            {prospectIds.length > 1 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={currentIndex <= 0}
+                  onClick={() => currentIndex > 0 && navigate(`/prospects/${prospectIds[currentIndex - 1]}`)}
+                  title="Prospect précédent (↑)"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {currentIndex + 1}/{prospectIds.length}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={currentIndex >= prospectIds.length - 1}
+                  onClick={() => currentIndex < prospectIds.length - 1 && navigate(`/prospects/${prospectIds[currentIndex + 1]}`)}
+                  title="Prospect suivant (↓)"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+          </div>
           <div>
             <h1 className="text-2xl font-bold">{prospect.company_name}</h1>
             <p className="text-sm text-muted-foreground">

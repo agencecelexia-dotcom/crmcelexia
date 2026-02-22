@@ -164,3 +164,51 @@ export async function getDistinctCities(): Promise<string[]> {
   const unique = [...new Set((data ?? []).map((d) => d.city as string))]
   return unique.sort()
 }
+
+export async function deleteProspects(ids: string[]): Promise<void> {
+  // Soft delete - set deleted_at
+  const { error } = await supabase
+    .from('prospects')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+  if (error) throw error
+}
+
+export async function assignProspects(ids: string[], commercialId: string): Promise<void> {
+  const { error } = await supabase
+    .from('prospects')
+    .update({ commercial_id: commercialId })
+    .in('id', ids)
+  if (error) throw error
+}
+
+export async function assignProspectsSplit(
+  ids: string[],
+  assignments: { commercial_id: string; percentage: number }[]
+): Promise<void> {
+  // Distribute prospects proportionally
+  const shuffled = [...ids].sort(() => Math.random() - 0.5)
+  let offset = 0
+  for (const { commercial_id, percentage } of assignments) {
+    const count = Math.round((percentage / 100) * ids.length)
+    const chunk = shuffled.slice(offset, offset + count)
+    if (chunk.length > 0) {
+      const { error } = await supabase
+        .from('prospects')
+        .update({ commercial_id })
+        .in('id', chunk)
+      if (error) throw error
+    }
+    offset += count
+  }
+  // Assign any remaining to last person
+  if (offset < shuffled.length) {
+    const lastCommercial = assignments[assignments.length - 1].commercial_id
+    const remaining = shuffled.slice(offset)
+    const { error } = await supabase
+      .from('prospects')
+      .update({ commercial_id: lastCommercial })
+      .in('id', remaining)
+    if (error) throw error
+  }
+}
