@@ -14,7 +14,7 @@ export type ProspectStatus = (typeof PROSPECT_STATUS)[keyof typeof PROSPECT_STAT
 
 export const PROSPECT_STATUS_LABELS: Record<ProspectStatus, string> = {
   nouveau: 'Nouveau',
-  appele_sans_reponse: 'Appelé – sans réponse',
+  appele_sans_reponse: 'Messagerie', // legacy: mapped to Messagerie
   messagerie: 'Messagerie',
   interesse: 'Intéressé',
   negatif: 'Négatif',
@@ -26,7 +26,7 @@ export const PROSPECT_STATUS_LABELS: Record<ProspectStatus, string> = {
 
 export const PROSPECT_STATUS_COLORS: Record<ProspectStatus, string> = {
   nouveau: 'bg-gray-100 text-gray-800',
-  appele_sans_reponse: 'bg-yellow-100 text-yellow-800',
+  appele_sans_reponse: 'bg-orange-100 text-orange-800', // legacy: same as messagerie
   messagerie: 'bg-orange-100 text-orange-800',
   interesse: 'bg-blue-100 text-blue-800',
   negatif: 'bg-red-100 text-red-800',
@@ -39,7 +39,7 @@ export const PROSPECT_STATUS_COLORS: Record<ProspectStatus, string> = {
 // Valid status transitions
 export const PROSPECT_STATUS_TRANSITIONS: Record<ProspectStatus, ProspectStatus[]> = {
   nouveau: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'],
-  appele_sans_reponse: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'],
+  appele_sans_reponse: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'], // legacy: treated as messagerie
   messagerie: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'],
   interesse: ['a_rappeler', 'rdv_pris', 'negatif', 'perdu'],
   a_rappeler: ['messagerie', 'interesse', 'negatif', 'rdv_pris', 'perdu'],
@@ -77,7 +77,7 @@ export const CALL_RESULT_LABELS: Record<CallResult, string> = {
 export const CALL_RESULT_TO_STATUS: Record<CallResult, ProspectStatus> = {
   no_answer: 'messagerie',
   voicemail: 'messagerie',
-  reached_interested: 'interesse',
+  reached_interested: 'a_rappeler',
   reached_not_interested: 'negatif',
   reached_callback: 'a_rappeler',
   reached_rdv: 'rdv_pris',

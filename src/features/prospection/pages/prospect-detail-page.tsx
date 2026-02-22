@@ -409,6 +409,11 @@ export function ProspectDetailPage() {
       setLossDialogOpen(true)
     }
 
+    // "Intéressé" or "À rappeler" → open rappeler dialog to set date + note
+    if (result === 'reached_interested' || result === 'reached_callback') {
+      setRappelerDialogOpen(true)
+    }
+
     // "RDV pris" → Cal.com if configured, otherwise manual RDV form
     if (result === 'reached_rdv') {
       if (calcomLink) {

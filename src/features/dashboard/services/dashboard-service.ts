@@ -47,8 +47,8 @@ export async function getDashboardStats(commercialId?: string): Promise<Dashboar
 
   const funnel: FunnelStats = {
     nouveau: funnelRaw.nouveau ?? 0,
-    appele_sans_reponse: funnelRaw.appele_sans_reponse ?? 0,
-    messagerie: funnelRaw.messagerie ?? 0,
+    appele_sans_reponse: 0, // legacy: merged into messagerie
+    messagerie: (funnelRaw.messagerie ?? 0) + (funnelRaw.appele_sans_reponse ?? 0),
     interesse: funnelRaw.interesse ?? 0,
     a_rappeler: funnelRaw.a_rappeler ?? 0,
     rdv_pris: funnelRaw.rdv_pris ?? 0,

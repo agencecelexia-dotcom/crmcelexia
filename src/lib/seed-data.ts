@@ -155,8 +155,7 @@ export async function seedTestData(
       weight: number
     }> = [
       { status: 'nouveau', weight: 8 },
-      { status: 'appele_sans_reponse', weight: 7 },
-      { status: 'messagerie', weight: 5 },
+      { status: 'messagerie', weight: 12 },
       { status: 'interesse', weight: 6 },
       { status: 'a_rappeler', weight: 6 },
       { status: 'rdv_pris', weight: 5 },
@@ -175,9 +174,7 @@ export async function seedTestData(
       const callCount =
         status === 'nouveau'
           ? 0
-          : status === 'appele_sans_reponse'
-            ? Math.floor(Math.random() * 3) + 1
-            : Math.floor(Math.random() * 6) + 1
+          : Math.floor(Math.random() * 6) + 1
 
       return {
         company_name: companyName,
@@ -228,7 +225,7 @@ export async function seedTestData(
       let prevStatus = 'nouveau'
       for (let c = 0; c < numCalls; c++) {
         const result = pick(callResults)
-        const newStatus = c === numCalls - 1 ? p.status : pick(['appele_sans_reponse', 'messagerie', 'interesse', 'a_rappeler'])
+        const newStatus = c === numCalls - 1 ? p.status : pick(['messagerie', 'interesse', 'a_rappeler'])
         callRows.push({
           prospect_id: p.id,
           commercial_id: p.commercial_id,
@@ -253,7 +250,7 @@ export async function seedTestData(
     // 4. Create reminders
     report('Création des rappels...', 3, 7)
     const reminderProspects = prospects.filter(
-      (p) => p.status === 'a_rappeler' || p.status === 'interesse' || p.status === 'appele_sans_reponse',
+      (p) => p.status === 'a_rappeler' || p.status === 'interesse' || p.status === 'messagerie',
     )
     const reminderRows = reminderProspects.map((p, i) => {
       // Mix of today, overdue, and future reminders

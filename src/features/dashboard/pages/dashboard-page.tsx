@@ -38,7 +38,6 @@ import {
 
 const FUNNEL_COLORS: Record<string, string> = {
   nouveau: '#8B5CF6',
-  appele_sans_reponse: '#A78BFA',
   messagerie: '#C4B5FD',
   interesse: '#6D28D9',
   a_rappeler: '#7C3AED',
@@ -86,7 +85,6 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
 
   const funnelPieData = funnel ? [
     { name: 'Nouveau', value: funnel.nouveau, color: FUNNEL_COLORS.nouveau },
-    { name: 'Appelé', value: funnel.appele_sans_reponse, color: FUNNEL_COLORS.appele_sans_reponse },
     { name: 'Messagerie', value: funnel.messagerie, color: FUNNEL_COLORS.messagerie },
     { name: 'Intéressé', value: funnel.interesse, color: FUNNEL_COLORS.interesse },
     { name: 'À rappeler', value: funnel.a_rappeler, color: FUNNEL_COLORS.a_rappeler },
@@ -292,7 +290,6 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
                 <div className="flex-1 space-y-1.5">
                   {([
                     ['nouveau', funnel.nouveau],
-                    ['appele_sans_reponse', funnel.appele_sans_reponse],
                     ['messagerie', funnel.messagerie],
                     ['interesse', funnel.interesse],
                     ['a_rappeler', funnel.a_rappeler],
@@ -330,7 +327,6 @@ function FounderDashboard() {
 
   const funnelBarData = funnel ? [
     { name: 'Nouveau', value: funnel.nouveau, fill: FUNNEL_COLORS.nouveau },
-    { name: 'Appelé SR', value: funnel.appele_sans_reponse, fill: FUNNEL_COLORS.appele_sans_reponse },
     { name: 'Messagerie', value: funnel.messagerie, fill: FUNNEL_COLORS.messagerie },
     { name: 'Intéressé', value: funnel.interesse, fill: FUNNEL_COLORS.interesse },
     { name: 'À rappeler', value: funnel.a_rappeler, fill: FUNNEL_COLORS.a_rappeler },
