@@ -41,6 +41,7 @@ import {
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
 import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
+import { useUndo } from '@/hooks/use-undo'
 
 interface ProspectCallPanelProps {
   prospect: Prospect
@@ -61,6 +62,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
   const updateProspect = useUpdateProspect()
   const createReminder = useCreateReminder()
   const completeReminder = useCompleteReminder()
+  const { setUndoAction } = useUndo()
 
   const { data: calls } = useCallsForProspect(prospect.id)
   const { data: reminders } = useRemindersForProspect(prospect.id)
@@ -132,6 +134,18 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
       })
       toast.success(`Appel enregistré — ${PROSPECT_STATUS_LABELS[newStatus]}`)
 
+      // Register undo action to revert status
+      const previousStatus = prospect.status
+      setUndoAction({
+        label: `Annuler: ${prospect.company_name} → ${PROSPECT_STATUS_LABELS[newStatus]}`,
+        undo: async () => {
+          await updateProspect.mutateAsync({
+            id: prospect.id,
+            updates: { status: previousStatus },
+          })
+        },
+      })
+
       // "RDV pris" → open Cal.com to book, webhook creates the RDV automatically
       if (result === 'reached_rdv') {
         if (calcomLink) {
@@ -174,6 +188,19 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
       })
 
       toast.success('Appel enregistré + rappel créé')
+
+      // Register undo action to revert status
+      const previousStatus = prospect.status
+      setUndoAction({
+        label: `Annuler: ${prospect.company_name} → À rappeler`,
+        undo: async () => {
+          await updateProspect.mutateAsync({
+            id: prospect.id,
+            updates: { status: previousStatus },
+          })
+        },
+      })
+
       setRappelerOpen(false)
       setRappelerDate('')
       setRappelerTime('09:00')
@@ -199,6 +226,19 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
         note: noteDialogText.trim(),
       })
       toast.success(`Appel enregistré — ${PROSPECT_STATUS_LABELS[newStatus]}`)
+
+      // Register undo action to revert status
+      const previousStatus = prospect.status
+      setUndoAction({
+        label: `Annuler: ${prospect.company_name} → ${PROSPECT_STATUS_LABELS[newStatus]}`,
+        undo: async () => {
+          await updateProspect.mutateAsync({
+            id: prospect.id,
+            updates: { status: previousStatus },
+          })
+        },
+      })
+
       setNoteDialogOpen(false)
       setNoteDialogResult(null)
       setNoteDialogText('')
