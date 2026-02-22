@@ -1034,11 +1034,16 @@ export function ProspectDetailPage() {
                 }
                 try {
                   const previousStatus = prospect.status
-                  // 1. Change status to à_rappeler
-                  await updateProspect.mutateAsync({
-                    id: prospect.id,
-                    updates: { status: 'a_rappeler' } as Record<string, unknown> as never,
-                  })
+                  // 1. Log the call (commercial called manually from phone)
+                  if (session?.user) {
+                    await logCallMutation.mutateAsync({
+                      prospect_id: prospect.id,
+                      commercial_id: session.user.id,
+                      result: 'reached_callback' as CallResult,
+                      new_status: 'a_rappeler' as ProspectStatus,
+                      note: rappelerNote.trim(),
+                    })
+                  }
                   // 2. Create reminder
                   if (session?.user) {
                     await createReminder.mutateAsync({

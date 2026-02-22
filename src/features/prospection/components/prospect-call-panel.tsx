@@ -25,6 +25,7 @@ import { formatPhone, formatDate, formatRelative } from '@/lib/format'
 import {
   X,
   Phone,
+  PhoneOff,
   Voicemail,
   ThumbsDown,
   CalendarPlus,
@@ -54,6 +55,7 @@ const QUICK_CALL_ACTIONS: { result: CallResult; label: string; icon: typeof Phon
   { result: 'reached_not_interested', label: 'Pas intéressé', icon: ThumbsDown, color: 'bg-red-50 hover:bg-red-100 text-red-700 border-red-200' },
   { result: 'reached_callback', label: 'À rappeler', icon: Clock, color: 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200' },
   { result: 'reached_rdv', label: 'RDV pris', icon: CalendarPlus, color: 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200' },
+  { result: 'wrong_number', label: 'Faux numéro', icon: PhoneOff, color: 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200' },
 ]
 
 export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectCallPanelProps) {

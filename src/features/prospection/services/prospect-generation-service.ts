@@ -216,6 +216,7 @@ export async function generateProspects(
 ): Promise<number> {
   const phoneLeads: EnrichedLead[] = []
   const seenSirets = new Set<string>()
+  const seenPhones = new Set<string>()
   let cursor = '*'
   let sireneExhausted = false
   let totalCollected = 0
@@ -312,6 +313,9 @@ export async function generateProspects(
       for (const r of results) {
         if (r.excluded) continue
         if (r.lead.telephone) {
+          const normalizedPhone = r.lead.telephone.replace(/[\s\-\.\(\)]/g, '')
+          if (seenPhones.has(normalizedPhone)) continue
+          seenPhones.add(normalizedPhone)
           phoneLeads.push(r.lead)
         }
       }
@@ -335,7 +339,23 @@ export async function generateProspects(
   }
 
   // Cap at exactly the requested quantity
-  const toInsert = phoneLeads.slice(0, quantity)
+  let toInsert = phoneLeads.slice(0, quantity)
+
+  // --- Deduplicate by phone against existing DB prospects ---
+  const phonesToCheck = toInsert.map((l) => l.telephone.replace(/[\s\-\.\(\)]/g, ''))
+  const existingPhones = new Set<string>()
+  for (let i = 0; i < phonesToCheck.length; i += 500) {
+    const chunk = phonesToCheck.slice(i, i + 500)
+    const { data: existingData } = await supabase
+      .from('prospects')
+      .select('phone')
+      .in('phone', chunk)
+      .is('deleted_at', null)
+    for (const e of existingData || []) {
+      existingPhones.add((e as { phone: string }).phone.replace(/[\s\-\.\(\)]/g, ''))
+    }
+  }
+  toInsert = toInsert.filter((l) => !existingPhones.has(l.telephone.replace(/[\s\-\.\(\)]/g, '')))
 
   // --- Insert into DB ---
   const insertChunkSize = 50

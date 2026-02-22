@@ -30,10 +30,38 @@ export async function importProspects(
   let skipped = 0
   const errors: string[] = []
 
+  // --- Deduplicate by phone against existing DB prospects ---
+  const allPhones = rows.map((r) => r.phone).filter(Boolean).map((p) => p.replace(/[\s\-\.\(\)]/g, ''))
+  const existingPhones = new Set<string>()
+  for (let i = 0; i < allPhones.length; i += 500) {
+    const chunk = allPhones.slice(i, i + 500)
+    const { data: existingData } = await supabase
+      .from('prospects')
+      .select('phone')
+      .in('phone', chunk)
+      .is('deleted_at', null)
+    for (const e of existingData || []) {
+      existingPhones.add((e as { phone: string }).phone.replace(/[\s\-\.\(\)]/g, ''))
+    }
+  }
+
+  // Filter out rows with duplicate phones (skip silently)
+  const seenPhones = new Set<string>()
+  const dedupedRows = rows.filter((row) => {
+    const phone = (row.phone ?? '').replace(/[\s\-\.\(\)]/g, '')
+    if (!phone) return true // let validation handle missing phones
+    if (existingPhones.has(phone) || seenPhones.has(phone)) {
+      skipped++
+      return false
+    }
+    seenPhones.add(phone)
+    return true
+  })
+
   // Insert in chunks of 100 (smaller chunks for better error isolation)
   const chunkSize = 100
-  for (let i = 0; i < rows.length; i += chunkSize) {
-    const chunk = rows.slice(i, i + chunkSize).map((row) => ({
+  for (let i = 0; i < dedupedRows.length; i += chunkSize) {
+    const chunk = dedupedRows.slice(i, i + chunkSize).map((row) => ({
       ...row,
       commercial_id: commercialId,
       import_id: importId,

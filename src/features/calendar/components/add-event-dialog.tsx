@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,30 +22,31 @@ interface AddEventDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   defaultDate?: Date
+  defaultStartTime?: string
+  defaultEndTime?: string
 }
 
-export function AddEventDialog({ open, onOpenChange, defaultDate }: AddEventDialogProps) {
+export function AddEventDialog({ open, onOpenChange, defaultDate, defaultStartTime, defaultEndTime }: AddEventDialogProps) {
   const createEvent = useCreateCalendarEvent()
-
-  const defaultDateStr = defaultDate
-    ? defaultDate.toISOString().slice(0, 10)
-    : new Date().toISOString().slice(0, 10)
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [date, setDate] = useState(defaultDateStr)
+  const [date, setDate] = useState('')
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('10:00')
   const [color, setColor] = useState('#8B5CF6')
 
-  const resetForm = () => {
+  // Sync form defaults when dialog opens (supports drag-to-create pre-fill)
+  useEffect(() => {
+    if (!open) return
     setTitle('')
     setDescription('')
-    setDate(defaultDateStr)
-    setStartTime('09:00')
-    setEndTime('10:00')
+    setDate(defaultDate ? defaultDate.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10))
+    setStartTime(defaultStartTime ?? '09:00')
+    setEndTime(defaultEndTime ?? '10:00')
     setColor('#8B5CF6')
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,7 +64,6 @@ export function AddEventDialog({ open, onOpenChange, defaultDate }: AddEventDial
         color,
       })
       toast.success('Événement ajouté')
-      resetForm()
       onOpenChange(false)
     } catch {
       toast.error('Erreur lors de la création')

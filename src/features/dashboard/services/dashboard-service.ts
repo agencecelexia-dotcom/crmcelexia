@@ -11,6 +11,7 @@ export interface FunnelStats {
   negatif: number
   perdu: number
   nouveau: number
+  faux_numero: number
 }
 
 export interface DashboardStats {
@@ -55,7 +56,9 @@ export async function getDashboardStats(commercialId?: string): Promise<Dashboar
     converti_client: funnelRaw.converti_client ?? 0,
     negatif: funnelRaw.negatif ?? 0,
     perdu: funnelRaw.perdu ?? 0,
-    total_prospects: Object.values(funnelRaw).reduce((sum, v) => sum + (v ?? 0), 0),
+    faux_numero: funnelRaw.faux_numero ?? 0,
+    // Exclude faux_numero from total so it doesn't pollute conversion rates
+    total_prospects: Object.values(funnelRaw).reduce((sum, v) => sum + (v ?? 0), 0) - (funnelRaw.faux_numero ?? 0),
   }
 
   const rdvDone = (raw.rdv_done_month as number) ?? 0

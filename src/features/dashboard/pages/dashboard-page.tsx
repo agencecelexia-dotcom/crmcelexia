@@ -44,6 +44,7 @@ const FUNNEL_COLORS: Record<string, string> = {
   converti_client: '#059669',
   negatif: '#EF4444',
   perdu: '#F87171',
+  faux_numero: '#F59E0B',
 }
 
 export function DashboardPage() {
@@ -337,6 +338,7 @@ function FounderDashboard() {
     { name: 'Converti', value: funnel.converti_client, fill: FUNNEL_COLORS.converti_client },
     { name: 'Négatif', value: funnel.negatif, fill: FUNNEL_COLORS.negatif },
     { name: 'Perdu', value: funnel.perdu, fill: FUNNEL_COLORS.perdu },
+    { name: 'Faux numéro', value: funnel.faux_numero, fill: FUNNEL_COLORS.faux_numero },
   ] : []
 
   const conversionRate = funnel && funnel.total_prospects > 0

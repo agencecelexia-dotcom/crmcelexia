@@ -8,6 +8,7 @@ export const PROSPECT_STATUS = {
   RDV_PRIS: 'rdv_pris',
   PERDU: 'perdu',
   CONVERTI_CLIENT: 'converti_client',
+  FAUX_NUMERO: 'faux_numero',
 } as const
 
 export type ProspectStatus = (typeof PROSPECT_STATUS)[keyof typeof PROSPECT_STATUS]
@@ -22,6 +23,7 @@ export const PROSPECT_STATUS_LABELS: Record<ProspectStatus, string> = {
   rdv_pris: 'RDV pris',
   perdu: 'Perdu',
   converti_client: 'Converti client',
+  faux_numero: 'Faux numéro',
 }
 
 export const PROSPECT_STATUS_COLORS: Record<ProspectStatus, string> = {
@@ -34,19 +36,21 @@ export const PROSPECT_STATUS_COLORS: Record<ProspectStatus, string> = {
   rdv_pris: 'bg-green-100 text-green-800',
   perdu: 'bg-red-200 text-red-900',
   converti_client: 'bg-emerald-100 text-emerald-800',
+  faux_numero: 'bg-amber-100 text-amber-800',
 }
 
 // Valid status transitions
 export const PROSPECT_STATUS_TRANSITIONS: Record<ProspectStatus, ProspectStatus[]> = {
-  nouveau: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'],
-  appele_sans_reponse: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'], // legacy: treated as messagerie
-  messagerie: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu'],
+  nouveau: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu', 'faux_numero'],
+  appele_sans_reponse: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu', 'faux_numero'], // legacy: treated as messagerie
+  messagerie: ['messagerie', 'interesse', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu', 'faux_numero'],
   interesse: ['a_rappeler', 'rdv_pris', 'negatif', 'perdu'],
-  a_rappeler: ['messagerie', 'interesse', 'negatif', 'rdv_pris', 'perdu'],
+  a_rappeler: ['messagerie', 'interesse', 'negatif', 'rdv_pris', 'perdu', 'faux_numero'],
   rdv_pris: ['rdv_pris', 'converti_client', 'perdu', 'a_rappeler'],
   negatif: ['a_rappeler', 'rdv_pris'],
   perdu: ['a_rappeler', 'rdv_pris'],
   converti_client: [],
+  faux_numero: [],
 }
 
 export const CALL_RESULT = {
@@ -84,7 +88,7 @@ export const CALL_RESULT_TO_STATUS: Record<CallResult, ProspectStatus> = {
   reached_not_interested: 'negatif',
   reached_callback: 'a_rappeler',
   reached_rdv: 'rdv_pris',
-  wrong_number: 'negatif',
+  wrong_number: 'faux_numero',
   other: 'messagerie',
 }
 

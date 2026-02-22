@@ -32,6 +32,18 @@ export function CalendarPage() {
   const [showAddEvent, setShowAddEvent] = useState(false)
   const deleteEvent = useDeleteCalendarEvent()
 
+  // Drag-to-create state
+  const [dragEventDate, setDragEventDate] = useState<Date | undefined>()
+  const [dragEventStartTime, setDragEventStartTime] = useState<string | undefined>()
+  const [dragEventEndTime, setDragEventEndTime] = useState<string | undefined>()
+
+  const handleDragCreate = (day: Date, startHour: number, endHour: number) => {
+    setDragEventDate(day)
+    setDragEventStartTime(`${String(startHour).padStart(2, '0')}:00`)
+    setDragEventEndTime(`${String(endHour).padStart(2, '0')}:00`)
+    setShowAddEvent(true)
+  }
+
   const { startDate, endDate } = useMemo(() => {
     switch (viewMode) {
       case 'day':
@@ -131,7 +143,7 @@ export function CalendarPage() {
             {isFounder ? 'Vue globale de l\'équipe' : 'Mes rendez-vous et rappels'}
           </p>
         </div>
-        <Button onClick={() => setShowAddEvent(true)}>
+        <Button onClick={() => { setDragEventDate(undefined); setDragEventStartTime(undefined); setDragEventEndTime(undefined); setShowAddEvent(true) }}>
           <Plus className="h-4 w-4 mr-2" />
           Ajouter
         </Button>
@@ -199,15 +211,17 @@ export function CalendarPage() {
       ) : viewMode === 'month' ? (
         <MonthView days={days} getEventsForDay={getEventsForDay} eventTypeIcon={eventTypeIcon} navigate={navigate} onDeleteManual={handleDeleteManualEvent} />
       ) : viewMode === 'week' ? (
-        <WeekView days={days} getEventsForDay={getEventsForDay} onEventClick={handleEventClick} onDeleteManual={handleDeleteManualEvent} />
+        <WeekView days={days} getEventsForDay={getEventsForDay} onEventClick={handleEventClick} onDeleteManual={handleDeleteManualEvent} onDragCreate={handleDragCreate} />
       ) : (
-        <DayView events={getEventsForDay(currentDate)} onEventClick={handleEventClick} eventTypeIcon={eventTypeIcon} onDeleteManual={handleDeleteManualEvent} />
+        <DayView day={currentDate} events={getEventsForDay(currentDate)} onEventClick={handleEventClick} eventTypeIcon={eventTypeIcon} onDeleteManual={handleDeleteManualEvent} onDragCreate={handleDragCreate} />
       )}
 
       <AddEventDialog
         open={showAddEvent}
         onOpenChange={setShowAddEvent}
-        defaultDate={currentDate}
+        defaultDate={dragEventDate ?? currentDate}
+        defaultStartTime={dragEventStartTime}
+        defaultEndTime={dragEventEndTime}
       />
     </div>
   )
@@ -289,18 +303,39 @@ function WeekView({
   getEventsForDay,
   onEventClick,
   onDeleteManual,
+  onDragCreate,
 }: {
   days: Date[]
   getEventsForDay: (day: Date) => CalendarEvent[]
   onEventClick: (e: CalendarEvent) => void
   onDeleteManual: (id: string) => void
+  onDragCreate?: (day: Date, startHour: number, endHour: number) => void
 }) {
   const hours = Array.from({ length: 12 }, (_, i) => i + 8) // 8h-19h
+  const [drag, setDrag] = useState<{ dayIdx: number; startHour: number; currentHour: number } | null>(null)
+
+  const isCellInDrag = (dayIdx: number, hour: number) => {
+    if (!drag || dayIdx !== drag.dayIdx) return false
+    const min = Math.min(drag.startHour, drag.currentHour)
+    const max = Math.max(drag.startHour, drag.currentHour)
+    return hour >= min && hour <= max
+  }
 
   return (
     <Card>
       <CardContent className="p-0 overflow-x-auto">
-        <div className="grid grid-cols-[60px_repeat(7,1fr)] min-w-[800px]">
+        <div
+          className="grid grid-cols-[60px_repeat(7,1fr)] min-w-[800px]"
+          onMouseUp={() => {
+            if (drag && onDragCreate) {
+              const min = Math.min(drag.startHour, drag.currentHour)
+              const max = Math.max(drag.startHour, drag.currentHour) + 1
+              onDragCreate(days[drag.dayIdx], min, max)
+            }
+            setDrag(null)
+          }}
+          onMouseLeave={() => setDrag(null)}
+        >
           {/* Header */}
           <div className="border-b border-r p-2" />
           {days.map((day, i) => (
@@ -325,14 +360,31 @@ function WeekView({
                   const eventHour = parseISO(e.start).getHours()
                   return eventHour === hour
                 })
+                const inDrag = isCellInDrag(i, hour)
                 return (
-                  <div key={`${hour}-${i}`} className={`border-b border-r min-h-[48px] p-0.5 ${isToday(day) ? 'bg-primary/5' : ''}`}>
+                  <div
+                    key={`${hour}-${i}`}
+                    className={`border-b border-r min-h-[48px] p-0.5 select-none ${
+                      onDragCreate ? 'cursor-crosshair' : ''
+                    } ${inDrag ? 'bg-primary/20' : isToday(day) ? 'bg-primary/5' : ''}`}
+                    onMouseDown={(e) => {
+                      if (!onDragCreate) return
+                      e.preventDefault()
+                      setDrag({ dayIdx: i, startHour: hour, currentHour: hour })
+                    }}
+                    onMouseEnter={() => {
+                      if (drag && i === drag.dayIdx) {
+                        setDrag(prev => prev ? { ...prev, currentHour: hour } : null)
+                      }
+                    }}
+                  >
                     {hourEvents.map((e) => (
                       <div
                         key={e.id}
                         className="text-[11px] rounded px-1.5 py-1 cursor-pointer mb-0.5 flex items-center gap-1 group/evt"
                         style={{ backgroundColor: e.color + '25', borderLeft: `3px solid ${e.color}` }}
                         onClick={() => onEventClick(e)}
+                        onMouseDown={(ev) => ev.stopPropagation()}
                       >
                         <span className="font-medium">{format(parseISO(e.start), 'HH:mm')}</span>
                         <span className="truncate flex-1">{e.prospectName ?? e.title}</span>
@@ -358,25 +410,62 @@ function WeekView({
 }
 
 function DayView({
+  day,
   events,
   onEventClick,
   eventTypeIcon,
   onDeleteManual,
+  onDragCreate,
 }: {
+  day: Date
   events: CalendarEvent[]
   onEventClick: (e: CalendarEvent) => void
   eventTypeIcon: (type: string) => React.ReactNode
   onDeleteManual: (id: string) => void
+  onDragCreate?: (day: Date, startHour: number, endHour: number) => void
 }) {
   const hours = Array.from({ length: 14 }, (_, i) => i + 7) // 7h-20h
+  const [drag, setDrag] = useState<{ startHour: number; currentHour: number } | null>(null)
+
+  const isHourInDrag = (hour: number) => {
+    if (!drag) return false
+    const min = Math.min(drag.startHour, drag.currentHour)
+    const max = Math.max(drag.startHour, drag.currentHour)
+    return hour >= min && hour <= max
+  }
 
   return (
     <Card>
-      <CardContent className="p-0">
+      <CardContent
+        className="p-0"
+        onMouseUp={() => {
+          if (drag && onDragCreate) {
+            const min = Math.min(drag.startHour, drag.currentHour)
+            const max = Math.max(drag.startHour, drag.currentHour) + 1
+            onDragCreate(day, min, max)
+          }
+          setDrag(null)
+        }}
+        onMouseLeave={() => setDrag(null)}
+      >
         {hours.map((hour) => {
           const hourEvents = events.filter(e => parseISO(e.start).getHours() === hour)
+          const inDrag = isHourInDrag(hour)
           return (
-            <div key={hour} className="flex border-b min-h-[56px]">
+            <div
+              key={hour}
+              className={`flex border-b min-h-[56px] select-none ${
+                onDragCreate ? 'cursor-crosshair' : ''
+              } ${inDrag ? 'bg-primary/20' : ''}`}
+              onMouseDown={(e) => {
+                if (!onDragCreate) return
+                e.preventDefault()
+                setDrag({ startHour: hour, currentHour: hour })
+              }}
+              onMouseEnter={() => {
+                if (drag) setDrag(prev => prev ? { ...prev, currentHour: hour } : null)
+              }}
+            >
               <div className="w-16 p-2 text-sm text-muted-foreground text-right border-r shrink-0">
                 {hour}:00
               </div>
@@ -387,6 +476,7 @@ function DayView({
                     className="rounded-lg px-3 py-2 cursor-pointer flex items-center gap-3 group/evt"
                     style={{ backgroundColor: e.color + '15', borderLeft: `4px solid ${e.color}` }}
                     onClick={() => onEventClick(e)}
+                    onMouseDown={(ev) => ev.stopPropagation()}
                   >
                     <div className="flex items-center gap-2">
                       {eventTypeIcon(e.type)}
