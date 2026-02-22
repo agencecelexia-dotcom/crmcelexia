@@ -9,6 +9,8 @@ import {
   NICHE_CATEGORIES,
   type GenerationProgress,
 } from '../services/prospect-generation-service'
+import { useTeamMembers } from '../hooks/use-prospects'
+import { assignProspects as assignProspectsService } from '../services/prospect-service'
 import {
   Dialog,
   DialogContent,
@@ -26,7 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Loader2, CheckCircle2, XCircle, Phone, Trash2, Stethoscope } from 'lucide-react'
+import { Loader2, CheckCircle2, XCircle, Phone, Trash2, Stethoscope, Users, UserPlus, Percent } from 'lucide-react'
 
 interface Props {
   open: boolean
@@ -49,6 +51,22 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
   // Guard against double-start: track if an async generation is still in flight
   const generationInFlightRef = useRef(false)
 
+  // Assignment
+  const { data: members = [] } = useTeamMembers()
+  const [assignMode, setAssignMode] = useState<'me' | 'single' | 'split'>('me')
+  const [assignMember, setAssignMember] = useState('')
+  const [splits, setSplits] = useState<{ commercial_id: string; percentage: number }[]>([])
+
+  const totalPercent = splits.reduce((sum, s) => sum + s.percentage, 0)
+
+  function addSplit() {
+    const used = splits.map((s) => s.commercial_id)
+    const available = members.find((m) => !used.includes(m.id))
+    if (!available) return
+    const remaining = 100 - totalPercent
+    setSplits([...splits, { commercial_id: available.id, percentage: Math.max(remaining, 0) }])
+  }
+
   const selectedCategory = NICHE_CATEGORIES[categoryIndex]
 
   const nicheName = useMemo(() => {
@@ -69,6 +87,17 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
       toast.error('Le nombre doit être entre 1 et 5000')
       return
     }
+    if (assignMode === 'single' && !assignMember) {
+      toast.error('Sélectionnez un membre de l\'équipe')
+      return
+    }
+    if (assignMode === 'split' && (splits.length === 0 || totalPercent !== 100)) {
+      toast.error('La répartition doit totaliser 100%')
+      return
+    }
+
+    // Determine who the prospects get generated under initially
+    const generationOwnerId = assignMode === 'single' ? assignMember : profile.id
 
     setIsRunning(true)
     setProgress(null)
@@ -80,10 +109,46 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
         nicheName,
         nafCodes,
         quantity,
-        profile.id,
+        generationOwnerId,
         setProgress,
         abortControllerRef.current.signal,
       )
+
+      // If split mode, reassign after generation
+      if (assignMode === 'split' && inserted > 0) {
+        setProgress((prev) => prev ? { ...prev, phase: 'collecting' } : prev)
+        // Fetch the IDs of newly generated prospects
+        const { data: newProspects } = await (await import('@/lib/supabase/client')).supabase
+          .from('prospects')
+          .select('id')
+          .eq('commercial_id', generationOwnerId)
+          .eq('source', 'api_generation')
+          .eq('niche', nicheName)
+          .eq('status', 'nouveau')
+          .order('created_at', { ascending: false })
+          .limit(inserted)
+
+        if (newProspects && newProspects.length > 0) {
+          const ids = newProspects.map((p) => p.id)
+          // Distribute proportionally
+          const shuffled = [...ids].sort(() => Math.random() - 0.5)
+          let offset = 0
+          for (const { commercial_id, percentage } of splits) {
+            const count = Math.round((percentage / 100) * ids.length)
+            const chunk = shuffled.slice(offset, offset + count)
+            if (chunk.length > 0) {
+              await assignProspectsService(chunk, commercial_id)
+            }
+            offset += count
+          }
+          // Remaining to last person
+          if (offset < shuffled.length) {
+            const remaining = shuffled.slice(offset)
+            await assignProspectsService(remaining, splits[splits.length - 1].commercial_id)
+          }
+        }
+      }
+
       toast.success(`${inserted} prospect${inserted !== 1 ? 's' : ''} généré${inserted !== 1 ? 's' : ''} !`)
       queryClient.invalidateQueries({ queryKey: ['prospects'] })
     } catch (err) {
@@ -110,7 +175,7 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
       setIsRunning(false)
       abortControllerRef.current = null
     }
-  }, [nicheName, nafCodes, quantity, profile, queryClient])
+  }, [nicheName, nafCodes, quantity, profile, queryClient, assignMode, assignMember, splits, totalPercent])
 
   const handleCancel = useCallback(() => {
     abortControllerRef.current?.abort()
@@ -258,6 +323,110 @@ export function ProspectGenerationModal({ open, onOpenChange }: Props) {
                 Le système ne s'arrêtera pas tant qu'il n'aura pas trouvé {quantity} prospects avec téléphone.
               </p>
             </div>
+          </div>
+
+          {/* Assignment */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5" />
+              Attribution
+            </Label>
+            <div className="flex gap-1.5">
+              <Button
+                variant={assignMode === 'me' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAssignMode('me')}
+                disabled={isRunning}
+                className="flex-1 text-xs h-7"
+              >
+                Moi
+              </Button>
+              <Button
+                variant={assignMode === 'single' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAssignMode('single')}
+                disabled={isRunning}
+                className="flex-1 text-xs h-7"
+              >
+                <UserPlus className="h-3 w-3 mr-1" />
+                Membre
+              </Button>
+              <Button
+                variant={assignMode === 'split' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => { setAssignMode('split'); if (splits.length === 0) addSplit() }}
+                disabled={isRunning}
+                className="flex-1 text-xs h-7"
+              >
+                <Percent className="h-3 w-3 mr-1" />
+                Répartir
+              </Button>
+            </div>
+
+            {assignMode === 'single' && (
+              <Select value={assignMember} onValueChange={setAssignMember} disabled={isRunning}>
+                <SelectTrigger className="h-8">
+                  <SelectValue placeholder="Choisir un membre..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {members.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.full_name} ({m.role})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {assignMode === 'split' && (
+              <div className="space-y-2">
+                {splits.map((split, i) => (
+                  <div key={i} className="flex items-center gap-1.5 p-1.5 rounded border bg-muted/30">
+                    <Select
+                      value={split.commercial_id}
+                      onValueChange={(v) => setSplits(splits.map((s, j) => j === i ? { ...s, commercial_id: v } : s))}
+                      disabled={isRunning}
+                    >
+                      <SelectTrigger className="flex-1 h-7 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {members.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={split.percentage}
+                      onChange={(e) => setSplits(splits.map((s, j) => j === i ? { ...s, percentage: parseInt(e.target.value) || 0 } : s))}
+                      className="h-7 w-14 text-center text-xs"
+                      disabled={isRunning}
+                    />
+                    <span className="text-xs text-muted-foreground">%</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-red-500"
+                      onClick={() => setSplits(splits.filter((_, j) => j !== i))}
+                      disabled={isRunning}
+                    >
+                      ×
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between">
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={addSplit} disabled={splits.length >= members.length || isRunning}>
+                    + Ajouter
+                  </Button>
+                  <span className={`text-xs font-medium ${totalPercent === 100 ? 'text-green-600' : 'text-red-600'}`}>
+                    Total : {totalPercent}%
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Progress */}

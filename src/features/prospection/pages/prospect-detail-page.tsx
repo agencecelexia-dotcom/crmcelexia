@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useProspect, useProspects, useUpdateProspect } from '../hooks/use-prospects'
+import { useProspect, useProspects, useUpdateProspect, useTeamMembers } from '../hooks/use-prospects'
 import { useConvertProspect } from '@/features/clients/hooks/use-clients'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { Button } from '@/components/ui/button'
@@ -76,6 +76,7 @@ export function ProspectDetailPage() {
   const convertProspect = useConvertProspect()
   const queryClient = useQueryClient()
   const { data: calcomLink } = useCalcomLink()
+  const { data: teamMembers = [] } = useTeamMembers()
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, string>>({})
   const [callLoggerOpen, setCallLoggerOpen] = useState(false)
@@ -730,10 +731,69 @@ export function ProspectDetailPage() {
                 <span className="text-muted-foreground">Source</span>
                 <span className="font-medium">{prospect.source === 'csv_import' ? 'CSV' : prospect.source}</span>
               </div>
-              {isFounder && prospect.commercial && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Commercial</span>
-                  <span className="font-medium">{prospect.commercial.full_name}</span>
+              {prospect.commercial && (
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Commercial</span>
+                    <span className="font-medium">{prospect.commercial.full_name}</span>
+                  </div>
+                  {isFounder && (
+                    <Select
+                      value={prospect.commercial_id ?? ''}
+                      onValueChange={async (v) => {
+                        try {
+                          await updateProspect.mutateAsync({
+                            id: prospect.id,
+                            updates: { commercial_id: v } as Record<string, unknown> as never,
+                          })
+                          toast.success('Commercial modifié')
+                        } catch {
+                          toast.error('Erreur lors du changement')
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teamMembers.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.full_name} ({m.role})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              )}
+              {!prospect.commercial && isFounder && (
+                <div className="space-y-1">
+                  <span className="text-muted-foreground text-sm">Commercial</span>
+                  <Select
+                    value=""
+                    onValueChange={async (v) => {
+                      try {
+                        await updateProspect.mutateAsync({
+                          id: prospect.id,
+                          updates: { commercial_id: v } as Record<string, unknown> as never,
+                        })
+                        toast.success('Commercial assigné')
+                      } catch {
+                        toast.error('Erreur lors de l\'assignation')
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue placeholder="Assigner un commercial..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamMembers.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.full_name} ({m.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
               <div className="flex justify-between">

@@ -4,9 +4,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { parseCSVFile, validateImportRows, type ParsedCSV } from '@/lib/csv-parser'
 import { createImportRecord, importProspects } from '../services/csv-import-service'
+import { assignProspectsSplit } from '../services/prospect-service'
+import { useTeamMembers } from '../hooks/use-prospects'
 import { CSV_IMPORTABLE_FIELDS } from '../constants'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -33,6 +36,9 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  Users,
+  UserPlus,
+  Percent,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -51,6 +57,21 @@ export function CsvImportPage() {
   const [validRows, setValidRows] = useState<Record<string, string>[]>([])
   const [invalidRows, setInvalidRows] = useState<{ row: number; data: Record<string, string>; reason: string }[]>([])
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null)
+
+  // Assignment
+  const { data: members = [] } = useTeamMembers()
+  const [assignMode, setAssignMode] = useState<'me' | 'single' | 'split'>('me')
+  const [assignMember, setAssignMember] = useState('')
+  const [splits, setSplits] = useState<{ commercial_id: string; percentage: number }[]>([])
+  const totalPercent = splits.reduce((sum, s) => sum + s.percentage, 0)
+
+  function addSplit() {
+    const used = splits.map((s) => s.commercial_id)
+    const available = members.find((m) => !used.includes(m.id))
+    if (!available) return
+    const remaining = 100 - totalPercent
+    setSplits([...splits, { commercial_id: available.id, percentage: Math.max(remaining, 0) }])
+  }
 
   const handleFileSelect = useCallback(async (selectedFile: File) => {
     if (!selectedFile.name.endsWith('.csv')) {
@@ -138,7 +159,17 @@ export function CsvImportPage() {
 
   async function startImport() {
     if (!profile || !file || validRows.length === 0) return
+    if (assignMode === 'single' && !assignMember) {
+      toast.error('Sélectionnez un membre de l\'équipe')
+      return
+    }
+    if (assignMode === 'split' && (splits.length === 0 || totalPercent !== 100)) {
+      toast.error('La répartition doit totaliser 100%')
+      return
+    }
     setStep('importing')
+
+    const importOwnerId = assignMode === 'single' ? assignMember : profile.id
 
     try {
       // Clean mapping: remove empty/ignored entries before saving
@@ -152,10 +183,25 @@ export function CsvImportPage() {
         original_filename: file.name,
         row_count: parsed?.rowCount ?? 0,
         column_mapping: cleanMapping,
-        assigned_commercial_id: profile.id,
+        assigned_commercial_id: importOwnerId,
       })
 
-      const result = await importProspects(importRecord.id, validRows, profile.id)
+      const result = await importProspects(importRecord.id, validRows, importOwnerId)
+
+      // If split mode, reassign after import
+      if (assignMode === 'split' && result.imported > 0) {
+        const { data: importedProspects } = await (await import('@/lib/supabase/client')).supabase
+          .from('prospects')
+          .select('id')
+          .eq('import_id', importRecord.id)
+          .limit(result.imported)
+
+        if (importedProspects && importedProspects.length > 0) {
+          const ids = importedProspects.map((p) => p.id)
+          await assignProspectsSplit(ids, splits)
+        }
+      }
+
       setImportResult(result)
       setStep('result')
 
@@ -418,10 +464,107 @@ export function CsvImportPage() {
               </div>
             )}
 
+            {/* Assignment section */}
             {validRows.length > 0 && (
-              <p className="text-sm text-muted-foreground">
-                Les {validRows.length} prospects valides seront importés et assignés à votre compte.
-              </p>
+              <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                <Label className="flex items-center gap-2 text-sm font-medium">
+                  <Users className="h-4 w-4" />
+                  Attribuer les prospects à
+                </Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={assignMode === 'me' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setAssignMode('me')}
+                    className="flex-1"
+                  >
+                    Moi
+                  </Button>
+                  <Button
+                    variant={assignMode === 'single' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setAssignMode('single')}
+                    className="flex-1"
+                  >
+                    <UserPlus className="h-4 w-4 mr-1" />
+                    Un membre
+                  </Button>
+                  <Button
+                    variant={assignMode === 'split' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => { setAssignMode('split'); if (splits.length === 0) addSplit() }}
+                    className="flex-1"
+                  >
+                    <Percent className="h-4 w-4 mr-1" />
+                    Répartir
+                  </Button>
+                </div>
+
+                {assignMode === 'single' && (
+                  <Select value={assignMember} onValueChange={setAssignMember}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir un membre..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {members.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.full_name} ({m.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {assignMode === 'split' && (
+                  <div className="space-y-2">
+                    {splits.map((split, i) => (
+                      <div key={i} className="flex items-center gap-2 p-2 rounded border bg-background">
+                        <Select
+                          value={split.commercial_id}
+                          onValueChange={(v) => setSplits(splits.map((s, j) => j === i ? { ...s, commercial_id: v } : s))}
+                        >
+                          <SelectTrigger className="flex-1 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {members.map((m) => (
+                              <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={split.percentage}
+                          onChange={(e) => setSplits(splits.map((s, j) => j === i ? { ...s, percentage: parseInt(e.target.value) || 0 } : s))}
+                          className="h-8 w-16 text-center"
+                        />
+                        <span className="text-sm text-muted-foreground">%</span>
+                        <span className="text-xs text-muted-foreground w-10 text-right">
+                          ~{Math.round((split.percentage / 100) * validRows.length)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-red-500"
+                          onClick={() => setSplits(splits.filter((_, j) => j !== i))}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between">
+                      <Button variant="outline" size="sm" onClick={addSplit} disabled={splits.length >= members.length}>
+                        + Ajouter
+                      </Button>
+                      <span className={`text-sm font-medium ${totalPercent === 100 ? 'text-green-600' : 'text-red-600'}`}>
+                        Total : {totalPercent}%
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             <div className="flex justify-between pt-4">
@@ -430,7 +573,11 @@ export function CsvImportPage() {
               </Button>
               <Button
                 onClick={startImport}
-                disabled={validRows.length === 0}
+                disabled={
+                  validRows.length === 0 ||
+                  (assignMode === 'single' && !assignMember) ||
+                  (assignMode === 'split' && totalPercent !== 100)
+                }
               >
                 Importer {validRows.length} prospect{validRows.length > 1 ? 's' : ''}
               </Button>
