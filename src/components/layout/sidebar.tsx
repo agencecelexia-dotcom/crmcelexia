@@ -94,11 +94,11 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     <div className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 px-6">
-        <img src="/logo.png" alt="Celexia" className="h-8 w-8 rounded-lg" />
+        <img src="/logocelexia.png" alt="Celexia" className="h-8 w-8 rounded-lg" />
         <span className="text-lg font-bold tracking-tight text-white">Celexia</span>
       </div>
       <Separator className="bg-sidebar-border" />
-      <ScrollArea className="flex-1 px-3 py-4">
+      <ScrollArea className="flex-1 min-h-0 px-3 py-4">
         <nav className="space-y-4">
           {navSections.map((section) => {
             const visibleItems = section.items.filter(
