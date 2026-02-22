@@ -18,10 +18,13 @@ import {
   BarChart3,
   RefreshCcw,
   Zap,
+  Undo2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { useUndo } from '@/hooks/use-undo'
+import { toast } from 'sonner'
 
 interface NavItem {
   to: string
@@ -85,6 +88,7 @@ interface SidebarProps {
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const { profile, isFounder, signOut } = useAuth()
+  const { undoAction, clearUndo } = useUndo()
 
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
@@ -140,6 +144,27 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           <p className="font-medium truncate text-sidebar-foreground">{profile?.full_name}</p>
           <p className="text-xs text-sidebar-foreground/50 truncate">{profile?.email}</p>
         </div>
+        {undoAction && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 mb-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+            onClick={async () => {
+              const confirmed = window.confirm('Êtes-vous sûr de vouloir annuler cette action ?')
+              if (!confirmed) return
+              try {
+                await undoAction.undo()
+                toast.success('Action annulée')
+                clearUndo()
+              } catch {
+                toast.error("Erreur lors de l'annulation")
+              }
+            }}
+          >
+            <Undo2 className="h-4 w-4" />
+            Annuler
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"

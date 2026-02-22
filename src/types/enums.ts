@@ -73,6 +73,9 @@ export const CALL_RESULT_LABELS: Record<CallResult, string> = {
   other: 'Autre',
 }
 
+// Call results that should be hidden from the UI (still exist for historical data)
+export const HIDDEN_CALL_RESULTS: CallResult[] = ['no_answer', 'reached_interested']
+
 // Map call result to suggested new prospect status
 export const CALL_RESULT_TO_STATUS: Record<CallResult, ProspectStatus> = {
   no_answer: 'messagerie',

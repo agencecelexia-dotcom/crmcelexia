@@ -25,9 +25,7 @@ import { formatPhone, formatDate, formatRelative } from '@/lib/format'
 import {
   X,
   Phone,
-  PhoneOff,
   Voicemail,
-  ThumbsUp,
   ThumbsDown,
   CalendarPlus,
   Clock,
@@ -51,9 +49,7 @@ interface ProspectCallPanelProps {
 }
 
 const QUICK_CALL_ACTIONS: { result: CallResult; label: string; icon: typeof Phone; color: string }[] = [
-  { result: 'no_answer', label: 'Pas de réponse', icon: PhoneOff, color: 'bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-200' },
   { result: 'voicemail', label: 'Messagerie', icon: Voicemail, color: 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200' },
-  { result: 'reached_interested', label: 'Intéressé', icon: ThumbsUp, color: 'bg-green-50 hover:bg-green-100 text-green-700 border-green-200' },
   { result: 'reached_not_interested', label: 'Pas intéressé', icon: ThumbsDown, color: 'bg-red-50 hover:bg-red-100 text-red-700 border-red-200' },
   { result: 'reached_callback', label: 'À rappeler', icon: Clock, color: 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200' },
   { result: 'reached_rdv', label: 'RDV pris', icon: CalendarPlus, color: 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200' },
@@ -71,13 +67,23 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
   const { data: rdvs } = useRdvForProspect(prospect.id)
   const { data: calcomLink } = useCalcomLink()
 
-  const [callNote, setCallNote] = useState('')
   const [prospectNotes, setProspectNotes] = useState(prospect.notes ?? '')
   const [notesChanged, setNotesChanged] = useState(false)
   const [showReminderInput, setShowReminderInput] = useState(false)
   const [reminderDate, setReminderDate] = useState('')
   const [reminderTime, setReminderTime] = useState('09:00')
   const [reminderNote, setReminderNote] = useState('')
+
+  // "À rappeler" inline form state
+  const [rappelerOpen, setRappelerOpen] = useState(false)
+  const [rappelerDate, setRappelerDate] = useState('')
+  const [rappelerTime, setRappelerTime] = useState('09:00')
+  const [rappelerNote, setRappelerNote] = useState('')
+
+  // "Pas intéressé" (and other note-required results) inline note dialog state
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false)
+  const [noteDialogResult, setNoteDialogResult] = useState<CallResult | null>(null)
+  const [noteDialogText, setNoteDialogText] = useState('')
 
   const recentCalls = calls?.slice(0, 5) ?? []
   const pendingReminders = reminders?.filter((r) => !r.is_completed) ?? []
@@ -97,9 +103,20 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
   async function handleQuickCall(result: CallResult) {
     if (!profile) return
 
+    // "À rappeler" → open inline rappeler form instead of logging immediately
+    if (result === 'reached_callback') {
+      setRappelerOpen(true)
+      setNoteDialogOpen(false)
+      return
+    }
+
+    // Results requiring a note → open inline note dialog
     const needsNote = CALL_RESULTS_REQUIRING_NOTE.includes(result)
-    if (needsNote && !callNote.trim()) {
-      toast.error('Ajoutez une note pour ce résultat')
+    if (needsNote) {
+      setNoteDialogOpen(true)
+      setNoteDialogResult(result)
+      setNoteDialogText('')
+      setRappelerOpen(false)
       return
     }
 
@@ -111,10 +128,9 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
         commercial_id: profile.id,
         result,
         new_status: newStatus,
-        note: callNote.trim() || null,
+        note: null,
       })
       toast.success(`Appel enregistré — ${PROSPECT_STATUS_LABELS[newStatus]}`)
-      setCallNote('')
 
       // "RDV pris" → open Cal.com to book, webhook creates the RDV automatically
       if (result === 'reached_rdv') {
@@ -129,9 +145,63 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
         }
       }
 
-      // Also update status immediately when Cal.com button is clicked directly
-      // (the call already set the status via logCall, this is just for the Cal.com redirect case)
+      onCallLogged?.()
+    } catch {
+      toast.error("Erreur lors de l'enregistrement")
+    }
+  }
 
+  async function handleConfirmRappeler() {
+    if (!profile || !rappelerDate || !rappelerNote.trim()) return
+
+    const newStatus = CALL_RESULT_TO_STATUS['reached_callback']
+    const remindAt = `${rappelerDate}T${rappelerTime}:00`
+
+    try {
+      await logCall.mutateAsync({
+        prospect_id: prospect.id,
+        commercial_id: profile.id,
+        result: 'reached_callback' as CallResult,
+        new_status: newStatus,
+        note: rappelerNote.trim(),
+      })
+
+      await createReminder.mutateAsync({
+        prospect_id: prospect.id,
+        commercial_id: profile.id,
+        remind_at: remindAt,
+        note: rappelerNote.trim(),
+      })
+
+      toast.success('Appel enregistré + rappel créé')
+      setRappelerOpen(false)
+      setRappelerDate('')
+      setRappelerTime('09:00')
+      setRappelerNote('')
+      onCallLogged?.()
+    } catch {
+      toast.error("Erreur lors de l'enregistrement")
+    }
+  }
+
+  async function handleConfirmNoteDialog() {
+    if (!profile || !noteDialogResult || !noteDialogText.trim()) return
+
+    const result = noteDialogResult
+    const newStatus = CALL_RESULT_TO_STATUS[result]
+
+    try {
+      await logCall.mutateAsync({
+        prospect_id: prospect.id,
+        commercial_id: profile.id,
+        result,
+        new_status: newStatus,
+        note: noteDialogText.trim(),
+      })
+      toast.success(`Appel enregistré — ${PROSPECT_STATUS_LABELS[newStatus]}`)
+      setNoteDialogOpen(false)
+      setNoteDialogResult(null)
+      setNoteDialogText('')
       onCallLogged?.()
     } catch {
       toast.error("Erreur lors de l'enregistrement")
@@ -271,16 +341,105 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
             ))}
           </div>
 
-          {/* Call note */}
-          <div className="mt-3">
-            <Textarea
-              value={callNote}
-              onChange={(e) => setCallNote(e.target.value)}
-              placeholder="Note d'appel (optionnelle)..."
-              rows={2}
-              className="text-sm"
-            />
-          </div>
+          {/* "À rappeler" inline form */}
+          {rappelerOpen && (
+            <div className="mt-3 p-3 rounded-lg border border-purple-200 bg-purple-50/50 space-y-2">
+              <p className="text-sm font-medium text-purple-700">Planifier le rappel</p>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={rappelerDate}
+                  onChange={(e) => setRappelerDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="h-8 text-sm"
+                />
+                <Input
+                  type="time"
+                  value={rappelerTime}
+                  onChange={(e) => setRappelerTime(e.target.value)}
+                  className="h-8 text-sm w-24"
+                />
+              </div>
+              <Textarea
+                value={rappelerNote}
+                onChange={(e) => setRappelerNote(e.target.value)}
+                placeholder="Note (obligatoire)..."
+                rows={2}
+                className="text-sm"
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleConfirmRappeler}
+                  disabled={!rappelerDate || !rappelerNote.trim() || logCall.isPending || createReminder.isPending}
+                  className="h-7 text-xs"
+                >
+                  {(logCall.isPending || createReminder.isPending) ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : (
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                  )}
+                  Confirmer
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setRappelerOpen(false)
+                    setRappelerDate('')
+                    setRappelerTime('09:00')
+                    setRappelerNote('')
+                  }}
+                  className="h-7 text-xs"
+                >
+                  Annuler
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Inline note dialog for results requiring a note (e.g. "Pas intéressé") */}
+          {noteDialogOpen && noteDialogResult && (
+            <div className="mt-3 p-3 rounded-lg border border-red-200 bg-red-50/50 space-y-2">
+              <p className="text-sm font-medium text-red-700">
+                Ajoutez une note pour &laquo;&nbsp;{CALL_RESULT_LABELS[noteDialogResult]}&nbsp;&raquo;
+              </p>
+              <Textarea
+                value={noteDialogText}
+                onChange={(e) => setNoteDialogText(e.target.value)}
+                placeholder="Note (obligatoire)..."
+                rows={2}
+                className="text-sm"
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleConfirmNoteDialog}
+                  disabled={!noteDialogText.trim() || logCall.isPending}
+                  className="h-7 text-xs"
+                >
+                  {logCall.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : (
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                  )}
+                  Confirmer
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setNoteDialogOpen(false)
+                    setNoteDialogResult(null)
+                    setNoteDialogText('')
+                  }}
+                  className="h-7 text-xs"
+                >
+                  Annuler
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Cal.com direct booking — always available when configured */}
           {calcomLink && (

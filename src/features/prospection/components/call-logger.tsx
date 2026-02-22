@@ -7,6 +7,7 @@ import {
   CALL_RESULT_LABELS,
   CALL_RESULT_TO_STATUS,
   CALL_RESULTS_REQUIRING_NOTE,
+  HIDDEN_CALL_RESULTS,
   PROSPECT_STATUS_LABELS,
   PROSPECT_STATUS_TRANSITIONS,
 } from '@/types/enums'
@@ -48,22 +49,30 @@ export function CallLogger({ prospect, open, onOpenChange, onSuccess }: CallLogg
   const suggestedStatus = result ? CALL_RESULT_TO_STATUS[result as CallResult] : null
   const noteRequired = result ? CALL_RESULTS_REQUIRING_NOTE.includes(result as CallResult) : false
 
+  // Filter hidden results from UI (they still exist for historical data)
+  const visibleResults = useMemo(
+    () =>
+      (Object.entries(CALL_RESULT_LABELS) as [CallResult, string][]).filter(
+        ([key]) => !HIDDEN_CALL_RESULTS.includes(key)
+      ),
+    []
+  )
+
   // Filter available call results based on valid status transitions from current status
   const availableResults = useMemo(() => {
     const currentStatus = prospect.status as ProspectStatus
     const validTargets = PROSPECT_STATUS_TRANSITIONS[currentStatus] ?? []
-    const allResults = Object.entries(CALL_RESULT_LABELS) as [CallResult, string][]
 
     // For terminal statuses (perdu, converti_client) — no calls allowed
     if (currentStatus === 'converti_client') return []
 
     // For all other statuses, show results whose target status is valid
     // Also always allow staying at the same status
-    return allResults.filter(([callResult]) => {
+    return visibleResults.filter(([callResult]) => {
       const targetStatus = CALL_RESULT_TO_STATUS[callResult]
       return validTargets.includes(targetStatus) || targetStatus === currentStatus
     })
-  }, [prospect.status])
+  }, [prospect.status, visibleResults])
 
   // Check if the selected result leads to a valid transition
   const isValidTransition = useMemo(() => {
