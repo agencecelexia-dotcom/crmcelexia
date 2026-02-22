@@ -10,34 +10,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
-    // Retry once on failure
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single()
+    // Wrap in a 5-second timeout to prevent infinite hang
+    const profilePromise = (async () => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single()
 
-        if (error) {
-          void error.message
+          if (error) {
+            if (attempt === 0) {
+              await new Promise((r) => setTimeout(r, 1000))
+              continue
+            }
+            return null
+          }
+          return data as Profile
+        } catch {
           if (attempt === 0) {
             await new Promise((r) => setTimeout(r, 1000))
             continue
           }
           return null
         }
-        return data as Profile
-      } catch (err) {
-        void err
-        if (attempt === 0) {
-          await new Promise((r) => setTimeout(r, 1000))
-          continue
-        }
-        return null
       }
-    }
-    return null
+      return null
+    })()
+
+    return Promise.race([
+      profilePromise,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+    ])
   }, [])
 
   useEffect(() => {
@@ -49,16 +54,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    // Safety timeout — hard cap at 8 seconds
+    // Safety timeout — hard cap at 5 seconds
     const timeout = setTimeout(() => {
       if (mounted) {
-        // Safety timeout reached (8s), force loaded state
         setIsLoading(false)
       }
-    }, 8_000)
+    }, 5_000)
 
-    // Use ONLY onAuthStateChange — it fires INITIAL_SESSION immediately
-    // This is the recommended Supabase v2+ pattern
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, s) => {
@@ -66,17 +68,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setSession(s)
 
-      if (s?.user) {
-        const p = await fetchProfile(s.user.id)
-        if (mounted) {
-          setProfile(p)
-          setIsLoading(false)
+      try {
+        if (s?.user) {
+          const p = await fetchProfile(s.user.id)
+          if (mounted) setProfile(p)
+        } else {
+          if (mounted) setProfile(null)
         }
-      } else {
-        if (mounted) {
-          setProfile(null)
-          setIsLoading(false)
-        }
+      } finally {
+        // ALWAYS stop loading regardless of profile fetch outcome
+        if (mounted) setIsLoading(false)
       }
     })
 
