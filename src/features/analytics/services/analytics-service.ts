@@ -161,14 +161,21 @@ export async function getKeyRates(commercialId?: string): Promise<KeyRates> {
   // Performance stats for CA
   const perfStats = await getPerformanceStats(commercialId)
 
-  // CAC (basic: number of converted / total cost - using calls as proxy)
+  // CAC (appels par conversion)
   const cac = totalConversions > 0 ? totalCalls / totalConversions : 0
+
+  // Contact rate: calls that reached someone
+  const reachedCalls = filteredCalls.filter(c =>
+    ['reached_interested', 'reached_not_interested', 'reached_callback', 'reached_rdv'].includes(c.result)
+  ).length
+  const contactRate = totalCalls > 0 ? (reachedCalls / totalCalls) * 100 : 0
 
   return {
     call_to_rdv_rate: Math.round(callToRdvRate * 10) / 10,
     rdv_to_closing_rate: Math.round(rdvToClosingRate * 10) / 10,
     global_closing_rate: Math.round(globalClosingRate * 10) / 10,
     cac: Math.round(cac * 10) / 10,
+    contact_rate: Math.round(contactRate * 10) / 10,
     ca_this_month: perfStats.ca_this_month,
     mrr_this_month: perfStats.mrr_generated,
     average_basket: perfStats.average_basket,
@@ -278,4 +285,323 @@ export async function getLossReasonStats(commercialId?: string): Promise<LossRea
       percentage: total > 0 ? Math.round((count / total) * 1000) / 10 : 0,
     }))
     .sort((a, b) => b.count - a.count)
+}
+
+// ── Call Heatmap (hour x day of week) ──
+
+export interface HeatmapCell {
+  hour: number // 0-23
+  day: number // 0=Mon, 6=Sun
+  total: number
+  reached: number
+  rate: number // contact rate %
+}
+
+export async function getCallHeatmapData(commercialId?: string): Promise<HeatmapCell[]> {
+  const now = new Date()
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString()
+
+  let query = supabase
+    .from('calls')
+    .select('called_at, result, commercial_id')
+    .gte('called_at', threeMonthsAgo)
+
+  if (commercialId) {
+    query = query.eq('commercial_id', commercialId)
+  }
+
+  const { data } = await query
+  const calls = (data ?? []) as { called_at: string; result: string; commercial_id: string }[]
+
+  const reachedResults = new Set(['reached_interested', 'reached_not_interested', 'reached_callback', 'reached_rdv'])
+
+  // Grid: 7 days x 24 hours
+  const grid: Record<string, { total: number; reached: number }> = {}
+  for (let d = 0; d < 7; d++) {
+    for (let h = 0; h < 24; h++) {
+      grid[`${d}-${h}`] = { total: 0, reached: 0 }
+    }
+  }
+
+  for (const c of calls) {
+    const dt = new Date(c.called_at)
+    const day = (dt.getDay() + 6) % 7 // Mon=0, Sun=6
+    const hour = dt.getHours()
+    const key = `${day}-${hour}`
+    grid[key].total++
+    if (reachedResults.has(c.result)) {
+      grid[key].reached++
+    }
+  }
+
+  return Object.entries(grid).map(([key, v]) => {
+    const [day, hour] = key.split('-').map(Number)
+    return {
+      hour,
+      day,
+      total: v.total,
+      reached: v.reached,
+      rate: v.total > 0 ? Math.round((v.reached / v.total) * 100) : 0,
+    }
+  })
+}
+
+// ── Performance by Niche ──
+
+export interface NichePerformance {
+  niche: string
+  total_calls: number
+  reached: number
+  rdv: number
+  contact_rate: number
+  rdv_rate: number
+}
+
+export async function getPerformanceByNiche(commercialId?: string): Promise<NichePerformance[]> {
+  const now = new Date()
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString()
+
+  let query = supabase
+    .from('calls')
+    .select('result, commercial_id, prospect:prospects!calls_prospect_id_fkey(profession)')
+    .gte('called_at', threeMonthsAgo)
+
+  if (commercialId) {
+    query = query.eq('commercial_id', commercialId)
+  }
+
+  const { data } = await query
+  const calls = (data ?? []) as unknown as { result: string; prospect?: { profession: string | null } }[]
+
+  const reachedResults = new Set(['reached_interested', 'reached_not_interested', 'reached_callback', 'reached_rdv'])
+  const nicheMap: Record<string, { total: number; reached: number; rdv: number }> = {}
+
+  for (const c of calls) {
+    const niche = c.prospect?.profession || 'Non renseigné'
+    if (!nicheMap[niche]) nicheMap[niche] = { total: 0, reached: 0, rdv: 0 }
+    nicheMap[niche].total++
+    if (reachedResults.has(c.result)) nicheMap[niche].reached++
+    if (c.result === 'reached_rdv') nicheMap[niche].rdv++
+  }
+
+  return Object.entries(nicheMap)
+    .map(([niche, v]) => ({
+      niche,
+      total_calls: v.total,
+      reached: v.reached,
+      rdv: v.rdv,
+      contact_rate: v.total > 0 ? Math.round((v.reached / v.total) * 100) : 0,
+      rdv_rate: v.total > 0 ? Math.round((v.rdv / v.total) * 1000) / 10 : 0,
+    }))
+    .filter(n => n.total_calls >= 5) // minimum sample size
+    .sort((a, b) => b.contact_rate - a.contact_rate)
+}
+
+// ── CA Trend (12 months) ──
+
+export interface CATrendPoint {
+  month: string // "Jan", "Fév", etc.
+  ca: number
+  monthKey: string // "2026-01"
+}
+
+export async function getCATrend(commercialId?: string): Promise<CATrendPoint[]> {
+  const now = new Date()
+  const twelveMonthsAgo = new Date(now.getFullYear() - 1, now.getMonth(), 1).toISOString()
+
+  let query = supabase
+    .from('devis')
+    .select('amount_ht, signed_at, client:clients!devis_client_id_fkey(commercial_id)')
+    .eq('status', 'signe')
+    .is('deleted_at', null)
+    .gte('signed_at', twelveMonthsAgo)
+
+  const { data } = await query
+  let devis = (data ?? []) as unknown as { amount_ht: number; signed_at: string; client?: { commercial_id: string } }[]
+
+  if (commercialId) {
+    devis = devis.filter(d => d.client?.commercial_id === commercialId)
+  }
+
+  const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
+  const result: CATrendPoint[] = []
+
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const monthDevis = devis.filter(dv => {
+      const sd = new Date(dv.signed_at)
+      return sd.getFullYear() === d.getFullYear() && sd.getMonth() === d.getMonth()
+    })
+    result.push({
+      month: monthNames[d.getMonth()],
+      ca: monthDevis.reduce((sum, dv) => sum + (dv.amount_ht || 0), 0),
+      monthKey,
+    })
+  }
+
+  return result
+}
+
+// ── Objectives persistence ──
+
+export interface ObjectiveValues {
+  target_mrr: number
+  target_ca: number
+  target_closing_rate: number
+  target_rdv_rate: number
+}
+
+export async function getObjectives(commercialId: string): Promise<ObjectiveValues> {
+  const { data } = await supabase
+    .from('commercial_targets')
+    .select('target_mrr, target_ca, target_closing_rate, target_rdv_rate')
+    .eq('commercial_id', commercialId)
+    .single()
+
+  if (data) {
+    return {
+      target_mrr: Number(data.target_mrr) || 5000,
+      target_ca: Number(data.target_ca) || 20000,
+      target_closing_rate: Number(data.target_closing_rate) || 25,
+      target_rdv_rate: Number(data.target_rdv_rate) || 10,
+    }
+  }
+
+  return { target_mrr: 5000, target_ca: 20000, target_closing_rate: 25, target_rdv_rate: 10 }
+}
+
+export async function saveObjectives(commercialId: string, objectives: ObjectiveValues): Promise<void> {
+  const { error } = await supabase
+    .from('commercial_targets')
+    .upsert({
+      commercial_id: commercialId,
+      target_mrr: objectives.target_mrr,
+      target_ca: objectives.target_ca,
+      target_closing_rate: objectives.target_closing_rate,
+      target_rdv_rate: objectives.target_rdv_rate,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'commercial_id' })
+
+  if (error) throw error
+}
+
+// ── Dashboard Comparisons (vs previous period) ──
+
+export interface DashboardComparisons {
+  calls_delta: number | null // % change vs previous period
+  rdv_delta: number | null
+  ca_delta: number | null
+  conversion_delta: number | null
+}
+
+export async function getDashboardComparisons(commercialId?: string): Promise<DashboardComparisons> {
+  const now = new Date()
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const lastMonthEnd = thisMonthStart
+
+  // Current month calls
+  let callsThisQ = supabase.from('calls').select('id, commercial_id').gte('called_at', thisMonthStart.toISOString())
+  let callsLastQ = supabase.from('calls').select('id, commercial_id').gte('called_at', lastMonthStart.toISOString()).lt('called_at', lastMonthEnd.toISOString())
+
+  if (commercialId) {
+    callsThisQ = callsThisQ.eq('commercial_id', commercialId)
+    callsLastQ = callsLastQ.eq('commercial_id', commercialId)
+  }
+
+  // RDV
+  let rdvThisQ = supabase.from('rendez_vous').select('id, commercial_id').is('deleted_at', null).gte('scheduled_at', thisMonthStart.toISOString())
+  let rdvLastQ = supabase.from('rendez_vous').select('id, commercial_id').is('deleted_at', null).gte('scheduled_at', lastMonthStart.toISOString()).lt('scheduled_at', lastMonthEnd.toISOString())
+
+  if (commercialId) {
+    rdvThisQ = rdvThisQ.eq('commercial_id', commercialId)
+    rdvLastQ = rdvLastQ.eq('commercial_id', commercialId)
+  }
+
+  // CA
+  let caThisQ = supabase.from('devis').select('amount_ht, client:clients!devis_client_id_fkey(commercial_id)').eq('status', 'signe').is('deleted_at', null).gte('signed_at', thisMonthStart.toISOString())
+  let caLastQ = supabase.from('devis').select('amount_ht, client:clients!devis_client_id_fkey(commercial_id)').eq('status', 'signe').is('deleted_at', null).gte('signed_at', lastMonthStart.toISOString()).lt('signed_at', lastMonthEnd.toISOString())
+
+  const [callsThis, callsLast, rdvThis, rdvLast, caThis, caLast] = await Promise.all([
+    callsThisQ, callsLastQ, rdvThisQ, rdvLastQ, caThisQ, caLastQ,
+  ])
+
+  function filterByCommercial<T extends { commercial_id?: string }>(items: T[], cId?: string): T[] {
+    if (!cId) return items
+    return items.filter(i => i.commercial_id === cId)
+  }
+
+  const callsThisCount = filterByCommercial((callsThis.data ?? []) as { id: string; commercial_id: string }[], commercialId).length
+  const callsLastCount = filterByCommercial((callsLast.data ?? []) as { id: string; commercial_id: string }[], commercialId).length
+
+  const rdvThisCount = filterByCommercial((rdvThis.data ?? []) as { id: string; commercial_id: string }[], commercialId).length
+  const rdvLastCount = filterByCommercial((rdvLast.data ?? []) as { id: string; commercial_id: string }[], commercialId).length
+
+  type DevisRow = { amount_ht: number; client?: { commercial_id: string } }
+  let caThisItems = (caThis.data ?? []) as unknown as DevisRow[]
+  let caLastItems = (caLast.data ?? []) as unknown as DevisRow[]
+  if (commercialId) {
+    caThisItems = caThisItems.filter(d => d.client?.commercial_id === commercialId)
+    caLastItems = caLastItems.filter(d => d.client?.commercial_id === commercialId)
+  }
+  const caThisTotal = caThisItems.reduce((s, d) => s + (d.amount_ht || 0), 0)
+  const caLastTotal = caLastItems.reduce((s, d) => s + (d.amount_ht || 0), 0)
+
+  function delta(current: number, previous: number): number | null {
+    if (previous === 0) return current > 0 ? 100 : null
+    return Math.round(((current - previous) / previous) * 100)
+  }
+
+  return {
+    calls_delta: delta(callsThisCount, callsLastCount),
+    rdv_delta: delta(rdvThisCount, rdvLastCount),
+    ca_delta: delta(caThisTotal, caLastTotal),
+    conversion_delta: null, // computed separately if needed
+  }
+}
+
+// ── DSO (Days Sales Outstanding) ──
+
+export interface DSOStats {
+  dso: number // average days to get paid
+  total_outstanding: number
+  overdue_count: number
+}
+
+export async function getDSOStats(): Promise<DSOStats> {
+  const { data } = await supabase
+    .from('devis')
+    .select('sent_at, signed_at, status, amount_ttc, valid_until')
+    .is('deleted_at', null)
+    .not('status', 'eq', 'brouillon')
+
+  const devis = (data ?? []) as { sent_at: string | null; signed_at: string | null; status: string; amount_ttc: number; valid_until: string | null }[]
+
+  // DSO = avg days between sent_at and signed_at for signed devis
+  const paidDevis = devis.filter(d => d.status === 'signe' && d.sent_at && d.signed_at)
+  let totalDays = 0
+  for (const d of paidDevis) {
+    const sent = new Date(d.sent_at!).getTime()
+    const signed = new Date(d.signed_at!).getTime()
+    totalDays += Math.max(0, Math.floor((signed - sent) / (1000 * 60 * 60 * 24)))
+  }
+  const dso = paidDevis.length > 0 ? Math.round(totalDays / paidDevis.length) : 0
+
+  // Outstanding: sent but not signed
+  const outstanding = devis.filter(d => d.status === 'envoye')
+  const totalOutstanding = outstanding.reduce((s, d) => s + d.amount_ttc, 0)
+
+  // Overdue
+  const now = new Date()
+  const overdue = outstanding.filter(d => {
+    if (d.valid_until && new Date(d.valid_until) < now) return true
+    if (d.sent_at) {
+      const daysSince = Math.floor((now.getTime() - new Date(d.sent_at).getTime()) / (1000 * 60 * 60 * 24))
+      return daysSince > 30
+    }
+    return false
+  })
+
+  return { dso, total_outstanding: totalOutstanding, overdue_count: overdue.length }
 }

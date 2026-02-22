@@ -16,6 +16,10 @@ interface TargetRow {
   calls_per_day: number
   rdv_per_week: number
   conversions_per_month: number
+  target_mrr: number
+  target_ca: number
+  target_closing_rate: number
+  target_rdv_rate: number
 }
 
 export function TargetsPage() {
@@ -53,6 +57,19 @@ export function TargetsPage() {
               calls_per_day: 50,
               rdv_per_week: 5,
               conversions_per_month: 3,
+              target_mrr: 5000,
+              target_ca: 20000,
+              target_closing_rate: 25,
+              target_rdv_rate: 10,
+            }
+          } else {
+            // Ensure new fields have defaults
+            tMap[p.id] = {
+              ...tMap[p.id],
+              target_mrr: tMap[p.id].target_mrr ?? 5000,
+              target_ca: tMap[p.id].target_ca ?? 20000,
+              target_closing_rate: tMap[p.id].target_closing_rate ?? 25,
+              target_rdv_rate: tMap[p.id].target_rdv_rate ?? 10,
             }
           }
         }
@@ -82,6 +99,10 @@ export function TargetsPage() {
         calls_per_day: t.calls_per_day,
         rdv_per_week: t.rdv_per_week,
         conversions_per_month: t.conversions_per_month,
+        target_mrr: t.target_mrr,
+        target_ca: t.target_ca,
+        target_closing_rate: t.target_closing_rate,
+        target_rdv_rate: t.target_rdv_rate,
         updated_at: new Date().toISOString(),
       }))
 
@@ -144,6 +165,7 @@ export function TargetsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                <p className="text-xs font-medium text-muted-foreground">Cibles opérationnelles</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Appels / jour</Label>
@@ -172,6 +194,51 @@ export function TargetsPage() {
                       min={0}
                       value={t.conversions_per_month}
                       onChange={(e) => updateTarget(p.id, 'conversions_per_month', Number(e.target.value))}
+                      className="h-8"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs font-medium text-muted-foreground mt-3">Objectifs stratégiques</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">MRR cible (€)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={t.target_mrr}
+                      onChange={(e) => updateTarget(p.id, 'target_mrr', Number(e.target.value))}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">CA cible (€)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={t.target_ca}
+                      onChange={(e) => updateTarget(p.id, 'target_ca', Number(e.target.value))}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Taux closing (%)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={t.target_closing_rate}
+                      onChange={(e) => updateTarget(p.id, 'target_closing_rate', Number(e.target.value))}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Taux RDV (%)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={t.target_rdv_rate}
+                      onChange={(e) => updateTarget(p.id, 'target_rdv_rate', Number(e.target.value))}
                       className="h-8"
                     />
                   </div>

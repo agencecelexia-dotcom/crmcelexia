@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useAuth } from '@/features/auth/hooks/use-auth'
-import { usePerformanceStats, useKeyRates, useCommercialClosingRates, useLossReasonStats } from '../hooks/use-analytics'
+import { usePerformanceStats, useKeyRates, useCommercialClosingRates, useLossReasonStats, useCATrend } from '../hooks/use-analytics'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/components/shared/stat-card'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -21,31 +23,60 @@ import {
   Phone,
   Calendar,
   Users,
+  UserCheck,
 } from 'lucide-react'
 import { formatCurrency, formatPercentage } from '@/lib/format'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie,
+  PieChart, Pie, AreaChart, Area,
 } from 'recharts'
+import { CallHeatmap } from '../components/call-heatmap'
+import { NichePerformance } from '../components/niche-performance'
 
 const LOSS_COLORS = ['#EF4444', '#F97316', '#F59E0B', '#6B7280', '#3B82F6', '#8B5CF6', '#EC4899', '#14B8A6', '#64748B', '#A855F7']
+
+type Period = 'this_month' | 'last_month' | 'this_quarter' | 'last_3_months'
+const PERIOD_LABELS: Record<Period, string> = {
+  this_month: 'Ce mois',
+  last_month: 'Mois dernier',
+  this_quarter: 'Ce trimestre',
+  last_3_months: '3 derniers mois',
+}
 
 export function PerformancePage() {
   const { profile, isFounder } = useAuth()
   const commercialId = isFounder ? undefined : profile?.id
+  const [period, setPeriod] = useState<Period>('this_month')
 
   const { data: perfStats, isLoading: loadingPerf } = usePerformanceStats(commercialId)
   const { data: keyRates, isLoading: loadingRates } = useKeyRates(commercialId)
   const { data: closingRates, isLoading: loadingClosing } = useCommercialClosingRates()
   const { data: lossReasons, isLoading: loadingLoss } = useLossReasonStats(commercialId)
+  const { data: caTrend } = useCATrend(commercialId)
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Performance Commerciale</h1>
-        <p className="text-muted-foreground">
-          {isFounder ? 'Vue globale des performances de l\'équipe' : 'Vos indicateurs de performance'}
-        </p>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Performance Commerciale</h1>
+          <p className="text-muted-foreground">
+            {isFounder ? 'Vue globale des performances de l\'équipe' : 'Vos indicateurs de performance'}
+          </p>
+        </div>
+        {/* Period selector */}
+        <div className="flex gap-1">
+          {(Object.entries(PERIOD_LABELS) as [Period, string][]).map(([key, label]) => (
+            <Button
+              key={key}
+              variant={period === key ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setPeriod(key)}
+              className="text-xs"
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Performance KPIs */}
@@ -98,7 +129,7 @@ export function PerformancePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-6 md:grid-cols-4">
+            <div className="grid gap-6 md:grid-cols-5">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <Phone className="h-4 w-4 text-blue-500" />
@@ -122,16 +153,62 @@ export function PerformancePage() {
               </div>
               <div className="text-center">
                 <div className="flex items-center justify-center gap-2 mb-1">
-                  <DollarSign className="h-4 w-4 text-orange-500" />
-                  <span className="text-sm text-muted-foreground">CAC (appels/conv.)</span>
+                  <UserCheck className="h-4 w-4 text-teal-500" />
+                  <span className="text-sm text-muted-foreground">Taux de contact</span>
+                </div>
+                <p className="text-3xl font-bold text-teal-600">{formatPercentage(keyRates.contact_rate)}</p>
+                <p className="text-xs text-muted-foreground">décrochage / appels</p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Phone className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm text-muted-foreground">Appels / conversion</span>
                 </div>
                 <p className="text-3xl font-bold text-orange-600">{keyRates.cac.toFixed(1)}</p>
-                <p className="text-xs text-muted-foreground">appels par conversion</p>
+                <p className="text-xs text-muted-foreground">nb moyen d'appels pour convertir</p>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
+
+      {/* CA Trend (12 months) */}
+      {caTrend && caTrend.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Évolution du CA — 12 derniers mois
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={caTrend} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <defs>
+                  <linearGradient id="caGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#7C3AED" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#7C3AED" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#9ca3af" />
+                <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" tickFormatter={v => `${(Number(v) / 1000).toFixed(0)}k€`} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '13px' }}
+                  formatter={(value) => [formatCurrency(Number(value)), 'CA']}
+                />
+                <Area type="monotone" dataKey="ca" stroke="#7C3AED" strokeWidth={2} fill="url(#caGradient)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Heatmap + Niche performance */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <CallHeatmap commercialId={commercialId} />
+        <NichePerformance commercialId={commercialId} />
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Commercial Closing Rates */}

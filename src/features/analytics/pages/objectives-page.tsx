@@ -1,16 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/features/auth/hooks/use-auth'
-import { usePerformanceStats, useKeyRates } from '../hooks/use-analytics'
+import { usePerformanceStats, useKeyRates, useObjectives, useSaveObjectives } from '../hooks/use-analytics'
 import { useDashboardStats } from '@/features/dashboard/hooks/use-dashboard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
 import {
   Target,
   TrendingUp,
   DollarSign,
   Phone,
   Award,
+  Save,
+  Loader2,
 } from 'lucide-react'
 import { formatCurrency, formatPercentage } from '@/lib/format'
 
@@ -24,10 +27,13 @@ interface ObjectiveConfig {
 export function ObjectivesPage() {
   const { profile, isFounder } = useAuth()
   const commercialId = isFounder ? undefined : profile?.id
+  const effectiveId = profile?.id
 
   const { data: perfStats } = usePerformanceStats(commercialId)
   const { data: keyRates } = useKeyRates(commercialId)
   const { data: dashStats } = useDashboardStats(commercialId)
+  const { data: savedObjectives, isLoading: loadingObj } = useObjectives(effectiveId)
+  const saveObjectives = useSaveObjectives()
 
   const [objectives, setObjectives] = useState<ObjectiveConfig>({
     target_mrr: 5000,
@@ -35,11 +41,39 @@ export function ObjectivesPage() {
     target_closing_rate: 25,
     target_rdv_rate: 10,
   })
+  const [hasChanges, setHasChanges] = useState(false)
+
+  // Sync from DB when loaded
+  useEffect(() => {
+    if (savedObjectives) {
+      setObjectives(savedObjectives)
+      setHasChanges(false)
+    }
+  }, [savedObjectives])
+
+  function updateObjective(field: keyof ObjectiveConfig, value: number) {
+    setObjectives(o => ({ ...o, [field]: value }))
+    setHasChanges(true)
+  }
+
+  async function handleSave() {
+    if (!effectiveId) return
+    await saveObjectives.mutateAsync({ commercialId: effectiveId, objectives })
+    setHasChanges(false)
+  }
 
   const mrrProgress = objectives.target_mrr > 0 && perfStats ? (perfStats.mrr_generated / objectives.target_mrr) * 100 : 0
   const caProgress = objectives.target_ca > 0 && perfStats ? (perfStats.ca_this_month / objectives.target_ca) * 100 : 0
   const closingProgress = objectives.target_closing_rate > 0 && keyRates ? (keyRates.global_closing_rate / objectives.target_closing_rate) * 100 : 0
   const rdvProgress = objectives.target_rdv_rate > 0 && keyRates ? (keyRates.call_to_rdv_rate / objectives.target_rdv_rate) * 100 : 0
+
+  if (loadingObj) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -66,7 +100,7 @@ export function ObjectivesPage() {
                 type="number"
                 min={0}
                 value={objectives.target_mrr}
-                onChange={e => setObjectives(o => ({ ...o, target_mrr: Number(e.target.value) }))}
+                onChange={e => updateObjective('target_mrr', Number(e.target.value))}
               />
             </div>
             <div>
@@ -75,7 +109,7 @@ export function ObjectivesPage() {
                 type="number"
                 min={0}
                 value={objectives.target_ca}
-                onChange={e => setObjectives(o => ({ ...o, target_ca: Number(e.target.value) }))}
+                onChange={e => updateObjective('target_ca', Number(e.target.value))}
               />
             </div>
             <div>
@@ -85,7 +119,7 @@ export function ObjectivesPage() {
                 min={0}
                 max={100}
                 value={objectives.target_closing_rate}
-                onChange={e => setObjectives(o => ({ ...o, target_closing_rate: Number(e.target.value) }))}
+                onChange={e => updateObjective('target_closing_rate', Number(e.target.value))}
               />
             </div>
             <div>
@@ -95,10 +129,25 @@ export function ObjectivesPage() {
                 min={0}
                 max={100}
                 value={objectives.target_rdv_rate}
-                onChange={e => setObjectives(o => ({ ...o, target_rdv_rate: Number(e.target.value) }))}
+                onChange={e => updateObjective('target_rdv_rate', Number(e.target.value))}
               />
             </div>
           </div>
+          {hasChanges && (
+            <div className="mt-4 flex items-center gap-3">
+              <Button onClick={handleSave} disabled={saveObjectives.isPending} size="sm">
+                {saveObjectives.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Sauvegarder
+              </Button>
+              {saveObjectives.isSuccess && !hasChanges && (
+                <p className="text-sm text-emerald-600">Objectifs sauvegardés</p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -8,10 +8,13 @@ interface StatCardProps {
   subtitle?: string
   icon?: LucideIcon
   trend?: { value: number; label: string }
+  progress?: { current: number; target: number; label?: string }
   className?: string
 }
 
-export function StatCard({ title, value, subtitle, icon: Icon, trend, className }: StatCardProps) {
+export function StatCard({ title, value, subtitle, icon: Icon, trend, progress, className }: StatCardProps) {
+  const progressPct = progress && progress.target > 0 ? Math.min((progress.current / progress.target) * 100, 100) : 0
+
   return (
     <Card className={cn('relative overflow-hidden', className)}>
       <CardContent className="p-5">
@@ -34,6 +37,19 @@ export function StatCard({ title, value, subtitle, icon: Icon, trend, className 
           )}>
             {trend.value > 0 ? '+' : ''}{trend.value}% {trend.label}
           </p>
+        )}
+        {progress && progress.target > 0 && (
+          <div className="mt-3">
+            <div className="w-full bg-gray-200 rounded-full h-1.5">
+              <div
+                className={cn('h-1.5 rounded-full transition-all', progressPct >= 100 ? 'bg-emerald-500' : 'bg-primary')}
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {Math.round(progressPct)}% {progress.label || "de l'objectif"}
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>

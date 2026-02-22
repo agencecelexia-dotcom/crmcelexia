@@ -11,7 +11,7 @@ import {
 } from '../hooks/use-dashboard'
 import { useMyReminders } from '@/features/prospection/hooks/use-reminders'
 import { useMyUpcomingRdv } from '@/features/rendez-vous/hooks/use-rdv'
-import { usePerformanceStats } from '@/features/analytics/hooks/use-analytics'
+import { usePerformanceStats, useDashboardComparisons, useKeyRates } from '@/features/analytics/hooks/use-analytics'
 import { AlertsPanel } from '@/features/alerts/components/alerts-panel'
 import { StatCard } from '@/components/shared/stat-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,7 +26,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useNavigate } from 'react-router-dom'
-import { Phone, CalendarDays, Clock, AlertTriangle, TrendingUp, Users, Target, BarChart3, DollarSign } from 'lucide-react'
+import { Phone, CalendarDays, Clock, AlertTriangle, TrendingUp, Users, Target, BarChart3, DollarSign, UserCheck } from 'lucide-react'
 import { PROSPECT_STATUS_LABELS, PROSPECT_STATUS_COLORS, RDV_TYPE_LABELS } from '@/types/enums'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { formatDate, formatCurrency } from '@/lib/format'
@@ -39,7 +39,6 @@ import {
 const FUNNEL_COLORS: Record<string, string> = {
   nouveau: '#8B5CF6',
   messagerie: '#C4B5FD',
-  interesse: '#6D28D9',
   a_rappeler: '#7C3AED',
   rdv_pris: '#10B981',
   converti_client: '#059669',
@@ -82,11 +81,12 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
   const { data: overdueReminders } = useMyReminders(commercialId, { overdueOnly: true })
   const { data: weeklyStats } = useWeeklyCallStats(commercialId)
   const { data: perfStats } = usePerformanceStats(commercialId)
+  const { data: comparisons } = useDashboardComparisons(commercialId)
+  const { data: keyRates } = useKeyRates(commercialId)
 
   const funnelPieData = funnel ? [
     { name: 'Nouveau', value: funnel.nouveau, color: FUNNEL_COLORS.nouveau },
     { name: 'Messagerie', value: funnel.messagerie, color: FUNNEL_COLORS.messagerie },
-    { name: 'Intéressé', value: funnel.interesse, color: FUNNEL_COLORS.interesse },
     { name: 'À rappeler', value: funnel.a_rappeler, color: FUNNEL_COLORS.a_rappeler },
     { name: 'RDV pris', value: funnel.rdv_pris, color: FUNNEL_COLORS.rdv_pris },
     { name: 'Converti', value: funnel.converti_client, color: FUNNEL_COLORS.converti_client },
@@ -100,6 +100,7 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
           title="CA ce mois"
           value={perfStats ? formatCurrency(perfStats.ca_this_month) : '...'}
           icon={DollarSign}
+          trend={comparisons?.ca_delta != null ? { value: comparisons.ca_delta, label: 'vs mois préc.' } : undefined}
           className="border-primary/30 bg-primary/5"
         />
         <StatCard
@@ -107,6 +108,7 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
           value={loadingCalls ? '...' : callsToday ?? 0}
           subtitle={`${callsWeek ?? 0} cette semaine`}
           icon={Phone}
+          trend={comparisons?.calls_delta != null ? { value: comparisons.calls_delta, label: 'vs mois préc.' } : undefined}
         />
         <StatCard
           title="Rappels du jour"
@@ -119,12 +121,13 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
           title="RDV cette semaine"
           value={rdvWeek ?? 0}
           icon={CalendarDays}
+          trend={comparisons?.rdv_delta != null ? { value: comparisons.rdv_delta, label: 'vs mois préc.' } : undefined}
         />
         <StatCard
-          title="Prospects actifs"
-          value={funnel?.total_prospects ?? 0}
-          subtitle={funnel ? `${funnel.rdv_pris} RDV pris · ${funnel.converti_client} convertis` : ''}
-          icon={Target}
+          title="Taux de contact"
+          value={keyRates ? `${keyRates.contact_rate}%` : '...'}
+          subtitle={keyRates ? `${keyRates.call_to_rdv_rate}% → RDV` : ''}
+          icon={UserCheck}
         />
       </div>
 
@@ -291,7 +294,6 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
                   {([
                     ['nouveau', funnel.nouveau],
                     ['messagerie', funnel.messagerie],
-                    ['interesse', funnel.interesse],
                     ['a_rappeler', funnel.a_rappeler],
                     ['rdv_pris', funnel.rdv_pris],
                     ['converti_client', funnel.converti_client],
@@ -324,11 +326,12 @@ function FounderDashboard() {
   const { data: ranking, isLoading: loadingRanking } = useCommercialRanking()
   const { data: weeklyStats } = useWeeklyCallStats()
   const { data: perfStats } = usePerformanceStats()
+  const { data: comparisons } = useDashboardComparisons()
+  const { data: keyRates } = useKeyRates()
 
   const funnelBarData = funnel ? [
     { name: 'Nouveau', value: funnel.nouveau, fill: FUNNEL_COLORS.nouveau },
     { name: 'Messagerie', value: funnel.messagerie, fill: FUNNEL_COLORS.messagerie },
-    { name: 'Intéressé', value: funnel.interesse, fill: FUNNEL_COLORS.interesse },
     { name: 'À rappeler', value: funnel.a_rappeler, fill: FUNNEL_COLORS.a_rappeler },
     { name: 'RDV pris', value: funnel.rdv_pris, fill: FUNNEL_COLORS.rdv_pris },
     { name: 'Converti', value: funnel.converti_client, fill: FUNNEL_COLORS.converti_client },
@@ -347,12 +350,13 @@ function FounderDashboard() {
   return (
     <>
       {/* Global KPIs */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         <StatCard
           title="CA ce mois"
           value={perfStats ? formatCurrency(perfStats.ca_this_month) : '...'}
           subtitle={perfStats ? `MRR: ${formatCurrency(perfStats.mrr_generated)}` : ''}
           icon={DollarSign}
+          trend={comparisons?.ca_delta != null ? { value: comparisons.ca_delta, label: 'vs mois préc.' } : undefined}
           className="border-primary/30 bg-primary/5"
         />
         <StatCard
@@ -360,18 +364,26 @@ function FounderDashboard() {
           value={callsToday ?? 0}
           subtitle={`${callsWeek ?? 0} cette semaine`}
           icon={Phone}
+          trend={comparisons?.calls_delta != null ? { value: comparisons.calls_delta, label: 'vs mois préc.' } : undefined}
         />
         <StatCard
           title="RDV cette semaine"
           value={rdvWeek ?? 0}
           subtitle={`${rdvRate}% taux de prise RDV`}
           icon={CalendarDays}
+          trend={comparisons?.rdv_delta != null ? { value: comparisons.rdv_delta, label: 'vs mois préc.' } : undefined}
         />
         <StatCard
           title="Taux de show-up"
           value={showUpRate !== undefined ? `${showUpRate}%` : '...'}
           subtitle="Ce mois-ci"
           icon={TrendingUp}
+        />
+        <StatCard
+          title="Taux de contact"
+          value={keyRates ? `${keyRates.contact_rate}%` : '...'}
+          subtitle={keyRates ? `${keyRates.call_to_rdv_rate}% → RDV` : ''}
+          icon={UserCheck}
         />
         <StatCard
           title="Total prospects"

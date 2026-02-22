@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { usePayments, usePaymentStats } from '../hooks/use-payments'
+import { useDSOStats } from '@/features/analytics/hooks/use-analytics'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -15,7 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useNavigate } from 'react-router-dom'
-import { Clock, AlertTriangle, XCircle, CheckCircle } from 'lucide-react'
+import { Clock, AlertTriangle, XCircle, CheckCircle, Timer, Banknote } from 'lucide-react'
 import { formatCurrency, formatDateShort } from '@/lib/format'
 import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS, type PaymentStatus } from '@/types/enums'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
@@ -40,6 +41,7 @@ export function PaymentsPage() {
 
   const { data: payments, isLoading } = usePayments(paymentFilters)
   const { data: stats } = usePaymentStats(commercialId)
+  const { data: dso } = useDSOStats()
 
   const pieData = stats ? [
     { name: 'Payé', value: stats.count_paye, color: PIE_COLORS.paye },
@@ -56,37 +58,79 @@ export function PaymentsPage() {
       </div>
 
       {/* Stats */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        {stats && (
+          <>
+            <StatCard
+              title="Payé"
+              value={formatCurrency(stats.total_paye)}
+              subtitle={`${stats.count_paye} paiements`}
+              icon={CheckCircle}
+              className="border-green-200 bg-green-50/30"
+            />
+            <StatCard
+              title="En attente"
+              value={formatCurrency(stats.total_en_attente)}
+              subtitle={`${stats.count_en_attente} en attente`}
+              icon={Clock}
+              className="border-yellow-200 bg-yellow-50/30"
+            />
+            <StatCard
+              title="En retard"
+              value={formatCurrency(stats.total_en_retard)}
+              subtitle={`${stats.count_en_retard} en retard`}
+              icon={AlertTriangle}
+              className={stats.count_en_retard > 0 ? 'border-orange-300 bg-orange-50/30' : undefined}
+            />
+            <StatCard
+              title="Impayé"
+              value={formatCurrency(stats.total_impaye)}
+              subtitle={`${stats.count_impaye} impayés`}
+              icon={XCircle}
+              className={stats.count_impaye > 0 ? 'border-red-300 bg-red-50/30' : undefined}
+            />
+          </>
+        )}
+        {dso && (
+          <StatCard
+            title="DSO"
+            value={`${dso.dso} j`}
+            subtitle={dso.overdue_count > 0
+              ? `${dso.overdue_count} en souffrance · ${formatCurrency(dso.total_outstanding)} encours`
+              : `${formatCurrency(dso.total_outstanding)} encours`
+            }
+            icon={Timer}
+            className={dso.dso > 30 ? 'border-orange-300 bg-orange-50/30' : undefined}
+          />
+        )}
+      </div>
+
+      {/* Cash flow summary */}
       {stats && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Payé"
-            value={formatCurrency(stats.total_paye)}
-            subtitle={`${stats.count_paye} paiements`}
-            icon={CheckCircle}
-            className="border-green-200 bg-green-50/30"
-          />
-          <StatCard
-            title="En attente"
-            value={formatCurrency(stats.total_en_attente)}
-            subtitle={`${stats.count_en_attente} en attente`}
-            icon={Clock}
-            className="border-yellow-200 bg-yellow-50/30"
-          />
-          <StatCard
-            title="En retard"
-            value={formatCurrency(stats.total_en_retard)}
-            subtitle={`${stats.count_en_retard} en retard`}
-            icon={AlertTriangle}
-            className={stats.count_en_retard > 0 ? 'border-orange-300 bg-orange-50/30' : undefined}
-          />
-          <StatCard
-            title="Impayé"
-            value={formatCurrency(stats.total_impaye)}
-            subtitle={`${stats.count_impaye} impayés`}
-            icon={XCircle}
-            className={stats.count_impaye > 0 ? 'border-red-300 bg-red-50/30' : undefined}
-          />
-        </div>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Banknote className="h-4 w-4 text-primary" />
+              Trésorerie prévisionnelle
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3 text-center">
+              <div>
+                <p className="text-sm text-muted-foreground">Encaissé</p>
+                <p className="text-2xl font-bold text-green-600">{formatCurrency(stats.total_paye)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">À encaisser</p>
+                <p className="text-2xl font-bold text-yellow-600">{formatCurrency(stats.total_en_attente + stats.total_en_retard)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Pertes probables</p>
+                <p className="text-2xl font-bold text-red-600">{formatCurrency(stats.total_impaye)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Pie chart + filters */}
@@ -170,30 +214,50 @@ export function PaymentsPage() {
                   <TableHead className="text-right">Montant TTC</TableHead>
                   <TableHead>Date d'échéance</TableHead>
                   <TableHead>Date de paiement</TableHead>
+                  <TableHead className="text-right">Jours</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((payment) => (
-                  <TableRow
-                    key={payment.id}
-                    className="cursor-pointer hover:bg-accent/50"
-                    onClick={() => navigate(`/clients/${payment.clientId}`)}
-                  >
-                    <TableCell className="font-mono text-sm">{payment.reference}</TableCell>
-                    <TableCell className="font-medium">{payment.clientName}</TableCell>
-                    <TableCell>
-                      <StatusBadge
-                        label={PAYMENT_STATUS_LABELS[payment.status]}
-                        colorClass={PAYMENT_STATUS_COLORS[payment.status]}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums font-semibold">
-                      {formatCurrency(payment.amount)}
-                    </TableCell>
-                    <TableCell>{payment.due_date ? formatDateShort(payment.due_date) : '—'}</TableCell>
-                    <TableCell>{payment.paid_date ? formatDateShort(payment.paid_date) : '—'}</TableCell>
-                  </TableRow>
-                ))}
+                {payments.map((payment) => {
+                  // Days since sent or overdue
+                  let daysLabel = ''
+                  if (payment.status === 'en_retard' && payment.due_date) {
+                    const days = Math.floor((Date.now() - new Date(payment.due_date).getTime()) / (1000 * 60 * 60 * 24))
+                    daysLabel = `+${days}j`
+                  } else if (payment.status === 'en_attente' && payment.due_date) {
+                    const days = Math.floor((new Date(payment.due_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                    daysLabel = days > 0 ? `${days}j` : 'Échu'
+                  }
+
+                  return (
+                    <TableRow
+                      key={payment.id}
+                      className="cursor-pointer hover:bg-accent/50"
+                      onClick={() => navigate(`/clients/${payment.clientId}`)}
+                    >
+                      <TableCell className="font-mono text-sm">{payment.reference}</TableCell>
+                      <TableCell className="font-medium">{payment.clientName}</TableCell>
+                      <TableCell>
+                        <StatusBadge
+                          label={PAYMENT_STATUS_LABELS[payment.status]}
+                          colorClass={PAYMENT_STATUS_COLORS[payment.status]}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-semibold">
+                        {formatCurrency(payment.amount)}
+                      </TableCell>
+                      <TableCell>{payment.due_date ? formatDateShort(payment.due_date) : '—'}</TableCell>
+                      <TableCell>{payment.paid_date ? formatDateShort(payment.paid_date) : '—'}</TableCell>
+                      <TableCell className="text-right tabular-nums text-sm">
+                        {daysLabel && (
+                          <span className={payment.status === 'en_retard' ? 'text-red-600 font-semibold' : 'text-muted-foreground'}>
+                            {daysLabel}
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}

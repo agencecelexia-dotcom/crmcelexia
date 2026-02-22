@@ -392,7 +392,8 @@ export interface KeyRates {
   call_to_rdv_rate: number
   rdv_to_closing_rate: number
   global_closing_rate: number
-  cac: number // cost per acquisition
+  cac: number // appels par conversion
+  contact_rate: number // % of calls that reached someone
   ca_this_month: number
   mrr_this_month: number
   average_basket: number
