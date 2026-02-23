@@ -80,8 +80,7 @@ export function RdvForm({ prospect, open, onOpenChange, callId, defaultType, def
     }
     if (!profile) return
 
-    // Build ISO string preserving local time (avoid UTC shift)
-    const scheduledAt = `${date}T${time}:00`
+    const scheduledAt = new Date(`${date}T${time}:00`).toISOString()
 
     try {
       await createRdv.mutateAsync({

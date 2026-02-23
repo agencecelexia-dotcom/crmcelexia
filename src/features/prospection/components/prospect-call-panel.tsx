@@ -184,7 +184,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
     if (!profile || !rappelerDate || !rappelerNote.trim()) return
 
     const newStatus = CALL_RESULT_TO_STATUS['reached_callback']
-    const remindAt = `${rappelerDate}T${rappelerTime}:00`
+    const remindAt = new Date(`${rappelerDate}T${rappelerTime}:00`).toISOString()
 
     try {
       await logCall.mutateAsync({
@@ -280,7 +280,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
     if (!reminderDate || !profile) return
 
     try {
-      const remindAt = `${reminderDate}T${reminderTime}:00`
+      const remindAt = new Date(`${reminderDate}T${reminderTime}:00`).toISOString()
       await createReminder.mutateAsync({
         prospect_id: prospect.id,
         commercial_id: profile.id,

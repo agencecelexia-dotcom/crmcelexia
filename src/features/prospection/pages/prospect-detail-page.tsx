@@ -1107,7 +1107,7 @@ export function ProspectDetailPage() {
                     await createReminder.mutateAsync({
                       prospect_id: prospect.id,
                       commercial_id: session.user.id,
-                      remind_at: `${rappelerDate}T${rappelerTime}:00`,
+                      remind_at: new Date(`${rappelerDate}T${rappelerTime}:00`).toISOString(),
                       note: rappelerNote.trim(),
                     })
                   }

@@ -44,7 +44,7 @@ export function ReminderForm({ prospect, open, onOpenChange }: ReminderFormProps
     }
     if (!profile) return
 
-    const remindAt = `${date}T${time}:00`
+    const remindAt = new Date(`${date}T${time}:00`).toISOString()
 
     try {
       await createReminder.mutateAsync({

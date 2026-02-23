@@ -63,7 +63,8 @@ import { exportToCsv } from '@/lib/export-csv'
 import { ProspectGenerationModal } from '../components/prospect-generation-modal'
 
 
-const STATUS_OPTIONS = Object.entries(PROSPECT_STATUS_LABELS) as [ProspectStatus, string][]
+const STATUS_OPTIONS = (Object.entries(PROSPECT_STATUS_LABELS) as [ProspectStatus, string][])
+  .filter(([value]) => value !== 'appele_sans_reponse') // hide legacy status
 
 export function ProspectsListPage() {
   const { isFounder } = useAuth()
