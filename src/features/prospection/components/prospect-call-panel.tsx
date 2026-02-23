@@ -39,6 +39,8 @@ import {
   Save,
   PhoneCall,
   FileText,
+  Send,
+  Globe,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
@@ -89,6 +91,15 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
   const [noteDialogResult, setNoteDialogResult] = useState<CallResult | null>(null)
   const [noteDialogText, setNoteDialogText] = useState('')
+
+  // "Site envoyé" inline form state
+  const [siteEnvoyeOpen, setSiteEnvoyeOpen] = useState(false)
+  const [siteEnvoyeUrl, setSiteEnvoyeUrl] = useState('')
+  const [siteEnvoyeDate, setSiteEnvoyeDate] = useState('')
+
+  // Website URL inline edit
+  const [editingUrl, setEditingUrl] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
 
   const recentCalls = calls?.slice(0, 5) ?? []
   const pendingReminders = reminders?.filter((r) => !r.is_completed) ?? []
@@ -420,6 +431,175 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
               )}
               Site en attente
             </button>
+          )}
+
+          {/* "Site envoyé" — for site_en_attente prospects, requires URL + date */}
+          {prospect.status === 'site_en_attente' && !siteEnvoyeOpen && (
+            <button
+              onClick={() => {
+                setSiteEnvoyeUrl(prospect.website ?? '')
+                setSiteEnvoyeDate(new Date().toISOString().split('T')[0])
+                setSiteEnvoyeOpen(true)
+              }}
+              className="mt-2 flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-sm font-medium text-blue-700 transition-colors"
+            >
+              <Send className="h-4 w-4" />
+              Site envoyé
+            </button>
+          )}
+
+          {/* "Site envoyé" inline form */}
+          {siteEnvoyeOpen && (
+            <div className="mt-3 p-3 rounded-lg border border-blue-200 bg-blue-50/50 space-y-2">
+              <p className="text-sm font-medium text-blue-700">Marquer le site comme envoyé</p>
+              <Input
+                type="url"
+                value={siteEnvoyeUrl}
+                onChange={(e) => setSiteEnvoyeUrl(e.target.value)}
+                placeholder="https://exemple.vercel.app"
+                className="h-8 text-sm"
+              />
+              <Input
+                type="date"
+                value={siteEnvoyeDate}
+                onChange={(e) => setSiteEnvoyeDate(e.target.value)}
+                className="h-8 text-sm"
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    if (!siteEnvoyeUrl.trim() || !siteEnvoyeDate) return
+                    const previousStatus = prospect.status
+                    const previousWebsite = prospect.website
+                    try {
+                      await updateProspect.mutateAsync({
+                        id: prospect.id,
+                        updates: { status: 'site_envoye', website: siteEnvoyeUrl.trim(), date_envoi_site: siteEnvoyeDate },
+                      })
+                      toast.success('Statut → Site envoyé')
+                      setUndoAction({
+                        label: `Annuler: ${prospect.company_name} → Site envoyé`,
+                        undo: async () => {
+                          await updateProspect.mutateAsync({
+                            id: prospect.id,
+                            updates: { status: previousStatus, website: previousWebsite ?? null, date_envoi_site: null },
+                          })
+                        },
+                      })
+                      setSiteEnvoyeOpen(false)
+                      setSiteEnvoyeUrl('')
+                      setSiteEnvoyeDate('')
+                      onCallLogged?.()
+                    } catch {
+                      toast.error('Erreur lors du changement de statut')
+                    }
+                  }}
+                  disabled={!siteEnvoyeUrl.trim() || !siteEnvoyeDate || updateProspect.isPending}
+                  className="h-7 text-xs"
+                >
+                  {updateProspect.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : (
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                  )}
+                  Confirmer
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setSiteEnvoyeOpen(false); setSiteEnvoyeUrl(''); setSiteEnvoyeDate('') }}
+                  className="h-7 text-xs"
+                >
+                  Annuler
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Website URL inline edit — quick way to add/update site URL */}
+          {(['site_en_attente', 'site_envoye', 'rdv_pris'] as ProspectStatus[]).includes(prospect.status as ProspectStatus) && (
+            <div className="mt-3">
+              {prospect.website && !editingUrl ? (
+                <div className="flex items-center gap-2 text-xs">
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <a
+                    href={prospect.website.startsWith('http') ? prospect.website : `https://${prospect.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline truncate"
+                  >
+                    {prospect.website}
+                  </a>
+                  <button
+                    onClick={() => { setUrlInput(prospect.website ?? ''); setEditingUrl(true) }}
+                    className="text-muted-foreground hover:text-foreground shrink-0"
+                    title="Modifier l'URL"
+                  >
+                    <Save className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : !editingUrl ? (
+                <button
+                  onClick={() => { setUrlInput(''); setEditingUrl(true) }}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  + Ajouter l'URL du site
+                </button>
+              ) : (
+                <div className="flex gap-1.5">
+                  <Input
+                    type="url"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    placeholder="https://..."
+                    className="h-7 text-xs flex-1"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && urlInput.trim()) {
+                        updateProspect.mutateAsync({
+                          id: prospect.id,
+                          updates: { website: urlInput.trim() },
+                        }).then(() => {
+                          toast.success('URL sauvegardée')
+                          setEditingUrl(false)
+                        }).catch(() => toast.error('Erreur'))
+                      } else if (e.key === 'Escape') {
+                        setEditingUrl(false)
+                      }
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    className="h-7 px-2"
+                    disabled={!urlInput.trim() || updateProspect.isPending}
+                    onClick={async () => {
+                      try {
+                        await updateProspect.mutateAsync({
+                          id: prospect.id,
+                          updates: { website: urlInput.trim() },
+                        })
+                        toast.success('URL sauvegardée')
+                        setEditingUrl(false)
+                      } catch {
+                        toast.error('Erreur')
+                      }
+                    }}
+                  >
+                    <CheckCircle2 className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2"
+                    onClick={() => setEditingUrl(false)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
 
           {/* "À rappeler" inline form */}

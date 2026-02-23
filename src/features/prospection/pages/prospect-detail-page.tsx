@@ -98,6 +98,7 @@ export function ProspectDetailPage() {
   const [waitingForCalcom, setWaitingForCalcom] = useState(false)
   const [siteEnvoyeDialogOpen, setSiteEnvoyeDialogOpen] = useState(false)
   const [dateEnvoiSite, setDateEnvoiSite] = useState('')
+  const [siteUrl, setSiteUrl] = useState('')
   const [undoInfo, setUndoInfo] = useState<{ previousStatus: ProspectStatus; newStatus: ProspectStatus } | null>(null)
   const [undoing, setUndoing] = useState(false)
   const logCallMutation = useLogCall()
@@ -798,6 +799,7 @@ export function ProspectDetailPage() {
                         size="sm"
                         onClick={() => {
                           setDateEnvoiSite(new Date().toISOString().split('T')[0])
+                          setSiteUrl(prospect.website ?? '')
                           setSiteEnvoyeDialogOpen(true)
                         }}
                       >
@@ -1183,8 +1185,8 @@ export function ProspectDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Site envoyé Dialog — requires date */}
-      <Dialog open={siteEnvoyeDialogOpen} onOpenChange={(o) => { if (!o) setDateEnvoiSite(''); setSiteEnvoyeDialogOpen(o) }}>
+      {/* Site envoyé Dialog — requires date + URL */}
+      <Dialog open={siteEnvoyeDialogOpen} onOpenChange={(o) => { if (!o) { setDateEnvoiSite(''); setSiteUrl('') }; setSiteEnvoyeDialogOpen(o) }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1195,6 +1197,15 @@ export function ProspectDetailPage() {
           <div className="space-y-4 py-2">
             <div className="rounded-lg bg-muted p-3">
               <p className="font-medium">{prospect.company_name}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>URL du site *</Label>
+              <Input
+                type="url"
+                value={siteUrl}
+                onChange={(e) => setSiteUrl(e.target.value)}
+                placeholder="https://exemple.vercel.app"
+              />
             </div>
             <div className="space-y-2">
               <Label>Date d'envoi du site *</Label>
@@ -1208,19 +1219,21 @@ export function ProspectDetailPage() {
           <DialogFooter>
             <Button variant="ghost" onClick={() => setSiteEnvoyeDialogOpen(false)}>Annuler</Button>
             <Button
-              disabled={!dateEnvoiSite || updateProspect.isPending}
+              disabled={!dateEnvoiSite || !siteUrl.trim() || updateProspect.isPending}
               onClick={async () => {
-                if (!dateEnvoiSite) {
-                  toast.error('La date d\'envoi est obligatoire')
+                if (!dateEnvoiSite || !siteUrl.trim()) {
+                  toast.error('L\'URL et la date d\'envoi sont obligatoires')
                   return
                 }
                 try {
                   const previousStatus = prospect.status
+                  const previousWebsite = prospect.website
                   await updateProspect.mutateAsync({
                     id: prospect.id,
                     updates: {
                       status: 'site_envoye',
                       date_envoi_site: dateEnvoiSite,
+                      website: siteUrl.trim(),
                     } as Record<string, unknown> as never,
                   })
                   toast.success('Statut → Site envoyé')
@@ -1230,12 +1243,13 @@ export function ProspectDetailPage() {
                     undo: async () => {
                       await updateProspect.mutateAsync({
                         id: prospect.id,
-                        updates: { status: previousStatus, date_envoi_site: null },
+                        updates: { status: previousStatus, date_envoi_site: null, website: previousWebsite ?? null },
                       })
                     },
                   })
                   setSiteEnvoyeDialogOpen(false)
                   setDateEnvoiSite('')
+                  setSiteUrl('')
                 } catch {
                   toast.error('Erreur lors de la mise à jour')
                 }
