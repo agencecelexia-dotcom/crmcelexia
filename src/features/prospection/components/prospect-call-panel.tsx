@@ -38,6 +38,7 @@ import {
   AlertTriangle,
   Save,
   PhoneCall,
+  FileText,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
@@ -382,6 +383,44 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
               </button>
             ))}
           </div>
+
+          {/* "Site en attente" — direct status change (not a call result) */}
+          {(['nouveau', 'appele_sans_reponse', 'messagerie', 'a_rappeler'] as ProspectStatus[]).includes(prospect.status as ProspectStatus) && (
+            <button
+              onClick={async () => {
+                if (!profile) return
+                const previousStatus = prospect.status
+                try {
+                  await updateProspect.mutateAsync({
+                    id: prospect.id,
+                    updates: { status: 'site_en_attente' },
+                  })
+                  toast.success('Statut → Site en attente')
+                  setUndoAction({
+                    label: `Annuler: ${prospect.company_name} → Site en attente`,
+                    undo: async () => {
+                      await updateProspect.mutateAsync({
+                        id: prospect.id,
+                        updates: { status: previousStatus },
+                      })
+                    },
+                  })
+                  onCallLogged?.()
+                } catch {
+                  toast.error('Erreur lors du changement de statut')
+                }
+              }}
+              disabled={updateProspect.isPending}
+              className="mt-2 flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg border border-cyan-200 bg-cyan-50 hover:bg-cyan-100 text-sm font-medium text-cyan-700 transition-colors disabled:opacity-50"
+            >
+              {updateProspect.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              Site en attente
+            </button>
+          )}
 
           {/* "À rappeler" inline form */}
           {rappelerOpen && (
