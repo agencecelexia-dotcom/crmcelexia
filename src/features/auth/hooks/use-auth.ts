@@ -9,6 +9,7 @@ export interface AuthContextType {
   isFounder: boolean
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
+  refreshProfile: () => Promise<Profile | null>
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)

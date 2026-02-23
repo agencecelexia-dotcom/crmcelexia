@@ -1,10 +1,26 @@
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../hooks/use-auth'
 import { supabaseMisconfigured } from '@/lib/supabase/client'
 import { Loader2, AlertTriangle } from 'lucide-react'
 
 export function ProtectedRoute() {
-  const { session, profile, isLoading } = useAuth()
+  const { session, profile, isLoading, refreshProfile } = useAuth()
+  const [retrying, setRetrying] = useState(false)
+  const retriedRef = useRef(false)
+
+  // Auto-retry: if session exists but profile is null, try to refetch once
+  useEffect(() => {
+    if (session && !profile && !isLoading && !retriedRef.current) {
+      retriedRef.current = true
+      setRetrying(true)
+      refreshProfile().finally(() => setRetrying(false))
+    }
+    // Reset retry flag when profile is successfully loaded
+    if (profile) {
+      retriedRef.current = false
+    }
+  }, [session, profile, isLoading, refreshProfile])
 
   if (supabaseMisconfigured) {
     return (
@@ -21,7 +37,7 @@ export function ProtectedRoute() {
     )
   }
 
-  if (isLoading) {
+  if (isLoading || retrying) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -34,7 +50,7 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace />
   }
 
-  // Session exists but profile failed to load — show a retry option
+  // Session exists but profile failed even after retry — show error with manual reload
   if (!profile) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 text-center px-4">

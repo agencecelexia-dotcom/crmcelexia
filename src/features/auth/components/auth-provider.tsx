@@ -44,6 +44,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Expose a way to re-fetch the profile (used by ProtectedRoute as safety net)
+  const refreshProfile = useCallback(async () => {
+    const { data: { session: s } } = await supabase.auth.getSession()
+    if (s?.user) {
+      const p = await fetchProfileFromDB(s.user.id)
+      if (p) setProfile(p)
+      return p
+    }
+    return null
+  }, [])
+
   useEffect(() => {
     let mounted = true
 
@@ -60,17 +71,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, s) => {
+    } = supabase.auth.onAuthStateChange(async (event, s) => {
       if (!mounted) return
 
       setSession(s)
 
+      // Token refresh doesn't change the profile — skip refetch entirely
+      if (event === 'TOKEN_REFRESHED') {
+        if (mounted) setIsLoading(false)
+        return
+      }
+
+      // Signed out — clear profile
+      if (event === 'SIGNED_OUT' || !s?.user) {
+        if (mounted) {
+          setProfile(null)
+          setIsLoading(false)
+        }
+        return
+      }
+
+      // INITIAL_SESSION or SIGNED_IN — fetch profile
       try {
-        if (s?.user) {
-          const p = await fetchProfileFromDB(s.user.id)
-          if (mounted) setProfile(p)
-        } else {
-          if (mounted) setProfile(null)
+        const p = await fetchProfileFromDB(s.user.id)
+        if (mounted) {
+          // Never overwrite a valid profile with null on transient failures
+          setProfile((prev) => p ?? prev)
         }
       } finally {
         if (mounted) setIsLoading(false)
@@ -104,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isFounder,
     signIn,
     signOut,
+    refreshProfile,
   }
 
   return <AuthContext value={value}>{children}</AuthContext>
