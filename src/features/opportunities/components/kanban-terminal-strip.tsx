@@ -1,14 +1,16 @@
-import { Trophy, XCircle } from 'lucide-react'
+import { XCircle, Skull } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+type TerminalStatus = 'perdu' | 'mort'
 
 interface KanbanTerminalStripProps {
   dragActive: boolean
-  dragOverStatus: 'gagne' | 'perdu' | null
-  onDragOver: (status: 'gagne' | 'perdu') => void
+  dragOverStatus: TerminalStatus | null
+  onDragOver: (status: TerminalStatus) => void
   onDragLeave: () => void
-  onDrop: (status: 'gagne' | 'perdu') => void
-  wonCount: number
+  onDrop: (status: TerminalStatus) => void
   lostCount: number
+  deadCount: number
 }
 
 export function KanbanTerminalStrip({
@@ -17,19 +19,19 @@ export function KanbanTerminalStrip({
   onDragOver,
   onDragLeave,
   onDrop,
-  wonCount,
   lostCount,
+  deadCount,
 }: KanbanTerminalStripProps) {
   if (!dragActive) {
     return (
       <div className="flex gap-3 mt-3">
         <div className="flex-1 rounded-lg border border-dashed p-3 flex items-center gap-2 text-sm text-muted-foreground">
-          <Trophy className="h-4 w-4 text-emerald-500" />
-          <span>Gagné ({wonCount})</span>
-        </div>
-        <div className="flex-1 rounded-lg border border-dashed p-3 flex items-center gap-2 text-sm text-muted-foreground">
           <XCircle className="h-4 w-4 text-red-500" />
           <span>Perdu ({lostCount})</span>
+        </div>
+        <div className="flex-1 rounded-lg border border-dashed p-3 flex items-center gap-2 text-sm text-muted-foreground">
+          <Skull className="h-4 w-4 text-gray-500" />
+          <span>Mort ({deadCount})</span>
         </div>
       </div>
     )
@@ -37,22 +39,6 @@ export function KanbanTerminalStrip({
 
   return (
     <div className="flex gap-3 mt-3">
-      {/* Gagné drop zone */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; onDragOver('gagne') }}
-        onDragLeave={onDragLeave}
-        onDrop={(e) => { e.preventDefault(); onDrop('gagne') }}
-        className={cn(
-          'flex-1 rounded-lg border-2 border-dashed p-4 flex items-center justify-center gap-2 transition-all',
-          dragOverStatus === 'gagne'
-            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 scale-[1.02]'
-            : 'border-emerald-300 text-emerald-600 hover:bg-emerald-50',
-        )}
-      >
-        <Trophy className="h-5 w-5" />
-        <span className="font-semibold">Gagné</span>
-      </div>
-
       {/* Perdu drop zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; onDragOver('perdu') }}
@@ -67,6 +53,22 @@ export function KanbanTerminalStrip({
       >
         <XCircle className="h-5 w-5" />
         <span className="font-semibold">Perdu</span>
+      </div>
+
+      {/* Mort drop zone */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; onDragOver('mort') }}
+        onDragLeave={onDragLeave}
+        onDrop={(e) => { e.preventDefault(); onDrop('mort') }}
+        className={cn(
+          'flex-1 rounded-lg border-2 border-dashed p-4 flex items-center justify-center gap-2 transition-all',
+          dragOverStatus === 'mort'
+            ? 'border-gray-500 bg-gray-50 text-gray-700 scale-[1.02]'
+            : 'border-gray-300 text-gray-600 hover:bg-gray-50',
+        )}
+      >
+        <Skull className="h-5 w-5" />
+        <span className="font-semibold">Mort</span>
       </div>
     </div>
   )

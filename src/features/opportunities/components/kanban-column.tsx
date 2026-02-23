@@ -30,8 +30,11 @@ export function KanbanColumn({
   onCardDragEnd,
   onCardClick,
 }: KanbanColumnProps) {
-  const total = opportunities.reduce((sum, o) => sum + o.project_price, 0)
+  const totalPrice = opportunities.reduce((sum, o) => sum + o.project_price, 0)
+  const totalCollected = opportunities.reduce((sum, o) => sum + o.amount_collected, 0)
+  const totalPending = totalPrice - totalCollected
   const color = OPPORTUNITY_STAGE_HEX[status]
+  const isCloseColumn = status === 'close'
 
   return (
     <div
@@ -47,23 +50,44 @@ export function KanbanColumn({
         onDrop()
       }}
       className={cn(
-        'flex flex-col rounded-xl bg-muted/50 border min-w-[280px] flex-1 transition-colors',
+        'flex flex-col rounded-xl bg-muted/50 border min-w-[240px] flex-1 transition-colors',
         isDragOver && 'ring-2 bg-primary/5',
       )}
       style={isDragOver ? { borderColor: color } : undefined}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 pb-2">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-          <h3 className="text-sm font-semibold">{OPPORTUNITY_STATUS_LABELS[status]}</h3>
-          <span className="text-xs bg-muted rounded-full px-2 py-0.5 font-medium text-muted-foreground">
-            {opportunities.length}
-          </span>
+      <div className="p-3 pb-2 space-y-1">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+            <h3 className="text-sm font-semibold">{OPPORTUNITY_STATUS_LABELS[status]}</h3>
+            <span className="text-xs bg-muted rounded-full px-2 py-0.5 font-medium text-muted-foreground">
+              {opportunities.length}
+            </span>
+          </div>
         </div>
-        <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-          {formatCurrency(total)}
-        </span>
+        {/* Cumul financier */}
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-semibold tabular-nums" style={{ color }}>
+            {formatCurrency(totalPrice)}
+          </span>
+          {isCloseColumn && totalPrice > 0 && (
+            <span className="text-muted-foreground">
+              <span className="text-emerald-600">{formatCurrency(totalCollected)}</span>
+              {' / '}
+              <span className="text-orange-600">{formatCurrency(totalPending)} en attente</span>
+            </span>
+          )}
+        </div>
+        {/* Progress bar pour Close */}
+        {isCloseColumn && totalPrice > 0 && (
+          <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 rounded-full transition-all"
+              style={{ width: `${Math.min(100, (totalCollected / totalPrice) * 100)}%` }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Cards */}

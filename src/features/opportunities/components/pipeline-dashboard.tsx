@@ -30,6 +30,10 @@ export function PipelineDashboard() {
     fill: OPPORTUNITY_STAGE_HEX[s.stage as OpportunityStatus] ?? '#6B7280',
   }))
 
+  // Close payment ratio
+  const closeStage = pipeline.by_stage.find(s => s.stage === 'close')
+  const closePending = closeStage ? closeStage.total_price - pipeline.total_collected : 0
+
   return (
     <div className="space-y-4">
       {/* KPIs */}
@@ -50,9 +54,9 @@ export function PipelineDashboard() {
           icon={Clock}
         />
         <StatCard
-          title="Opportunités gagnées"
+          title="Close"
           value={pipeline.won_count}
-          subtitle={pipeline.won_value > 0 ? formatCurrency(pipeline.won_value) : undefined}
+          subtitle={closeStage ? `${formatCurrency(pipeline.total_collected)} encaissé / ${formatCurrency(closePending)} en attente` : undefined}
           icon={Trophy}
         />
       </div>
@@ -67,7 +71,7 @@ export function PipelineDashboard() {
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `${(Number(v) / 1000).toFixed(0)}k`} />
                 <Tooltip
                   formatter={(value) => [formatCurrency(Number(value)), 'Montant']}

@@ -124,7 +124,7 @@ export async function createOpportunity(params: {
     .from('opportunities')
     .insert({
       ...params,
-      status: 'devis_a_envoyer',
+      status: 'site_a_envoyer',
       amount_collected: 0,
     })
     .select()
@@ -182,15 +182,17 @@ export async function getPipelineStats(commercialId?: string): Promise<PipelineS
 
   const all = (data ?? []) as { status: string; project_price: number; amount_collected: number }[]
 
-  const active = all.filter(o => !['gagne', 'perdu'].includes(o.status))
-  const won = all.filter(o => o.status === 'gagne')
+  const terminal = ['perdu', 'mort']
+  const active = all.filter(o => !terminal.includes(o.status) && o.status !== 'close')
+  const won = all.filter(o => o.status === 'close')
 
-  const total_project_price = active.reduce((sum, o) => sum + (o.project_price || 0), 0)
-  const total_collected = active.reduce((sum, o) => sum + (o.amount_collected || 0), 0)
+  const total_project_price = all.filter(o => !terminal.includes(o.status)).reduce((sum, o) => sum + (o.project_price || 0), 0)
+  const total_collected = all.reduce((sum, o) => sum + (o.amount_collected || 0), 0)
 
-  const stages = ['devis_a_envoyer', 'devis_envoye', 'rdv_devis']
+  const nonTerminal = all.filter(o => !terminal.includes(o.status))
+  const stages = ['site_a_envoyer', 'site_envoye', 'rdv', 'en_attente_retour', 'close']
   const by_stage = stages.map(stage => {
-    const stageOpps = active.filter(o => o.status === stage)
+    const stageOpps = nonTerminal.filter(o => o.status === stage)
     return {
       stage,
       total_price: stageOpps.reduce((sum, o) => sum + (o.project_price || 0), 0),
@@ -198,13 +200,15 @@ export async function getPipelineStats(commercialId?: string): Promise<PipelineS
     }
   })
 
+  const won_collected = won.reduce((sum, o) => sum + (o.amount_collected || 0), 0)
+
   return {
     total_project_price,
     total_collected,
     total_pending: total_project_price - total_collected,
     active_count: active.length,
     won_count: won.length,
-    won_value: won.reduce((sum, o) => sum + (o.project_price || 0), 0),
+    won_value: won_collected,
     by_stage,
   }
 }

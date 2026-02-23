@@ -26,6 +26,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+type TerminalStatus = 'perdu' | 'mort'
+
 export function KanbanBoard() {
   const { profile, isFounder } = useAuth()
   const commercialId = isFounder ? undefined : profile?.id
@@ -46,8 +48,8 @@ export function KanbanBoard() {
     for (const stage of OPPORTUNITY_PIPELINE_STAGES) {
       map[stage] = []
     }
-    map['gagne'] = []
     map['perdu'] = []
+    map['mort'] = []
     for (const opp of opportunities ?? []) {
       if (map[opp.status]) map[opp.status].push(opp)
     }
@@ -90,7 +92,7 @@ export function KanbanBoard() {
   if (isLoading) {
     return (
       <div className="flex gap-4">
-        {Array.from({ length: 3 }).map((_, i) => (
+        {Array.from({ length: 5 }).map((_, i) => (
           <Skeleton key={i} className="h-[400px] flex-1 rounded-xl" />
         ))}
       </div>
@@ -100,7 +102,7 @@ export function KanbanBoard() {
   return (
     <>
       {/* Columns */}
-      <div className="flex gap-4 overflow-x-auto pb-2">
+      <div className="flex gap-3 overflow-x-auto pb-2">
         {OPPORTUNITY_PIPELINE_STAGES.map(stage => (
           <KanbanColumn
             key={stage}
@@ -118,17 +120,17 @@ export function KanbanBoard() {
         ))}
       </div>
 
-      {/* Terminal strip */}
+      {/* Terminal strip: Perdu + Mort */}
       <KanbanTerminalStrip
         dragActive={!!draggingId}
         dragOverStatus={
-          dragOverStatus === 'gagne' || dragOverStatus === 'perdu' ? dragOverStatus : null
+          dragOverStatus === 'perdu' || dragOverStatus === 'mort' ? dragOverStatus as TerminalStatus : null
         }
         onDragOver={(s) => setDragOverStatus(s)}
         onDragLeave={() => setDragOverStatus(null)}
         onDrop={(s) => handleDrop(s)}
-        wonCount={grouped['gagne']?.length ?? 0}
         lostCount={grouped['perdu']?.length ?? 0}
+        deadCount={grouped['mort']?.length ?? 0}
       />
 
       {/* Detail dialog */}

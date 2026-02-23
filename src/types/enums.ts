@@ -325,45 +325,55 @@ export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
 
 // ── Opportunity Status ──
 export const OPPORTUNITY_STATUS = {
-  DEVIS_A_ENVOYER: 'devis_a_envoyer',
-  DEVIS_ENVOYE: 'devis_envoye',
-  RDV_DEVIS: 'rdv_devis',
-  GAGNE: 'gagne',
+  SITE_A_ENVOYER: 'site_a_envoyer',
+  SITE_ENVOYE: 'site_envoye',
+  RDV: 'rdv',
+  EN_ATTENTE_RETOUR: 'en_attente_retour',
+  CLOSE: 'close',
   PERDU: 'perdu',
+  MORT: 'mort',
 } as const
 
 export type OpportunityStatus = (typeof OPPORTUNITY_STATUS)[keyof typeof OPPORTUNITY_STATUS]
 
 export const OPPORTUNITY_STATUS_LABELS: Record<OpportunityStatus, string> = {
-  devis_a_envoyer: 'Devis à envoyer',
-  devis_envoye: 'Devis envoyé',
-  rdv_devis: 'RDV Devis',
-  gagne: 'Gagné',
+  site_a_envoyer: 'Site à envoyer',
+  site_envoye: 'Site envoyé',
+  rdv: 'RDV',
+  en_attente_retour: 'En attente de retour',
+  close: 'Close',
   perdu: 'Perdu',
+  mort: 'Mort',
 }
 
 export const OPPORTUNITY_STATUS_COLORS: Record<OpportunityStatus, string> = {
-  devis_a_envoyer: 'bg-blue-100 text-blue-800',
-  devis_envoye: 'bg-cyan-100 text-cyan-800',
-  rdv_devis: 'bg-yellow-100 text-yellow-800',
-  gagne: 'bg-green-100 text-green-800',
+  site_a_envoyer: 'bg-blue-100 text-blue-800',
+  site_envoye: 'bg-cyan-100 text-cyan-800',
+  rdv: 'bg-yellow-100 text-yellow-800',
+  en_attente_retour: 'bg-orange-100 text-orange-800',
+  close: 'bg-green-100 text-green-800',
   perdu: 'bg-red-100 text-red-800',
+  mort: 'bg-gray-100 text-gray-800',
 }
 
 // Colonnes actives du Kanban (dans l'ordre)
 export const OPPORTUNITY_PIPELINE_STAGES: OpportunityStatus[] = [
-  'devis_a_envoyer',
-  'devis_envoye',
-  'rdv_devis',
+  'site_a_envoyer',
+  'site_envoye',
+  'rdv',
+  'en_attente_retour',
+  'close',
 ]
 
-// Hex colors pour le Kanban
+// Hex colors pour le Kanban + chart
 export const OPPORTUNITY_STAGE_HEX: Record<OpportunityStatus, string> = {
-  devis_a_envoyer: '#3B82F6',
-  devis_envoye: '#06B6D4',
-  rdv_devis: '#F59E0B',
-  gagne: '#10B981',
+  site_a_envoyer: '#3B82F6',
+  site_envoye: '#06B6D4',
+  rdv: '#F59E0B',
+  en_attente_retour: '#F97316',
+  close: '#10B981',
   perdu: '#EF4444',
+  mort: '#6B7280',
 }
 
 // ── Alert Types ──
