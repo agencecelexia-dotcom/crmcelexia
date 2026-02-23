@@ -8,6 +8,7 @@ import { useAuth } from '@/features/auth/hooks/use-auth'
 import { KanbanColumn } from './kanban-column'
 import { KanbanTerminalStrip } from './kanban-terminal-strip'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,11 @@ import {
 
 type TerminalStatus = 'perdu' | 'mort'
 
+const DEATH_REASONS = {
+  ne_veut_plus: 'Ne veut plus bosser avec nous',
+  rappeler_plus_tard: 'Veut le site mais plus tard — rappeler',
+} as const
+
 export function KanbanBoard() {
   const navigate = useNavigate()
   const { profile, isFounder } = useAuth()
@@ -42,6 +48,11 @@ export function KanbanBoard() {
   const [pendingLoss, setPendingLoss] = useState<{ oppId: string } | null>(null)
   const [lossReason, setLossReason] = useState<string>('')
   const [lossNotes, setLossNotes] = useState('')
+
+  // Death dialog state
+  const [pendingDeath, setPendingDeath] = useState<{ oppId: string } | null>(null)
+  const [deathReason, setDeathReason] = useState<string>('')
+  const [recallDate, setRecallDate] = useState('')
 
   const grouped = useMemo(() => {
     const map: Record<string, Opportunity[]> = {}
@@ -72,6 +83,13 @@ export function KanbanBoard() {
       return
     }
 
+    if (targetStatus === 'mort') {
+      setPendingDeath({ oppId: draggingId })
+      setDraggingId(null)
+      setDragOverStatus(null)
+      return
+    }
+
     statusMutation.mutate({ id: draggingId, status: targetStatus })
     setDraggingId(null)
     setDragOverStatus(null)
@@ -87,6 +105,21 @@ export function KanbanBoard() {
     setPendingLoss(null)
     setLossReason('')
     setLossNotes('')
+  }
+
+  const confirmDeath = () => {
+    if (!pendingDeath || !deathReason) return
+    statusMutation.mutate({
+      id: pendingDeath.oppId,
+      status: 'mort',
+      extra: {
+        death_reason: deathReason,
+        recall_date: recallDate || undefined,
+      },
+    })
+    setPendingDeath(null)
+    setDeathReason('')
+    setRecallDate('')
   }
 
   const handleCardClick = useCallback((opp: Opportunity) => {
@@ -181,6 +214,52 @@ export function KanbanBoard() {
             </Button>
             <Button variant="destructive" onClick={confirmLoss} disabled={!lossReason}>
               Confirmer la perte
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Death reason dialog */}
+      <Dialog open={!!pendingDeath} onOpenChange={(open) => { if (!open) { setPendingDeath(null); setDeathReason(''); setRecallDate('') } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Raison — Mort</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Raison *</Label>
+              <Select value={deathReason} onValueChange={setDeathReason}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner une raison..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(DEATH_REASONS).map(([val, label]) => (
+                    <SelectItem key={val} value={val}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Date de rappel {deathReason === 'rappeler_plus_tard' && '*'}</Label>
+              <Input
+                type="date"
+                value={recallDate}
+                onChange={(e) => setRecallDate(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Quand rappeler ce prospect ?
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setPendingDeath(null); setDeathReason(''); setRecallDate('') }}>
+              Annuler
+            </Button>
+            <Button
+              onClick={confirmDeath}
+              disabled={!deathReason || (deathReason === 'rappeler_plus_tard' && !recallDate)}
+            >
+              Confirmer
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -57,6 +57,13 @@ export function KanbanCard({ opportunity, isDragging, onDragStart, onDragEnd, on
         )}
       </div>
 
+      {/* Recall date for mort */}
+      {opportunity.status === 'mort' && opportunity.recall_date && (
+        <div className="mt-2 rounded bg-gray-100 px-2 py-1 text-xs text-gray-700">
+          Rappel : {new Date(opportunity.recall_date).toLocaleDateString('fr-FR')}
+        </div>
+      )}
+
       {/* Bottom: close date + commercial */}
       <div className="flex items-center justify-between mt-2 pt-2 border-t">
         {opportunity.expected_close_date ? (
