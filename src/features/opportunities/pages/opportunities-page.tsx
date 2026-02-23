@@ -31,11 +31,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Plus, LayoutGrid, List } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 type ViewMode = 'kanban' | 'table'
 
 export function OpportunitiesPage() {
+  const navigate = useNavigate()
   const { profile, isFounder } = useAuth()
   const commercialId = isFounder ? undefined : profile?.id
   const [viewMode, setViewMode] = useState<ViewMode>('kanban')
@@ -143,7 +145,7 @@ export function OpportunitiesPage() {
                   </TableHeader>
                   <TableBody>
                     {opportunities.data.map((opp) => (
-                      <TableRow key={opp.id} className="cursor-pointer hover:bg-accent/50">
+                      <TableRow key={opp.id} className="cursor-pointer hover:bg-accent/50" onClick={() => opp.prospect_id && navigate(`/prospects/${opp.prospect_id}`)}>
                         <TableCell className="font-medium">{opp.name}</TableCell>
                         <TableCell>{opp.prospect?.company_name ?? '—'}</TableCell>
                         <TableCell>

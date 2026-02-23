@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Opportunity } from '@/types'
 import type { OpportunityStatus } from '@/types/enums'
 import { OPPORTUNITY_PIPELINE_STAGES, LOSS_REASON_LABELS, type LossReason } from '@/types/enums'
@@ -6,7 +7,6 @@ import { useOpportunitiesKanban, useUpdateOpportunityStatus } from '../hooks/use
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { KanbanColumn } from './kanban-column'
 import { KanbanTerminalStrip } from './kanban-terminal-strip'
-import { OpportunityDetailDialog } from './opportunity-detail-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog,
@@ -29,6 +29,7 @@ import {
 type TerminalStatus = 'perdu' | 'mort'
 
 export function KanbanBoard() {
+  const navigate = useNavigate()
   const { profile, isFounder } = useAuth()
   const commercialId = isFounder ? undefined : profile?.id
   const { data: opportunities, isLoading } = useOpportunitiesKanban(commercialId)
@@ -36,7 +37,6 @@ export function KanbanBoard() {
 
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverStatus, setDragOverStatus] = useState<OpportunityStatus | null>(null)
-  const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null)
 
   // Loss reason dialog state
   const [pendingLoss, setPendingLoss] = useState<{ oppId: string } | null>(null)
@@ -89,6 +89,16 @@ export function KanbanBoard() {
     setLossNotes('')
   }
 
+  const handleCardClick = useCallback((opp: Opportunity) => {
+    if (opp.prospect_id) {
+      navigate(`/prospects/${opp.prospect_id}`)
+    }
+  }, [navigate])
+
+  // Terminal values
+  const lostValue = (grouped['perdu'] ?? []).reduce((s, o) => s + o.project_price, 0)
+  const deadValue = (grouped['mort'] ?? []).reduce((s, o) => s + o.project_price, 0)
+
   if (isLoading) {
     return (
       <div className="flex gap-4">
@@ -115,7 +125,7 @@ export function KanbanBoard() {
             onDrop={() => handleDrop(stage)}
             onCardDragStart={(id) => setDraggingId(id)}
             onCardDragEnd={() => { setDraggingId(null); setDragOverStatus(null) }}
-            onCardClick={setSelectedOpp}
+            onCardClick={handleCardClick}
           />
         ))}
       </div>
@@ -131,13 +141,8 @@ export function KanbanBoard() {
         onDrop={(s) => handleDrop(s)}
         lostCount={grouped['perdu']?.length ?? 0}
         deadCount={grouped['mort']?.length ?? 0}
-      />
-
-      {/* Detail dialog */}
-      <OpportunityDetailDialog
-        opportunity={selectedOpp}
-        open={!!selectedOpp}
-        onOpenChange={(open) => { if (!open) setSelectedOpp(null) }}
+        lostValue={lostValue}
+        deadValue={deadValue}
       />
 
       {/* Loss reason dialog */}

@@ -4,7 +4,7 @@ import { StatCard } from '@/components/shared/stat-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/format'
 import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STAGE_HEX, type OpportunityStatus } from '@/types/enums'
-import { DollarSign, TrendingUp, Clock, Trophy } from 'lucide-react'
+import { DollarSign, Trophy, Clock, TrendingUp } from 'lucide-react'
 import {
   BarChart,
   Bar,
@@ -30,34 +30,32 @@ export function PipelineDashboard() {
     fill: OPPORTUNITY_STAGE_HEX[s.stage as OpportunityStatus] ?? '#6B7280',
   }))
 
-  // Close payment ratio
-  const closeStage = pipeline.by_stage.find(s => s.stage === 'close')
-  const closePending = closeStage ? closeStage.total_price - pipeline.total_collected : 0
-
   return (
     <div className="space-y-4">
       {/* KPIs */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Total pipeline"
-          value={formatCurrency(pipeline.total_project_price)}
+          title="Potentiel pipeline"
+          value={formatCurrency(pipeline.active_pipeline)}
+          subtitle={`${pipeline.active_count} opportunités en cours`}
           icon={DollarSign}
         />
         <StatCard
-          title="Montant encaissé"
-          value={formatCurrency(pipeline.total_collected)}
+          title="Close"
+          value={`${pipeline.won_count} deals`}
+          subtitle={formatCurrency(pipeline.won_total)}
+          icon={Trophy}
+        />
+        <StatCard
+          title="Encaissé (Close)"
+          value={formatCurrency(pipeline.close_collected)}
           icon={TrendingUp}
         />
         <StatCard
-          title="Reste à encaisser"
-          value={formatCurrency(pipeline.total_pending)}
+          title="En attente versement"
+          value={formatCurrency(pipeline.close_pending)}
+          subtitle={pipeline.won_count > 0 ? `${pipeline.won_count} close, ${Math.round((pipeline.close_collected / (pipeline.won_total || 1)) * 100)}% encaissé` : undefined}
           icon={Clock}
-        />
-        <StatCard
-          title="Close"
-          value={pipeline.won_count}
-          subtitle={closeStage ? `${formatCurrency(pipeline.total_collected)} encaissé / ${formatCurrency(closePending)} en attente` : undefined}
-          icon={Trophy}
         />
       </div>
 

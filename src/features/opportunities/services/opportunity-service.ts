@@ -185,11 +185,17 @@ export async function getPipelineStats(commercialId?: string): Promise<PipelineS
   const terminal = ['perdu', 'mort']
   const active = all.filter(o => !terminal.includes(o.status) && o.status !== 'close')
   const won = all.filter(o => o.status === 'close')
-
-  const total_project_price = all.filter(o => !terminal.includes(o.status)).reduce((sum, o) => sum + (o.project_price || 0), 0)
-  const total_collected = all.reduce((sum, o) => sum + (o.amount_collected || 0), 0)
+  const lost = all.filter(o => o.status === 'perdu')
+  const dead = all.filter(o => o.status === 'mort')
 
   const nonTerminal = all.filter(o => !terminal.includes(o.status))
+  const total_project_price = nonTerminal.reduce((sum, o) => sum + (o.project_price || 0), 0)
+  const active_pipeline = active.reduce((sum, o) => sum + (o.project_price || 0), 0)
+
+  const won_total = won.reduce((sum, o) => sum + (o.project_price || 0), 0)
+  const close_collected = won.reduce((sum, o) => sum + (o.amount_collected || 0), 0)
+  const close_pending = won_total - close_collected
+
   const stages = ['site_a_envoyer', 'site_envoye', 'rdv', 'en_attente_retour', 'close']
   const by_stage = stages.map(stage => {
     const stageOpps = nonTerminal.filter(o => o.status === stage)
@@ -200,15 +206,16 @@ export async function getPipelineStats(commercialId?: string): Promise<PipelineS
     }
   })
 
-  const won_collected = won.reduce((sum, o) => sum + (o.amount_collected || 0), 0)
-
   return {
     total_project_price,
-    total_collected,
-    total_pending: total_project_price - total_collected,
+    close_collected,
+    close_pending,
+    active_pipeline,
     active_count: active.length,
     won_count: won.length,
-    won_value: won_collected,
+    won_total,
+    lost_count: lost.length,
+    dead_count: dead.length,
     by_stage,
   }
 }

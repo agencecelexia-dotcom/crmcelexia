@@ -415,12 +415,20 @@ export interface LongTermFollowup {
 
 // ── Pipeline Stats ──
 export interface PipelineStats {
+  /** Cumul prix de toutes les opps non-terminales (pipeline actif + close) */
   total_project_price: number
-  total_collected: number
-  total_pending: number
+  /** Cumul amount_collected sur les close uniquement */
+  close_collected: number
+  /** Cumul prix close - close_collected (en attente versement 2) */
+  close_pending: number
+  /** Potentiel = cumul prix des opps actives (hors close, perdu, mort) */
+  active_pipeline: number
   active_count: number
   won_count: number
-  won_value: number
+  /** Cumul prix des close */
+  won_total: number
+  lost_count: number
+  dead_count: number
   by_stage: { stage: string; total_price: number; count: number }[]
 }
 
