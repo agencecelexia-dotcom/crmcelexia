@@ -39,6 +39,8 @@ import {
 const FUNNEL_COLORS: Record<string, string> = {
   nouveau: '#8B5CF6',
   messagerie: '#C4B5FD',
+  site_en_attente: '#06B6D4',
+  site_envoye: '#3B82F6',
   a_rappeler: '#7C3AED',
   rdv_pris: '#10B981',
   converti_client: '#059669',
@@ -88,6 +90,8 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
   const funnelPieData = funnel ? [
     { name: 'Nouveau', value: funnel.nouveau, color: FUNNEL_COLORS.nouveau },
     { name: 'Messagerie', value: funnel.messagerie, color: FUNNEL_COLORS.messagerie },
+    { name: 'Site en attente', value: funnel.site_en_attente, color: FUNNEL_COLORS.site_en_attente },
+    { name: 'Site envoyé', value: funnel.site_envoye, color: FUNNEL_COLORS.site_envoye },
     { name: 'À rappeler', value: funnel.a_rappeler, color: FUNNEL_COLORS.a_rappeler },
     { name: 'RDV pris', value: funnel.rdv_pris, color: FUNNEL_COLORS.rdv_pris },
     { name: 'Converti', value: funnel.converti_client, color: FUNNEL_COLORS.converti_client },
@@ -295,6 +299,8 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
                   {([
                     ['nouveau', funnel.nouveau],
                     ['messagerie', funnel.messagerie],
+                    ['site_en_attente', funnel.site_en_attente],
+                    ['site_envoye', funnel.site_envoye],
                     ['a_rappeler', funnel.a_rappeler],
                     ['rdv_pris', funnel.rdv_pris],
                     ['converti_client', funnel.converti_client],
@@ -333,6 +339,8 @@ function FounderDashboard() {
   const funnelBarData = funnel ? [
     { name: 'Nouveau', value: funnel.nouveau, fill: FUNNEL_COLORS.nouveau },
     { name: 'Messagerie', value: funnel.messagerie, fill: FUNNEL_COLORS.messagerie },
+    { name: 'Site en attente', value: funnel.site_en_attente, fill: FUNNEL_COLORS.site_en_attente },
+    { name: 'Site envoyé', value: funnel.site_envoye, fill: FUNNEL_COLORS.site_envoye },
     { name: 'À rappeler', value: funnel.a_rappeler, fill: FUNNEL_COLORS.a_rappeler },
     { name: 'RDV pris', value: funnel.rdv_pris, fill: FUNNEL_COLORS.rdv_pris },
     { name: 'Converti', value: funnel.converti_client, fill: FUNNEL_COLORS.converti_client },

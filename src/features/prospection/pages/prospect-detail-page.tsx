@@ -50,6 +50,8 @@ import {
   Loader2,
   PhoneForwarded,
   Undo2,
+  Send,
+  FileText,
 } from 'lucide-react'
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -94,6 +96,8 @@ export function ProspectDetailPage() {
   const [rappelerNote, setRappelerNote] = useState('')
   const [lastCallId, setLastCallId] = useState<string | null>(null)
   const [waitingForCalcom, setWaitingForCalcom] = useState(false)
+  const [siteEnvoyeDialogOpen, setSiteEnvoyeDialogOpen] = useState(false)
+  const [dateEnvoiSite, setDateEnvoiSite] = useState('')
   const [undoInfo, setUndoInfo] = useState<{ previousStatus: ProspectStatus; newStatus: ProspectStatus } | null>(null)
   const [undoing, setUndoing] = useState(false)
   const logCallMutation = useLogCall()
@@ -115,7 +119,7 @@ export function ProspectDetailPage() {
       const tag = (e.target as HTMLElement)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       // Don't navigate if a dialog is open
-      if (callLoggerOpen || reminderFormOpen || rdvFormOpen || lossDialogOpen || rappelerDialogOpen || isEditing) return
+      if (callLoggerOpen || reminderFormOpen || rdvFormOpen || lossDialogOpen || rappelerDialogOpen || siteEnvoyeDialogOpen || isEditing) return
 
       if (e.key === 'ArrowDown' && currentIndex >= 0 && currentIndex < prospectIds.length - 1) {
         e.preventDefault()
@@ -127,7 +131,7 @@ export function ProspectDetailPage() {
     }
     document.addEventListener('keydown', handleKeyNav)
     return () => document.removeEventListener('keydown', handleKeyNav)
-  }, [currentIndex, prospectIds, navigate, callLoggerOpen, reminderFormOpen, rdvFormOpen, lossDialogOpen, rappelerDialogOpen, isEditing])
+  }, [currentIndex, prospectIds, navigate, callLoggerOpen, reminderFormOpen, rdvFormOpen, lossDialogOpen, rappelerDialogOpen, siteEnvoyeDialogOpen, isEditing])
 
   // Supabase Realtime: listen for new RDVs created for this prospect (by webhook)
   useEffect(() => {
@@ -216,7 +220,7 @@ export function ProspectDetailPage() {
   // Check if prospect has no planned action
   const hasNoPlannedAction = useMemo(() => {
     if (!prospect) return false
-    const activeStatuses = ['interesse', 'a_rappeler', 'rdv_pris']
+    const activeStatuses = ['site_en_attente', 'site_envoye', 'a_rappeler', 'rdv_pris']
     if (!activeStatuses.includes(prospect.status)) return false
     // If no reminder planned and status is active
     if (!prospect.next_reminder_at) return true
@@ -373,7 +377,7 @@ export function ProspectDetailPage() {
       window.open(bookingUrl, '_blank', 'noopener,noreferrer')
 
       // Immediately update prospect status to rdv_pris
-      const statusesToUpdate = ['nouveau', 'messagerie', 'interesse', 'a_rappeler', 'negatif']
+      const statusesToUpdate = ['nouveau', 'messagerie', 'site_en_attente', 'site_envoye', 'a_rappeler', 'negatif']
       if (statusesToUpdate.includes(prospect.status)) {
         try {
           await updateProspect.mutateAsync({
@@ -755,6 +759,52 @@ export function ProspectDetailPage() {
                       <PhoneForwarded className="mr-2 h-4 w-4" />
                       À rappeler
                     </Button>
+                    {['nouveau', 'messagerie', 'appele_sans_reponse', 'a_rappeler'].includes(prospect.status) && (
+                      <Button
+                        variant="outline"
+                        className="w-full border-cyan-300 text-cyan-700 hover:bg-cyan-50"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            const previousStatus = prospect.status
+                            await updateProspect.mutateAsync({
+                              id: prospect.id,
+                              updates: { status: 'site_en_attente' } as Record<string, unknown> as never,
+                            })
+                            toast.success('Statut → Site en attente')
+                            setUndoInfo({ previousStatus: previousStatus as ProspectStatus, newStatus: 'site_en_attente' as ProspectStatus })
+                            setUndoAction({
+                              label: `Annuler: ${prospect.company_name} → Site en attente`,
+                              undo: async () => {
+                                await updateProspect.mutateAsync({
+                                  id: prospect.id,
+                                  updates: { status: previousStatus },
+                                })
+                              },
+                            })
+                          } catch {
+                            toast.error('Erreur lors de la mise à jour')
+                          }
+                        }}
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        Site en attente
+                      </Button>
+                    )}
+                    {prospect.status === 'site_en_attente' && (
+                      <Button
+                        variant="outline"
+                        className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                        size="sm"
+                        onClick={() => {
+                          setDateEnvoiSite(new Date().toISOString().split('T')[0])
+                          setSiteEnvoyeDialogOpen(true)
+                        }}
+                      >
+                        <Send className="mr-2 h-4 w-4" />
+                        Site envoyé
+                      </Button>
+                    )}
                     {calcomLink ? (
                       <Button variant="outline" className="w-full" size="sm" onClick={openCalcom}>
                         <CalendarDays className="mr-2 h-4 w-4" />
@@ -772,7 +822,7 @@ export function ProspectDetailPage() {
                     </Button>
                   </>
                 )}
-                {prospect.status === 'rdv_pris' || prospect.status === 'interesse' ? (
+                {prospect.status === 'rdv_pris' || prospect.status === 'site_envoye' ? (
                   <Button
                     variant="default"
                     className="w-full bg-emerald-600 hover:bg-emerald-700"
@@ -828,6 +878,12 @@ export function ProspectDetailPage() {
                   <span className={`font-medium ${new Date(prospect.next_reminder_at) < new Date() ? 'text-red-600' : 'text-blue-600'}`}>
                     {formatDate(prospect.next_reminder_at)}
                   </span>
+                </div>
+              )}
+              {prospect.date_envoi_site && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Site envoyé le</span>
+                  <span className="font-medium text-blue-600">{formatDate(prospect.date_envoi_site)}</span>
                 </div>
               )}
               <div className="flex justify-between">
@@ -1122,6 +1178,71 @@ export function ProspectDetailPage() {
               variant="destructive"
             >
               Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Site envoyé Dialog — requires date */}
+      <Dialog open={siteEnvoyeDialogOpen} onOpenChange={(o) => { if (!o) setDateEnvoiSite(''); setSiteEnvoyeDialogOpen(o) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5" />
+              Site envoyé
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg bg-muted p-3">
+              <p className="font-medium">{prospect.company_name}</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Date d'envoi du site *</Label>
+              <Input
+                type="date"
+                value={dateEnvoiSite}
+                onChange={(e) => setDateEnvoiSite(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSiteEnvoyeDialogOpen(false)}>Annuler</Button>
+            <Button
+              disabled={!dateEnvoiSite || updateProspect.isPending}
+              onClick={async () => {
+                if (!dateEnvoiSite) {
+                  toast.error('La date d\'envoi est obligatoire')
+                  return
+                }
+                try {
+                  const previousStatus = prospect.status
+                  await updateProspect.mutateAsync({
+                    id: prospect.id,
+                    updates: {
+                      status: 'site_envoye',
+                      date_envoi_site: dateEnvoiSite,
+                    } as Record<string, unknown> as never,
+                  })
+                  toast.success('Statut → Site envoyé')
+                  setUndoInfo({ previousStatus: previousStatus as ProspectStatus, newStatus: 'site_envoye' as ProspectStatus })
+                  setUndoAction({
+                    label: `Annuler: ${prospect.company_name} → Site envoyé`,
+                    undo: async () => {
+                      await updateProspect.mutateAsync({
+                        id: prospect.id,
+                        updates: { status: previousStatus, date_envoi_site: null },
+                      })
+                    },
+                  })
+                  setSiteEnvoyeDialogOpen(false)
+                  setDateEnvoiSite('')
+                } catch {
+                  toast.error('Erreur lors de la mise à jour')
+                }
+              }}
+            >
+              {updateProspect.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmer
             </Button>
           </DialogFooter>
         </DialogContent>

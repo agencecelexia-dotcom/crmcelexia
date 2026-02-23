@@ -314,6 +314,8 @@ export async function generateProspects(
         if (r.excluded) continue
         if (r.lead.telephone) {
           const normalizedPhone = r.lead.telephone.replace(/[\s\-\.\(\)]/g, '')
+          // Only keep 06/07 mobile numbers
+          if (!/^0[67]/.test(normalizedPhone)) continue
           if (seenPhones.has(normalizedPhone)) continue
           seenPhones.add(normalizedPhone)
           phoneLeads.push(r.lead)

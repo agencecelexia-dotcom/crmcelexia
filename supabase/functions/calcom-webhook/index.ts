@@ -649,7 +649,7 @@ async function handleBookingCreated(
     .from('prospects')
     .update({ status: 'rdv_pris', updated_at: new Date().toISOString() })
     .eq('id', prospectId)
-    .in('status', ['nouveau', 'appele_sans_reponse', 'messagerie', 'interesse', 'a_rappeler', 'negatif'])
+    .in('status', ['nouveau', 'appele_sans_reponse', 'messagerie', 'site_en_attente', 'site_envoye', 'a_rappeler', 'negatif'])
 
   console.log(`[calcom-webhook] RDV created: ${rdv.id} for prospect: ${prospectId}`)
 

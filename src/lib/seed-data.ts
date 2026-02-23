@@ -156,7 +156,8 @@ export async function seedTestData(
     }> = [
       { status: 'nouveau', weight: 8 },
       { status: 'messagerie', weight: 12 },
-      { status: 'interesse', weight: 6 },
+      { status: 'site_en_attente', weight: 3 },
+      { status: 'site_envoye', weight: 3 },
       { status: 'a_rappeler', weight: 6 },
       { status: 'rdv_pris', weight: 5 },
       { status: 'converti_client', weight: 5 },
@@ -225,7 +226,7 @@ export async function seedTestData(
       let prevStatus = 'nouveau'
       for (let c = 0; c < numCalls; c++) {
         const result = pick(callResults)
-        const newStatus = c === numCalls - 1 ? p.status : pick(['messagerie', 'interesse', 'a_rappeler'])
+        const newStatus = c === numCalls - 1 ? p.status : pick(['messagerie', 'site_en_attente', 'a_rappeler'])
         callRows.push({
           prospect_id: p.id,
           commercial_id: p.commercial_id,
@@ -250,7 +251,7 @@ export async function seedTestData(
     // 4. Create reminders
     report('Création des rappels...', 3, 7)
     const reminderProspects = prospects.filter(
-      (p) => p.status === 'a_rappeler' || p.status === 'interesse' || p.status === 'messagerie',
+      (p) => p.status === 'a_rappeler' || p.status === 'site_en_attente' || p.status === 'site_envoye' || p.status === 'messagerie',
     )
     const reminderRows = reminderProspects.map((p, i) => {
       // Mix of today, overdue, and future reminders

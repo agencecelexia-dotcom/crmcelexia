@@ -4,7 +4,8 @@ export interface FunnelStats {
   total_prospects: number
   appele_sans_reponse: number
   messagerie: number
-  interesse: number
+  site_en_attente: number
+  site_envoye: number
   a_rappeler: number
   rdv_pris: number
   converti_client: number
@@ -50,7 +51,8 @@ export async function getDashboardStats(commercialId?: string): Promise<Dashboar
     nouveau: funnelRaw.nouveau ?? 0,
     appele_sans_reponse: 0, // legacy: merged into messagerie
     messagerie: (funnelRaw.messagerie ?? 0) + (funnelRaw.appele_sans_reponse ?? 0),
-    interesse: funnelRaw.interesse ?? 0,
+    site_en_attente: funnelRaw.site_en_attente ?? 0,
+    site_envoye: funnelRaw.site_envoye ?? 0,
     a_rappeler: funnelRaw.a_rappeler ?? 0,
     rdv_pris: funnelRaw.rdv_pris ?? 0,
     converti_client: funnelRaw.converti_client ?? 0,

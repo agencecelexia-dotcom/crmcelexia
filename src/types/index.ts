@@ -46,6 +46,7 @@ export interface Prospect {
   date_creation_entreprise: string | null
   departement: string | null
   code_postal: string | null
+  date_envoi_site: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null

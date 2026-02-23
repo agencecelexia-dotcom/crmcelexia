@@ -9,7 +9,7 @@ export async function getSmartAlerts(commercialId?: string): Promise<SmartAlert[
   let hotQuery = supabase
     .from('prospects')
     .select('id, company_name, commercial_id, last_called_at, status, next_reminder_at')
-    .in('status', ['interesse', 'rdv_pris', 'a_rappeler'])
+    .in('status', ['site_en_attente', 'site_envoye', 'rdv_pris', 'a_rappeler'])
     .is('deleted_at', null)
 
   if (commercialId) {
