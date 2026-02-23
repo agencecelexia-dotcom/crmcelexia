@@ -120,9 +120,10 @@ export function ScrollTimePicker({
   )
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
       <PopoverTrigger asChild>
         <Button
+          type="button"
           variant="outline"
           className={cn(
             'justify-start text-left font-mono tabular-nums gap-2',
@@ -134,7 +135,11 @@ export function ScrollTimePicker({
           {padTwo(h)}:{padTwo(snappedMinute)}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-4" align="start">
+      <PopoverContent
+        className="w-auto p-4"
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <div className="flex items-center gap-1">
           <ScrollColumn
             items={HOURS}
