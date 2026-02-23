@@ -21,6 +21,7 @@ import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
+import { ScrollTimePicker } from '@/components/ui/scroll-time-picker'
 import { formatPhone, formatDate, formatRelative } from '@/lib/format'
 import {
   X,
@@ -614,10 +615,9 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
                   min={new Date().toISOString().split('T')[0]}
                   className="h-8 text-sm"
                 />
-                <Input
-                  type="time"
+                <ScrollTimePicker
                   value={rappelerTime}
-                  onChange={(e) => setRappelerTime(e.target.value)}
+                  onChange={setRappelerTime}
                   className="h-8 text-sm w-24"
                 />
               </div>
@@ -780,10 +780,9 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
                   min={new Date().toISOString().split('T')[0]}
                   className="h-8 text-sm"
                 />
-                <Input
-                  type="time"
+                <ScrollTimePicker
                   value={reminderTime}
-                  onChange={(e) => setReminderTime(e.target.value)}
+                  onChange={setReminderTime}
                   className="h-8 text-sm w-24"
                 />
               </div>

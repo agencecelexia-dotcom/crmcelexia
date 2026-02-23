@@ -5,6 +5,7 @@ import { useAuth } from '@/features/auth/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { ScrollTimePicker } from '@/components/ui/scroll-time-picker'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -1057,10 +1058,9 @@ export function ProspectDetailPage() {
               </div>
               <div className="space-y-2">
                 <Label>Heure *</Label>
-                <Input
-                  type="time"
+                <ScrollTimePicker
                   value={rappelerTime}
-                  onChange={(e) => setRappelerTime(e.target.value)}
+                  onChange={setRappelerTime}
                 />
               </div>
             </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ScrollTimePicker } from '@/components/ui/scroll-time-picker'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -206,11 +207,9 @@ export function EventDetailDialog({ event, open, onOpenChange }: EventDetailDial
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="reschedule-time" className="text-xs">Heure</Label>
-                  <Input
-                    id="reschedule-time"
-                    type="time"
+                  <ScrollTimePicker
                     value={newTime}
-                    onChange={(e) => setNewTime(e.target.value)}
+                    onChange={setNewTime}
                   />
                 </div>
               </div>

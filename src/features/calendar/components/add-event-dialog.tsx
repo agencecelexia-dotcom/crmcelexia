@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ScrollTimePicker } from '@/components/ui/scroll-time-picker'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useCreateCalendarEvent } from '../hooks/use-calendar'
@@ -112,21 +113,16 @@ export function AddEventDialog({ open, onOpenChange, defaultDate, defaultStartTi
             </div>
             <div className="space-y-2">
               <Label htmlFor="event-start">Début *</Label>
-              <Input
-                id="event-start"
-                type="time"
+              <ScrollTimePicker
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                required
+                onChange={setStartTime}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="event-end">Fin</Label>
-              <Input
-                id="event-end"
-                type="time"
+              <ScrollTimePicker
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={setEndTime}
               />
             </div>
           </div>

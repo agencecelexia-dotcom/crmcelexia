@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ScrollTimePicker } from '@/components/ui/scroll-time-picker'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -151,10 +152,9 @@ export function RdvForm({ prospect, open, onOpenChange, callId, defaultType, def
             </div>
             <div className="space-y-2">
               <Label>Heure *</Label>
-              <Input
-                type="time"
+              <ScrollTimePicker
                 value={time}
-                onChange={(e) => setTime(e.target.value)}
+                onChange={setTime}
               />
             </div>
           </div>
