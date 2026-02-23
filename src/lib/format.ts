@@ -1,22 +1,26 @@
 import { format, formatDistanceToNow, isToday, isYesterday, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
-export function formatDate(dateStr: string): string {
+export function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
   const date = parseISO(dateStr)
   if (isToday(date)) return `Aujourd'hui à ${format(date, 'HH:mm', { locale: fr })}`
   if (isYesterday(date)) return `Hier à ${format(date, 'HH:mm', { locale: fr })}`
   return format(date, 'dd MMM yyyy à HH:mm', { locale: fr })
 }
 
-export function formatDateShort(dateStr: string): string {
+export function formatDateShort(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
   return format(parseISO(dateStr), 'dd/MM/yyyy', { locale: fr })
 }
 
-export function formatDateTime(dateStr: string): string {
+export function formatDateTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
   return format(parseISO(dateStr), 'dd/MM/yyyy HH:mm', { locale: fr })
 }
 
-export function formatRelative(dateStr: string): string {
+export function formatRelative(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
   return formatDistanceToNow(parseISO(dateStr), { addSuffix: true, locale: fr })
 }
 
