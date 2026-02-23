@@ -265,10 +265,8 @@ export interface Opportunity {
   commercial_id: string
   name: string
   status: OpportunityStatus
-  estimated_value: number
-  probability: number // 0-100
-  projected_revenue: number // estimated_value * probability / 100
-  monthly_recurring: number | null
+  project_price: number
+  amount_collected: number
   expected_close_date: string | null
   loss_reason: LossReason | null
   loss_notes: string | null
@@ -417,10 +415,13 @@ export interface LongTermFollowup {
 
 // ── Pipeline Stats ──
 export interface PipelineStats {
-  total_in_progress: number
-  forecast_closing: number
-  projection_month: number
-  by_stage: { stage: string; amount: number; count: number }[]
+  total_project_price: number
+  total_collected: number
+  total_pending: number
+  active_count: number
+  won_count: number
+  won_value: number
+  by_stage: { stage: string; total_price: number; count: number }[]
 }
 
 // ── Performance Stats ──

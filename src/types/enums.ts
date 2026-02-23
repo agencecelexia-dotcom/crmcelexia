@@ -325,10 +325,9 @@ export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
 
 // ── Opportunity Status ──
 export const OPPORTUNITY_STATUS = {
-  QUALIFICATION: 'qualification',
-  PROPOSITION: 'proposition',
-  NEGOCIATION: 'negociation',
-  CLOSING: 'closing',
+  DEVIS_A_ENVOYER: 'devis_a_envoyer',
+  DEVIS_ENVOYE: 'devis_envoye',
+  RDV_DEVIS: 'rdv_devis',
   GAGNE: 'gagne',
   PERDU: 'perdu',
 } as const
@@ -336,21 +335,35 @@ export const OPPORTUNITY_STATUS = {
 export type OpportunityStatus = (typeof OPPORTUNITY_STATUS)[keyof typeof OPPORTUNITY_STATUS]
 
 export const OPPORTUNITY_STATUS_LABELS: Record<OpportunityStatus, string> = {
-  qualification: 'Qualification',
-  proposition: 'Proposition',
-  negociation: 'Négociation',
-  closing: 'Closing',
+  devis_a_envoyer: 'Devis à envoyer',
+  devis_envoye: 'Devis envoyé',
+  rdv_devis: 'RDV Devis',
   gagne: 'Gagné',
   perdu: 'Perdu',
 }
 
 export const OPPORTUNITY_STATUS_COLORS: Record<OpportunityStatus, string> = {
-  qualification: 'bg-gray-100 text-gray-800',
-  proposition: 'bg-blue-100 text-blue-800',
-  negociation: 'bg-yellow-100 text-yellow-800',
-  closing: 'bg-purple-100 text-purple-800',
+  devis_a_envoyer: 'bg-blue-100 text-blue-800',
+  devis_envoye: 'bg-cyan-100 text-cyan-800',
+  rdv_devis: 'bg-yellow-100 text-yellow-800',
   gagne: 'bg-green-100 text-green-800',
   perdu: 'bg-red-100 text-red-800',
+}
+
+// Colonnes actives du Kanban (dans l'ordre)
+export const OPPORTUNITY_PIPELINE_STAGES: OpportunityStatus[] = [
+  'devis_a_envoyer',
+  'devis_envoye',
+  'rdv_devis',
+]
+
+// Hex colors pour le Kanban
+export const OPPORTUNITY_STAGE_HEX: Record<OpportunityStatus, string> = {
+  devis_a_envoyer: '#3B82F6',
+  devis_envoye: '#06B6D4',
+  rdv_devis: '#F59E0B',
+  gagne: '#10B981',
+  perdu: '#EF4444',
 }
 
 // ── Alert Types ──

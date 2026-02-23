@@ -60,6 +60,9 @@ import {
   Clock,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useOpportunitiesForClient } from '@/features/opportunities/hooks/use-opportunities'
+import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STATUS_COLORS } from '@/types/enums'
+import { Zap } from 'lucide-react'
 
 const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
   actif: 'Actif',
@@ -222,6 +225,9 @@ export function ClientDetailPage() {
           <TabsTrigger value="suivi">
             <RefreshCcw className="h-3.5 w-3.5 mr-1" /> Suivi
           </TabsTrigger>
+          <TabsTrigger value="opportunites">
+            <Zap className="h-3.5 w-3.5 mr-1" /> Opportunités
+          </TabsTrigger>
         </TabsList>
 
         {/* Fiche tab */}
@@ -326,6 +332,11 @@ export function ClientDetailPage() {
         {/* Suivi tab */}
         <TabsContent value="suivi">
           <SuiviTab clientId={client.id} convertedAt={client.converted_at} />
+        </TabsContent>
+
+        {/* Opportunites tab */}
+        <TabsContent value="opportunites">
+          <OpportunitesTab clientId={client.id} />
         </TabsContent>
       </Tabs>
     </div>
@@ -1022,6 +1033,78 @@ function SuiviTab({ clientId, convertedAt }: { clientId: string; convertedAt: st
           )}
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function OpportunitesTab({ clientId }: { clientId: string }) {
+  const { data: opportunities, isLoading } = useOpportunitiesForClient(clientId)
+
+  if (isLoading) return <Skeleton className="h-48" />
+
+  if (!opportunities || opportunities.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <Zap className="h-12 w-12 text-muted-foreground mb-4" />
+          <p className="text-lg font-medium">Aucune opportunité</p>
+          <p className="text-sm text-muted-foreground">Les opportunités liées à ce client apparaîtront ici.</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const totalPrice = opportunities.reduce((s, o) => s + o.project_price, 0)
+  const totalCollected = opportunities.reduce((s, o) => s + o.amount_collected, 0)
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-muted-foreground">Total projets</p>
+            <p className="text-lg font-bold">{formatCurrency(totalPrice)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-emerald-600">Encaissé</p>
+            <p className="text-lg font-bold text-emerald-600">{formatCurrency(totalCollected)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-3">
+            <p className="text-xs text-orange-600">Reste</p>
+            <p className="text-lg font-bold text-orange-600">{formatCurrency(totalPrice - totalCollected)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-3">
+        {opportunities.map(opp => (
+          <Card key={opp.id}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">{opp.name}</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {formatCurrency(opp.project_price)}
+                    {opp.amount_collected > 0 && (
+                      <span className="text-emerald-600 ml-2">
+                        ({formatCurrency(opp.amount_collected)} encaissé)
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <StatusBadge
+                  label={OPPORTUNITY_STATUS_LABELS[opp.status]}
+                  colorClass={OPPORTUNITY_STATUS_COLORS[opp.status]}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }

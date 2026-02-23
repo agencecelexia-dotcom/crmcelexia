@@ -3,12 +3,15 @@ import type { Opportunity, PipelineStats } from '@/types'
 import type { OpportunityStatus } from '@/types/enums'
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 
+const OPP_SELECT = '*, prospect:prospects!opportunities_prospect_id_fkey(id, company_name, phone), commercial:profiles!opportunities_commercial_id_fkey(id, full_name)'
+
 export interface OpportunityFilters {
   search?: string
   status?: OpportunityStatus[]
   commercial_id?: string
-  min_value?: number
-  max_value?: number
+  client_id?: string
+  min_price?: number
+  max_price?: number
 }
 
 export async function getOpportunities({
@@ -22,7 +25,8 @@ export async function getOpportunities({
 }) {
   let query = supabase
     .from('opportunities')
-    .select('*, prospect:prospects!opportunities_prospect_id_fkey(id, company_name, phone), commercial:profiles!opportunities_commercial_id_fkey(id, full_name)', { count: 'exact' })
+    .select(OPP_SELECT, { count: 'exact' })
+    .is('deleted_at', null)
 
   if (filters.search) {
     const s = filters.search.replace(/[%_\\]/g, '\\$&')
@@ -37,12 +41,16 @@ export async function getOpportunities({
     query = query.eq('commercial_id', filters.commercial_id)
   }
 
-  if (filters.min_value !== undefined) {
-    query = query.gte('estimated_value', filters.min_value)
+  if (filters.client_id) {
+    query = query.eq('client_id', filters.client_id)
   }
 
-  if (filters.max_value !== undefined) {
-    query = query.lte('estimated_value', filters.max_value)
+  if (filters.min_price !== undefined) {
+    query = query.gte('project_price', filters.min_price)
+  }
+
+  if (filters.max_price !== undefined) {
+    query = query.lte('project_price', filters.max_price)
   }
 
   const from = (page - 1) * pageSize
@@ -66,7 +74,7 @@ export async function getOpportunities({
 export async function getOpportunity(id: string): Promise<Opportunity> {
   const { data, error } = await supabase
     .from('opportunities')
-    .select('*, prospect:prospects!opportunities_prospect_id_fkey(id, company_name, phone, status), commercial:profiles!opportunities_commercial_id_fkey(id, full_name)')
+    .select(OPP_SELECT)
     .eq('id', id)
     .single()
 
@@ -74,24 +82,50 @@ export async function getOpportunity(id: string): Promise<Opportunity> {
   return data as unknown as Opportunity
 }
 
+export async function getOpportunitiesForKanban(commercialId?: string): Promise<Opportunity[]> {
+  let query = supabase
+    .from('opportunities')
+    .select(OPP_SELECT)
+    .is('deleted_at', null)
+
+  if (commercialId) {
+    query = query.eq('commercial_id', commercialId)
+  }
+
+  query = query.order('updated_at', { ascending: false })
+
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []) as unknown as Opportunity[]
+}
+
+export async function getOpportunitiesForClient(clientId: string): Promise<Opportunity[]> {
+  const { data, error } = await supabase
+    .from('opportunities')
+    .select(OPP_SELECT)
+    .eq('client_id', clientId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return (data ?? []) as unknown as Opportunity[]
+}
+
 export async function createOpportunity(params: {
   prospect_id: string
+  client_id?: string | null
   commercial_id: string
   name: string
-  estimated_value: number
-  probability: number
-  monthly_recurring?: number | null
+  project_price: number
   expected_close_date?: string | null
   notes?: string | null
 }): Promise<Opportunity> {
-  const projected_revenue = params.estimated_value * (params.probability / 100)
-
   const { data, error } = await supabase
     .from('opportunities')
     .insert({
       ...params,
-      projected_revenue,
-      status: 'qualification',
+      status: 'devis_a_envoyer',
+      amount_collected: 0,
     })
     .select()
     .single()
@@ -101,12 +135,25 @@ export async function createOpportunity(params: {
 }
 
 export async function updateOpportunity(id: string, updates: Partial<Opportunity>): Promise<Opportunity> {
-  if (updates.estimated_value !== undefined || updates.probability !== undefined) {
-    const currentOpp = await getOpportunity(id)
-    const val = updates.estimated_value ?? currentOpp.estimated_value
-    const prob = updates.probability ?? currentOpp.probability
-    updates.projected_revenue = val * (prob / 100)
-  }
+  const { data, error } = await supabase
+    .from('opportunities')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as unknown as Opportunity
+}
+
+export async function updateOpportunityStatus(
+  id: string,
+  newStatus: OpportunityStatus,
+  extra?: { loss_reason?: string; loss_notes?: string },
+): Promise<Opportunity> {
+  const updates: Record<string, unknown> = { status: newStatus }
+  if (extra?.loss_reason) updates.loss_reason = extra.loss_reason
+  if (extra?.loss_notes) updates.loss_notes = extra.loss_notes
 
   const { data, error } = await supabase
     .from('opportunities')
@@ -122,8 +169,8 @@ export async function updateOpportunity(id: string, updates: Partial<Opportunity
 export async function getPipelineStats(commercialId?: string): Promise<PipelineStats> {
   let query = supabase
     .from('opportunities')
-    .select('status, estimated_value, probability, projected_revenue, expected_close_date')
-    .not('status', 'in', '(gagne,perdu)')
+    .select('status, project_price, amount_collected')
+    .is('deleted_at', null)
 
   if (commercialId) {
     query = query.eq('commercial_id', commercialId)
@@ -133,35 +180,31 @@ export async function getPipelineStats(commercialId?: string): Promise<PipelineS
 
   if (error) throw error
 
-  const opportunities = (data ?? []) as { status: string; estimated_value: number; probability: number; projected_revenue: number; expected_close_date: string | null }[]
+  const all = (data ?? []) as { status: string; project_price: number; amount_collected: number }[]
 
-  const now = new Date()
+  const active = all.filter(o => !['gagne', 'perdu'].includes(o.status))
+  const won = all.filter(o => o.status === 'gagne')
 
-  const totalInProgress = opportunities.reduce((sum, o) => sum + (o.estimated_value || 0), 0)
-  const forecastClosing = opportunities.reduce((sum, o) => sum + (o.projected_revenue || 0), 0)
+  const total_project_price = active.reduce((sum, o) => sum + (o.project_price || 0), 0)
+  const total_collected = active.reduce((sum, o) => sum + (o.amount_collected || 0), 0)
 
-  const projectionMonth = opportunities
-    .filter(o => {
-      if (!o.expected_close_date) return false
-      const d = new Date(o.expected_close_date)
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-    })
-    .reduce((sum, o) => sum + (o.projected_revenue || 0), 0)
-
-  const stages = ['qualification', 'proposition', 'negociation', 'closing']
-  const byStage = stages.map(stage => {
-    const stageOpps = opportunities.filter(o => o.status === stage)
+  const stages = ['devis_a_envoyer', 'devis_envoye', 'rdv_devis']
+  const by_stage = stages.map(stage => {
+    const stageOpps = active.filter(o => o.status === stage)
     return {
       stage,
-      amount: stageOpps.reduce((sum, o) => sum + (o.estimated_value || 0), 0),
+      total_price: stageOpps.reduce((sum, o) => sum + (o.project_price || 0), 0),
       count: stageOpps.length,
     }
   })
 
   return {
-    total_in_progress: totalInProgress,
-    forecast_closing: forecastClosing,
-    projection_month: projectionMonth,
-    by_stage: byStage,
+    total_project_price,
+    total_collected,
+    total_pending: total_project_price - total_collected,
+    active_count: active.length,
+    won_count: won.length,
+    won_value: won.reduce((sum, o) => sum + (o.project_price || 0), 0),
+    by_stage,
   }
 }
