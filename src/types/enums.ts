@@ -113,8 +113,6 @@ export const CALL_RESULT_TO_STATUS: Record<CallResult, ProspectStatus> = {
 
 // Call results that require a mandatory note
 export const CALL_RESULTS_REQUIRING_NOTE: CallResult[] = [
-  'reached_not_interested',
-  'wrong_number',
   'other',
 ]
 
