@@ -74,6 +74,7 @@ export async function getCalendarEvents(
           rdvType: rdv.type,
           durationMinutes: rdv.duration_minutes,
           commercialId: rdv.commercial_id,
+          notes: rdv.notes,
         },
       })
     }
@@ -166,6 +167,18 @@ export async function createManualEvent(input: CreateManualEventInput): Promise<
 
   if (error) throw error
   return data as ManualCalendarEvent
+}
+
+export async function updateManualEvent(
+  id: string,
+  updates: { title?: string; description?: string | null; start_at?: string; end_at?: string | null; color?: string },
+): Promise<void> {
+  const { error } = await supabase
+    .from('calendar_events')
+    .update(updates)
+    .eq('id', id)
+
+  if (error) throw error
 }
 
 export async function deleteManualEvent(id: string): Promise<void> {

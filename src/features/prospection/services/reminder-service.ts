@@ -64,7 +64,7 @@ export async function getMyReminders(commercialId: string, options?: {
   return (data ?? []) as unknown as Reminder[]
 }
 
-export async function updateReminder(id: string, updates: { remind_at?: string; note?: string }): Promise<Reminder> {
+export async function updateReminder(id: string, updates: { remind_at?: string; note?: string | null }): Promise<Reminder> {
   const { data, error } = await supabase
     .from('reminders')
     .update(updates)

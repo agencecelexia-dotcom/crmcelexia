@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getCalendarEvents, createManualEvent, deleteManualEvent } from '../services/calendar-service'
+import { getCalendarEvents, createManualEvent, updateManualEvent, deleteManualEvent } from '../services/calendar-service'
 import type { CreateManualEventInput } from '../services/calendar-service'
 import { STALE_TIME_DASHBOARD } from '@/lib/constants'
 import { updateReminder, deleteReminder, completeReminder } from '@/features/prospection/services/reminder-service'
@@ -23,6 +23,47 @@ export function useCreateCalendarEvent() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['calendar'] })
     },
+  })
+}
+
+export function useUpdateCalendarEvent() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (params: { id: string; updates: { title?: string; description?: string | null; start_at?: string; end_at?: string | null; color?: string } }) =>
+      updateManualEvent(params.id, params.updates),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['calendar'] })
+      toast.success('Événement modifié')
+    },
+    onError: () => toast.error('Erreur lors de la modification'),
+  })
+}
+
+export function useUpdateRdvNotes() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (params: { id: string; notes: string | null }) =>
+      updateRdv({ id: params.id, updates: { notes: params.notes } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['calendar'] })
+      qc.invalidateQueries({ queryKey: ['rdv'] })
+      toast.success('Notes du RDV mises à jour')
+    },
+    onError: () => toast.error('Erreur lors de la mise à jour des notes'),
+  })
+}
+
+export function useUpdateReminderNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (params: { id: string; note: string | null }) =>
+      updateReminder(params.id, { note: params.note }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['calendar'] })
+      qc.invalidateQueries({ queryKey: ['reminders'] })
+      toast.success('Note du rappel mise à jour')
+    },
+    onError: () => toast.error('Erreur lors de la mise à jour de la note'),
   })
 }
 
