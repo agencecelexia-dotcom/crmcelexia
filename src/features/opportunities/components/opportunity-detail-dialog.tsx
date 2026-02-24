@@ -94,7 +94,7 @@ export function OpportunityDetailDialog({ opportunity, open, onOpenChange }: Opp
   }
 
   function confirmLoss() {
-    if (!lossReason) return
+    if (!lossReason || !opportunity) return
     statusMutation.mutate({
       id: opportunity.id,
       status: 'perdu',
@@ -106,7 +106,7 @@ export function OpportunityDetailDialog({ opportunity, open, onOpenChange }: Opp
   }
 
   function confirmDeath() {
-    if (!deathReason) return
+    if (!deathReason || !opportunity) return
     statusMutation.mutate({
       id: opportunity.id,
       status: 'mort',
