@@ -63,7 +63,11 @@ export function useUpdateProspect() {
       queryClient.invalidateQueries({ queryKey: ['prospect', variables.id] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
-    onError: () => toast.error('Erreur lors de la mise à jour du prospect'),
+    onError: (err: unknown) => {
+      console.error('useUpdateProspect error:', err)
+      const msg = (err && typeof err === 'object' && 'message' in err) ? (err as { message: string }).message : 'Erreur inconnue'
+      toast.error(`Erreur mise à jour prospect: ${msg}`)
+    },
   })
 }
 

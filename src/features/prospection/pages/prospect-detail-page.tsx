@@ -1460,9 +1460,9 @@ export function ProspectDetailPage() {
                   setSiteEnvoyeDialogOpen(false)
                   setDateEnvoiSite('')
                   setSiteUrl('')
-                } catch (err) {
-                  const msg = err instanceof Error ? err.message : String(err)
-                  toast.error(`Erreur: ${msg}`)
+                } catch (err: unknown) {
+                  console.error('Prospect update error:', err)
+                  // toast handled by useUpdateProspect onError
                 }
               }}
             >
@@ -1521,9 +1521,9 @@ export function ProspectDetailPage() {
                   setPendingOppSiteEnvoye(false)
                   setOppSiteUrl('')
                   setOppDateEnvoiSite('')
-                } catch (err) {
-                  const msg = err instanceof Error ? err.message : String(err)
-                  toast.error(`Erreur: ${msg}`)
+                } catch (err: unknown) {
+                  console.error('Pipeline site envoyé error:', err)
+                  // toast handled by useUpdateProspect onError
                 }
               }}
             >
