@@ -18,9 +18,13 @@ import {
   CALL_RESULT_TO_STATUS,
   LOSS_REASON_LABELS,
   LOSS_REASON_COLORS,
+  OPPORTUNITY_PIPELINE_STAGES,
+  OPPORTUNITY_STATUS_LABELS,
+  OPPORTUNITY_STATUS_COLORS,
   type CallResult,
   type ProspectStatus,
   type LossReason,
+  type OpportunityStatus,
 } from '@/types/enums'
 import { useLogCall } from '../hooks/use-calls'
 import { CallLogger } from '../components/call-logger'
@@ -31,6 +35,7 @@ import { ReminderList } from '../components/reminder-list'
 import { RdvForm } from '@/features/rendez-vous/components/rdv-form'
 import { RdvListForProspect } from '@/features/rendez-vous/components/rdv-list-for-prospect'
 import { LeadScoring } from '@/features/opportunities/components/lead-scoring'
+import { useOpportunityForProspect, useUpdateOpportunityStatus } from '@/features/opportunities/hooks/use-opportunities'
 import { formatDate } from '@/lib/format'
 import {
   ArrowLeft,
@@ -53,6 +58,8 @@ import {
   Undo2,
   Send,
   FileText,
+  TrendingUp,
+  CheckCircle2,
 } from 'lucide-react'
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -105,6 +112,12 @@ export function ProspectDetailPage() {
   const logCallMutation = useLogCall()
   const createReminder = useCreateReminder()
   const { setUndoAction } = useUndo()
+  // ── Opportunity liée à ce prospect ──
+  const { data: linkedOpportunity } = useOpportunityForProspect(id)
+  const updateOppStatus = useUpdateOpportunityStatus()
+  const [pendingOppLoss, setPendingOppLoss] = useState<boolean>(false)
+  const [oppLossReason, setOppLossReason] = useState<string>('')
+  const [oppLossNotes, setOppLossNotes] = useState('')
   // ── Keyboard navigation: Arrow Up/Down to switch prospects ──
   const { data: prospectListData } = useProspects({ page: 1, pageSize: 200, sortBy: 'created_at', sortDesc: true })
   const prospectIds = useMemo(() => (prospectListData?.data ?? []).map((p) => p.id), [prospectListData])
@@ -859,6 +872,133 @@ export function ProspectDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Pipeline de vente — affiché uniquement si une opportunité est liée */}
+          {linkedOpportunity && (
+            <Card className="border-blue-200 bg-blue-50/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-blue-600" />
+                  Pipeline de vente
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {/* Étapes actives */}
+                <div className="space-y-1">
+                  {OPPORTUNITY_PIPELINE_STAGES.map((stage) => {
+                    const isCurrent = linkedOpportunity.status === stage
+                    return (
+                      <button
+                        key={stage}
+                        disabled={updateOppStatus.isPending}
+                        onClick={() => {
+                          if (isCurrent) return
+                          updateOppStatus.mutate({ id: linkedOpportunity.id, status: stage })
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                          isCurrent
+                            ? 'bg-blue-600 text-white border-blue-600 cursor-default'
+                            : 'bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-700'
+                        } disabled:opacity-50`}
+                      >
+                        {isCurrent && <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
+                        <span>{OPPORTUNITY_STATUS_LABELS[stage]}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Séparateur + statuts terminaux */}
+                <Separator />
+                <div className="grid grid-cols-2 gap-1">
+                  {(['perdu', 'mort'] as OpportunityStatus[]).map((stage) => {
+                    const isCurrent = linkedOpportunity.status === stage
+                    return (
+                      <button
+                        key={stage}
+                        disabled={updateOppStatus.isPending}
+                        onClick={() => {
+                          if (isCurrent) return
+                          if (stage === 'perdu') {
+                            setPendingOppLoss(true)
+                          } else {
+                            updateOppStatus.mutate({ id: linkedOpportunity.id, status: 'mort' })
+                          }
+                        }}
+                        className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                          isCurrent
+                            ? stage === 'perdu'
+                              ? 'bg-red-600 text-white border-red-600 cursor-default'
+                              : 'bg-gray-500 text-white border-gray-500 cursor-default'
+                            : stage === 'perdu'
+                              ? 'bg-white border-red-200 text-red-600 hover:bg-red-50'
+                              : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                        } disabled:opacity-50`}
+                      >
+                        {isCurrent && <CheckCircle2 className="h-3 w-3 shrink-0" />}
+                        {OPPORTUNITY_STATUS_LABELS[stage]}
+                      </button>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Dialog raison de perte opportunité depuis fiche prospect */}
+          <Dialog open={pendingOppLoss} onOpenChange={(open) => { if (!open) { setPendingOppLoss(false); setOppLossReason(''); setOppLossNotes('') } }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Raison de la perte</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label>Raison *</Label>
+                  <Select value={oppLossReason} onValueChange={setOppLossReason}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner une raison..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.entries(LOSS_REASON_LABELS) as [LossReason, string][]).map(([val, label]) => (
+                        <SelectItem key={val} value={val}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea
+                    value={oppLossNotes}
+                    onChange={(e) => setOppLossNotes(e.target.value)}
+                    placeholder="Détails supplémentaires..."
+                    rows={2}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => { setPendingOppLoss(false); setOppLossReason(''); setOppLossNotes('') }}>
+                  Annuler
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={!oppLossReason || updateOppStatus.isPending}
+                  onClick={() => {
+                    if (!linkedOpportunity || !oppLossReason) return
+                    updateOppStatus.mutate({
+                      id: linkedOpportunity.id,
+                      status: 'perdu',
+                      extra: { loss_reason: oppLossReason, loss_notes: oppLossNotes || undefined },
+                    })
+                    setPendingOppLoss(false)
+                    setOppLossReason('')
+                    setOppLossNotes('')
+                  }}
+                >
+                  Confirmer la perte
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <Card>
             <CardHeader>

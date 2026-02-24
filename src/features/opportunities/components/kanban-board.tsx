@@ -144,8 +144,8 @@ export function KanbanBoard() {
 
   return (
     <>
-      {/* Columns */}
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      {/* Columns + terminal strip on the right */}
+      <div className="flex gap-3 overflow-x-auto pb-2 items-start">
         {OPPORTUNITY_PIPELINE_STAGES.map(stage => (
           <KanbanColumn
             key={stage}
@@ -161,22 +161,22 @@ export function KanbanBoard() {
             onCardClick={handleCardClick}
           />
         ))}
-      </div>
 
-      {/* Terminal strip: Perdu + Mort */}
-      <KanbanTerminalStrip
-        dragActive={!!draggingId}
-        dragOverStatus={
-          dragOverStatus === 'perdu' || dragOverStatus === 'mort' ? dragOverStatus as TerminalStatus : null
-        }
-        onDragOver={(s) => setDragOverStatus(s)}
-        onDragLeave={() => setDragOverStatus(null)}
-        onDrop={(s) => handleDrop(s)}
-        lostCount={grouped['perdu']?.length ?? 0}
-        deadCount={grouped['mort']?.length ?? 0}
-        lostValue={lostValue}
-        deadValue={deadValue}
-      />
+        {/* Terminal: Perdu + Mort — colonnes verticales à droite */}
+        <KanbanTerminalStrip
+          dragActive={!!draggingId}
+          dragOverStatus={
+            dragOverStatus === 'perdu' || dragOverStatus === 'mort' ? dragOverStatus as TerminalStatus : null
+          }
+          onDragOver={(s) => setDragOverStatus(s)}
+          onDragLeave={() => setDragOverStatus(null)}
+          onDrop={(s) => handleDrop(s)}
+          lostCount={grouped['perdu']?.length ?? 0}
+          deadCount={grouped['mort']?.length ?? 0}
+          lostValue={lostValue}
+          deadValue={deadValue}
+        />
+      </div>
 
       {/* Loss reason dialog */}
       <Dialog open={!!pendingLoss} onOpenChange={(open) => { if (!open) { setPendingLoss(null); setLossReason(''); setLossNotes('') } }}>

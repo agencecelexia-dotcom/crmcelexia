@@ -4,6 +4,7 @@ import {
   getOpportunity,
   getOpportunitiesForKanban,
   getOpportunitiesForClient,
+  getOpportunityForProspect,
   createOpportunity,
   updateOpportunity,
   updateOpportunityStatus,
@@ -36,6 +37,15 @@ export function useOpportunitiesKanban(commercialId?: string) {
   return useQuery({
     queryKey: ['opportunities', 'kanban', commercialId],
     queryFn: () => getOpportunitiesForKanban(commercialId),
+    staleTime: STALE_TIME_LIST,
+  })
+}
+
+export function useOpportunityForProspect(prospectId: string | undefined) {
+  return useQuery({
+    queryKey: ['opportunities', 'prospect', prospectId],
+    queryFn: () => getOpportunityForProspect(prospectId!),
+    enabled: !!prospectId,
     staleTime: STALE_TIME_LIST,
   })
 }
@@ -104,6 +114,9 @@ export function useUpdateOpportunityStatus() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['opportunities'] })
       qc.invalidateQueries({ queryKey: ['pipeline'] })
+      // Le trigger DB sync opportunity → prospect, on rafraîchit aussi les prospects
+      qc.invalidateQueries({ queryKey: ['prospects'] })
+      qc.invalidateQueries({ queryKey: ['prospect'] })
     },
     onSuccess: () => {
       toast.success('Statut mis à jour')

@@ -99,6 +99,20 @@ export async function getOpportunitiesForKanban(commercialId?: string): Promise<
   return (data ?? []) as unknown as Opportunity[]
 }
 
+export async function getOpportunityForProspect(prospectId: string): Promise<Opportunity | null> {
+  const { data, error } = await supabase
+    .from('opportunities')
+    .select(OPP_SELECT)
+    .eq('prospect_id', prospectId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  return data as unknown as Opportunity | null
+}
+
 export async function getOpportunitiesForClient(clientId: string): Promise<Opportunity[]> {
   const { data, error } = await supabase
     .from('opportunities')
