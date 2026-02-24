@@ -1460,8 +1460,9 @@ export function ProspectDetailPage() {
                   setSiteEnvoyeDialogOpen(false)
                   setDateEnvoiSite('')
                   setSiteUrl('')
-                } catch {
-                  toast.error('Erreur lors de la mise à jour')
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : String(err)
+                  toast.error(`Erreur: ${msg}`)
                 }
               }}
             >
@@ -1520,8 +1521,9 @@ export function ProspectDetailPage() {
                   setPendingOppSiteEnvoye(false)
                   setOppSiteUrl('')
                   setOppDateEnvoiSite('')
-                } catch {
-                  toast.error('Erreur lors de la mise à jour')
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : String(err)
+                  toast.error(`Erreur: ${msg}`)
                 }
               }}
             >
