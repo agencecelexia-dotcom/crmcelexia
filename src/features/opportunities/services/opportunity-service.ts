@@ -3,7 +3,7 @@ import type { Opportunity, PipelineStats } from '@/types'
 import type { OpportunityStatus } from '@/types/enums'
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 
-const OPP_SELECT = '*, prospect:prospects!opportunities_prospect_id_fkey(id, company_name, phone), commercial:profiles!opportunities_commercial_id_fkey(id, full_name)'
+const OPP_SELECT = '*, prospect:prospects!opportunities_prospect_id_fkey(id, company_name, phone, profession), commercial:profiles!opportunities_commercial_id_fkey(id, full_name)'
 
 export interface OpportunityFilters {
   search?: string

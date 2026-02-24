@@ -32,6 +32,9 @@ export function KanbanCard({ opportunity, isDragging, onDragStart, onDragEnd, on
       <p className="text-xs font-medium text-muted-foreground truncate">
         {opportunity.prospect?.company_name ?? '—'}
       </p>
+      {opportunity.prospect?.profession && (
+        <p className="text-[10px] text-muted-foreground/70 truncate">{opportunity.prospect.profession}</p>
+      )}
 
       {/* Opportunity name */}
       <p className="text-sm font-semibold mt-0.5 truncate">{opportunity.name}</p>
