@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Opportunity } from '@/types'
 import type { OpportunityStatus } from '@/types/enums'
@@ -43,6 +43,28 @@ export function KanbanBoard() {
 
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverStatus, setDragOverStatus] = useState<OpportunityStatus | null>(null)
+
+  // Auto-scroll while dragging
+  const dragPosRef = useRef({ x: 0, y: 0 })
+  const animFrameRef = useRef<number>(0)
+  useEffect(() => {
+    if (!draggingId) return
+    const onDragOver = (e: DragEvent) => { dragPosRef.current = { x: e.clientX, y: e.clientY } }
+    const scroll = () => {
+      const { y } = dragPosRef.current
+      const threshold = 80
+      const speed = 12
+      if (y < threshold) window.scrollBy(0, -speed)
+      else if (y > window.innerHeight - threshold) window.scrollBy(0, speed)
+      animFrameRef.current = requestAnimationFrame(scroll)
+    }
+    document.addEventListener('dragover', onDragOver)
+    animFrameRef.current = requestAnimationFrame(scroll)
+    return () => {
+      document.removeEventListener('dragover', onDragOver)
+      cancelAnimationFrame(animFrameRef.current)
+    }
+  }, [draggingId])
 
   // Loss reason dialog state
   const [pendingLoss, setPendingLoss] = useState<{ oppId: string } | null>(null)
