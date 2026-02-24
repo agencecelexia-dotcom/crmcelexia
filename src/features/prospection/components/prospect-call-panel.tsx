@@ -454,7 +454,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
             <div className="mt-3 p-3 rounded-lg border border-blue-200 bg-blue-50/50 space-y-2">
               <p className="text-sm font-medium text-blue-700">Marquer le site comme envoyé</p>
               <Input
-                type="url"
+                type="text"
                 value={siteEnvoyeUrl}
                 onChange={(e) => setSiteEnvoyeUrl(e.target.value)}
                 placeholder="https://exemple.vercel.app"

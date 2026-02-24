@@ -1410,7 +1410,7 @@ export function ProspectDetailPage() {
             <div className="space-y-2">
               <Label>URL du site *</Label>
               <Input
-                type="url"
+                type="text"
                 value={siteUrl}
                 onChange={(e) => setSiteUrl(e.target.value)}
                 placeholder="https://exemple.vercel.app"
@@ -1426,8 +1426,9 @@ export function ProspectDetailPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setSiteEnvoyeDialogOpen(false)}>Annuler</Button>
+            <Button type="button" variant="ghost" onClick={() => setSiteEnvoyeDialogOpen(false)}>Annuler</Button>
             <Button
+              type="button"
               disabled={!dateEnvoiSite || !siteUrl.trim() || updateProspect.isPending}
               onClick={async () => {
                 if (!dateEnvoiSite || !siteUrl.trim()) {
@@ -1484,7 +1485,7 @@ export function ProspectDetailPage() {
             <div className="space-y-2">
               <Label>URL du site *</Label>
               <Input
-                type="url"
+                type="text"
                 value={oppSiteUrl}
                 onChange={(e) => setOppSiteUrl(e.target.value)}
                 placeholder="https://exemple.vercel.app"
