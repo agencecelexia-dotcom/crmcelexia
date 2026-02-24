@@ -20,7 +20,6 @@ import {
   LOSS_REASON_COLORS,
   OPPORTUNITY_PIPELINE_STAGES,
   OPPORTUNITY_STATUS_LABELS,
-  OPPORTUNITY_STATUS_COLORS,
   type CallResult,
   type ProspectStatus,
   type LossReason,
