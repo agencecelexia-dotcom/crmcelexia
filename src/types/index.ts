@@ -1,4 +1,4 @@
-import type { UserRole, ProspectStatus, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus, LossReason, PaymentStatus, ActionType, OpportunityStatus, ContractStatus, FollowupPeriod } from './enums'
+import type { UserRole, ProspectStatus, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus, LossReason, PaymentStatus, OpportunityStatus, ContractStatus } from './enums'
 
 export interface Profile {
   id: string
@@ -324,19 +324,6 @@ export interface PaymentTracking {
   contract?: Contract
 }
 
-// ── Next Action (mandatory for prospects) ──
-export interface NextAction {
-  id: string
-  prospect_id: string
-  commercial_id: string
-  action_type: ActionType
-  planned_date: string
-  description: string | null
-  is_completed: boolean
-  completed_at: string | null
-  created_at: string
-}
-
 // ── Lead Score ──
 export interface LeadScore {
   prospect_id: string
@@ -369,25 +356,6 @@ export interface SmartAlert {
   link?: string
 }
 
-// ── Commercial Objectives (advanced) ──
-export interface CommercialObjective {
-  id: string
-  commercial_id: string
-  month: string // YYYY-MM
-  target_mrr: number
-  target_ca: number
-  target_closing_rate: number
-  target_rdv_rate: number
-  actual_mrr: number
-  actual_ca: number
-  actual_closing_rate: number
-  actual_rdv_rate: number
-  created_at: string
-  updated_at: string
-  // Joined
-  commercial?: Profile
-}
-
 // ── Key Rates ──
 export interface KeyRates {
   call_to_rdv_rate: number
@@ -398,21 +366,6 @@ export interface KeyRates {
   ca_this_month: number
   mrr_this_month: number
   average_basket: number
-}
-
-// ── Long-term Follow-up ──
-export interface LongTermFollowup {
-  id: string
-  client_id: string
-  commercial_id: string
-  followup_period: FollowupPeriod
-  scheduled_date: string
-  is_completed: boolean
-  completed_at: string | null
-  notes: string | null
-  created_at: string
-  // Joined
-  client?: Client
 }
 
 // ── Pipeline Stats ──

@@ -66,6 +66,8 @@ export function useCreateOpportunity() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['opportunities'] })
       qc.invalidateQueries({ queryKey: ['pipeline'] })
+      qc.invalidateQueries({ queryKey: ['prospects'] })
+      qc.invalidateQueries({ queryKey: ['prospect'] })
       toast.success('Opportunité créée')
     },
     onError: () => toast.error('Erreur lors de la création'),
