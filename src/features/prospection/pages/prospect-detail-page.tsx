@@ -122,6 +122,9 @@ export function ProspectDetailPage() {
   const [pendingOppDeath, setPendingOppDeath] = useState<boolean>(false)
   const [oppDeathReason, setOppDeathReason] = useState<string>('')
   const [oppRecallDate, setOppRecallDate] = useState('')
+  const [pendingOppSiteEnvoye, setPendingOppSiteEnvoye] = useState(false)
+  const [oppSiteUrl, setOppSiteUrl] = useState('')
+  const [oppDateEnvoiSite, setOppDateEnvoiSite] = useState('')
   // ── Keyboard navigation: Arrow Up/Down to switch prospects ──
   const { data: prospectListData } = useProspects({ page: 1, pageSize: 200, sortBy: 'created_at', sortDesc: true })
   const prospectIds = useMemo(() => (prospectListData?.data ?? []).map((p) => p.id), [prospectListData])
@@ -138,7 +141,7 @@ export function ProspectDetailPage() {
       const tag = (e.target as HTMLElement)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       // Don't navigate if a dialog is open
-      if (callLoggerOpen || reminderFormOpen || rdvFormOpen || lossDialogOpen || rappelerDialogOpen || siteEnvoyeDialogOpen || pendingOppDeath || isEditing) return
+      if (callLoggerOpen || reminderFormOpen || rdvFormOpen || lossDialogOpen || rappelerDialogOpen || siteEnvoyeDialogOpen || pendingOppDeath || pendingOppSiteEnvoye || isEditing) return
 
       if (e.key === 'ArrowDown' && currentIndex >= 0 && currentIndex < prospectIds.length - 1) {
         e.preventDefault()
@@ -150,7 +153,7 @@ export function ProspectDetailPage() {
     }
     document.addEventListener('keydown', handleKeyNav)
     return () => document.removeEventListener('keydown', handleKeyNav)
-  }, [currentIndex, prospectIds, navigate, callLoggerOpen, reminderFormOpen, rdvFormOpen, lossDialogOpen, rappelerDialogOpen, siteEnvoyeDialogOpen, pendingOppDeath, isEditing])
+  }, [currentIndex, prospectIds, navigate, callLoggerOpen, reminderFormOpen, rdvFormOpen, lossDialogOpen, rappelerDialogOpen, siteEnvoyeDialogOpen, pendingOppDeath, pendingOppSiteEnvoye, isEditing])
 
   // Supabase Realtime: listen for new RDVs created for this prospect (by webhook)
   useEffect(() => {
@@ -894,9 +897,15 @@ export function ProspectDetailPage() {
                     return (
                       <button
                         key={stage}
-                        disabled={updateOppStatus.isPending}
+                        disabled={updateOppStatus.isPending || updateProspect.isPending}
                         onClick={() => {
                           if (isCurrent) return
+                          if (stage === 'site_envoye') {
+                            setOppSiteUrl(prospect.website ?? '')
+                            setOppDateEnvoiSite(new Date().toISOString().split('T')[0])
+                            setPendingOppSiteEnvoye(true)
+                            return
+                          }
                           updateOppStatus.mutate({ id: linkedOpportunity.id, status: stage })
                         }}
                         className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
@@ -1456,6 +1465,66 @@ export function ProspectDetailPage() {
               }}
             >
               {updateProspect.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Site envoyé Dialog — depuis pipeline de vente (met à jour opp + prospect) */}
+      <Dialog open={pendingOppSiteEnvoye} onOpenChange={(o) => { if (!o) { setOppSiteUrl(''); setOppDateEnvoiSite('') }; setPendingOppSiteEnvoye(o) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5" />
+              Site envoyé
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>URL du site *</Label>
+              <Input
+                type="url"
+                value={oppSiteUrl}
+                onChange={(e) => setOppSiteUrl(e.target.value)}
+                placeholder="https://exemple.vercel.app"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Date d'envoi *</Label>
+              <Input
+                type="date"
+                value={oppDateEnvoiSite}
+                onChange={(e) => setOppDateEnvoiSite(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setPendingOppSiteEnvoye(false)}>Annuler</Button>
+            <Button
+              type="button"
+              disabled={!oppDateEnvoiSite || !oppSiteUrl.trim() || updateOppStatus.isPending || updateProspect.isPending}
+              onClick={async () => {
+                if (!oppDateEnvoiSite || !oppSiteUrl.trim() || !linkedOpportunity) return
+                try {
+                  updateOppStatus.mutate({ id: linkedOpportunity.id, status: 'site_envoye' })
+                  await updateProspect.mutateAsync({
+                    id: prospect.id,
+                    updates: {
+                      website: oppSiteUrl.trim(),
+                      date_envoi_site: oppDateEnvoiSite,
+                    } as Record<string, unknown> as never,
+                  })
+                  toast.success('Statut → Site envoyé')
+                  setPendingOppSiteEnvoye(false)
+                  setOppSiteUrl('')
+                  setOppDateEnvoiSite('')
+                } catch {
+                  toast.error('Erreur lors de la mise à jour')
+                }
+              }}
+            >
+              {(updateOppStatus.isPending || updateProspect.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmer
             </Button>
           </DialogFooter>
