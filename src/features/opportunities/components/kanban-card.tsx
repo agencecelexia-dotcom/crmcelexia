@@ -19,7 +19,6 @@ export function KanbanCard({ opportunity, isDragging, onDragStart, onDragEnd, on
       draggable
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = 'move'
-        e.dataTransfer.setData('text/plain', opportunity.id)
         onDragStart()
       }}
       onDragEnd={onDragEnd}

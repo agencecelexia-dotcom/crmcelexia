@@ -274,6 +274,19 @@ export const LOSS_REASON_COLORS: Record<LossReason, string> = {
   autre: 'bg-gray-100 text-gray-700',
 }
 
+// ── Death Reasons ──
+export const DEATH_REASON = {
+  NE_VEUT_PLUS: 'ne_veut_plus',
+  RAPPELER_PLUS_TARD: 'rappeler_plus_tard',
+} as const
+
+export type DeathReason = (typeof DEATH_REASON)[keyof typeof DEATH_REASON]
+
+export const DEATH_REASON_LABELS: Record<DeathReason, string> = {
+  ne_veut_plus: 'Ne veut plus bosser avec nous',
+  rappeler_plus_tard: 'Veut le site mais plus tard — rappeler',
+}
+
 // ── Payment Status ──
 export const PAYMENT_STATUS = {
   PAYE: 'paye',

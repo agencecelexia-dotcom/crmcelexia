@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Opportunity } from '@/types'
 import type { OpportunityStatus } from '@/types/enums'
-import { OPPORTUNITY_PIPELINE_STAGES, LOSS_REASON_LABELS, type LossReason } from '@/types/enums'
+import { OPPORTUNITY_PIPELINE_STAGES, LOSS_REASON_LABELS, DEATH_REASON_LABELS, type LossReason, type DeathReason } from '@/types/enums'
 import { useOpportunitiesKanban, useUpdateOpportunityStatus } from '../hooks/use-opportunities'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { KanbanColumn } from './kanban-column'
@@ -28,11 +28,6 @@ import {
 } from '@/components/ui/select'
 
 type TerminalStatus = 'perdu' | 'mort'
-
-const DEATH_REASONS = {
-  ne_veut_plus: 'Ne veut plus bosser avec nous',
-  rappeler_plus_tard: 'Veut le site mais plus tard — rappeler',
-} as const
 
 export function KanbanBoard() {
   const navigate = useNavigate()
@@ -255,7 +250,7 @@ export function KanbanBoard() {
                   <SelectValue placeholder="Sélectionner une raison..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(DEATH_REASONS).map(([val, label]) => (
+                  {(Object.entries(DEATH_REASON_LABELS) as [DeathReason, string][]).map(([val, label]) => (
                     <SelectItem key={val} value={val}>{label}</SelectItem>
                   ))}
                 </SelectContent>

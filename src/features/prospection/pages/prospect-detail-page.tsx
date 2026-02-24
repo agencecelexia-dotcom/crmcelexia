@@ -18,11 +18,13 @@ import {
   CALL_RESULT_TO_STATUS,
   LOSS_REASON_LABELS,
   LOSS_REASON_COLORS,
+  DEATH_REASON_LABELS,
   OPPORTUNITY_PIPELINE_STAGES,
   OPPORTUNITY_STATUS_LABELS,
   type CallResult,
   type ProspectStatus,
   type LossReason,
+  type DeathReason,
   type OpportunityStatus,
 } from '@/types/enums'
 import { useLogCall } from '../hooks/use-calls'
@@ -117,6 +119,9 @@ export function ProspectDetailPage() {
   const [pendingOppLoss, setPendingOppLoss] = useState<boolean>(false)
   const [oppLossReason, setOppLossReason] = useState<string>('')
   const [oppLossNotes, setOppLossNotes] = useState('')
+  const [pendingOppDeath, setPendingOppDeath] = useState<boolean>(false)
+  const [oppDeathReason, setOppDeathReason] = useState<string>('')
+  const [oppRecallDate, setOppRecallDate] = useState('')
   // ── Keyboard navigation: Arrow Up/Down to switch prospects ──
   const { data: prospectListData } = useProspects({ page: 1, pageSize: 200, sortBy: 'created_at', sortDesc: true })
   const prospectIds = useMemo(() => (prospectListData?.data ?? []).map((p) => p.id), [prospectListData])
@@ -133,7 +138,7 @@ export function ProspectDetailPage() {
       const tag = (e.target as HTMLElement)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       // Don't navigate if a dialog is open
-      if (callLoggerOpen || reminderFormOpen || rdvFormOpen || lossDialogOpen || rappelerDialogOpen || siteEnvoyeDialogOpen || isEditing) return
+      if (callLoggerOpen || reminderFormOpen || rdvFormOpen || lossDialogOpen || rappelerDialogOpen || siteEnvoyeDialogOpen || pendingOppDeath || isEditing) return
 
       if (e.key === 'ArrowDown' && currentIndex >= 0 && currentIndex < prospectIds.length - 1) {
         e.preventDefault()
@@ -145,7 +150,7 @@ export function ProspectDetailPage() {
     }
     document.addEventListener('keydown', handleKeyNav)
     return () => document.removeEventListener('keydown', handleKeyNav)
-  }, [currentIndex, prospectIds, navigate, callLoggerOpen, reminderFormOpen, rdvFormOpen, lossDialogOpen, rappelerDialogOpen, siteEnvoyeDialogOpen, isEditing])
+  }, [currentIndex, prospectIds, navigate, callLoggerOpen, reminderFormOpen, rdvFormOpen, lossDialogOpen, rappelerDialogOpen, siteEnvoyeDialogOpen, pendingOppDeath, isEditing])
 
   // Supabase Realtime: listen for new RDVs created for this prospect (by webhook)
   useEffect(() => {
@@ -837,7 +842,7 @@ export function ProspectDetailPage() {
                     </Button>
                   </>
                 )}
-                {prospect.status === 'rdv_pris' || prospect.status === 'site_envoye' ? (
+                {prospect.status === 'rdv_pris' || prospect.status === 'site_envoye' || prospect.status === 'converti_client' ? (
                   <Button
                     variant="default"
                     className="w-full bg-emerald-600 hover:bg-emerald-700"
@@ -921,7 +926,7 @@ export function ProspectDetailPage() {
                           if (stage === 'perdu') {
                             setPendingOppLoss(true)
                           } else {
-                            updateOppStatus.mutate({ id: linkedOpportunity.id, status: 'mort' })
+                            setPendingOppDeath(true)
                           }
                         }}
                         className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
@@ -994,6 +999,62 @@ export function ProspectDetailPage() {
                   }}
                 >
                   Confirmer la perte
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Dialog raison mort opportunite depuis fiche prospect */}
+          <Dialog open={pendingOppDeath} onOpenChange={(open) => { if (!open) { setPendingOppDeath(false); setOppDeathReason(''); setOppRecallDate('') } }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Raison — Mort</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label>Raison *</Label>
+                  <Select value={oppDeathReason} onValueChange={setOppDeathReason}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionner une raison..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.entries(DEATH_REASON_LABELS) as [DeathReason, string][]).map(([val, label]) => (
+                        <SelectItem key={val} value={val}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Date de rappel {oppDeathReason === 'rappeler_plus_tard' && '*'}</Label>
+                  <Input
+                    type="date"
+                    value={oppRecallDate}
+                    onChange={(e) => setOppRecallDate(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Quand rappeler ce prospect ?
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => { setPendingOppDeath(false); setOppDeathReason(''); setOppRecallDate('') }}>
+                  Annuler
+                </Button>
+                <Button
+                  disabled={!oppDeathReason || (oppDeathReason === 'rappeler_plus_tard' && !oppRecallDate) || updateOppStatus.isPending}
+                  onClick={() => {
+                    if (!linkedOpportunity || !oppDeathReason) return
+                    updateOppStatus.mutate({
+                      id: linkedOpportunity.id,
+                      status: 'mort',
+                      extra: { death_reason: oppDeathReason, recall_date: oppRecallDate || undefined },
+                    })
+                    setPendingOppDeath(false)
+                    setOppDeathReason('')
+                    setOppRecallDate('')
+                  }}
+                >
+                  Confirmer
                 </Button>
               </DialogFooter>
             </DialogContent>
