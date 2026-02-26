@@ -29,6 +29,7 @@ const PaymentsPage = lazy(() => import('@/features/payments/pages/payments-page'
 const PerformancePage = lazy(() => import('@/features/analytics/pages/performance-page').then(m => ({ default: m.PerformancePage })))
 const ObjectivesPage = lazy(() => import('@/features/analytics/pages/objectives-page').then(m => ({ default: m.ObjectivesPage })))
 const FollowupPage = lazy(() => import('@/features/clients/pages/followup-page').then(m => ({ default: m.FollowupPage })))
+const NotesPage = lazy(() => import('@/features/notes/pages/notes-page').then(m => ({ default: m.NotesPage })))
 
 function PageLoader() {
   return (
@@ -92,6 +93,11 @@ export const router = createBrowserRouter([
           {
             path: '/opportunities',
             element: <LazyPage><OpportunitiesPage /></LazyPage>,
+          },
+          // Notes equipe (all users)
+          {
+            path: '/notes',
+            element: <LazyPage><NotesPage /></LazyPage>,
           },
           // Performance (all users)
           {

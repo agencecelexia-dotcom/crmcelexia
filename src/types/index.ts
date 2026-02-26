@@ -54,6 +54,15 @@ export interface Prospect {
   commercial?: Profile
 }
 
+export interface TeamNote {
+  id: string
+  author_id: string
+  content: string
+  updated_at: string
+  // Joined
+  author?: Pick<Profile, 'id' | 'full_name'>
+}
+
 export interface Call {
   id: string
   prospect_id: string

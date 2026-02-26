@@ -19,6 +19,7 @@ import {
   RefreshCcw,
   Zap,
   Undo2,
+  StickyNote,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -52,6 +53,7 @@ const navSections: NavSection[] = [
       { to: '/rdv', label: 'Rendez-vous', icon: <Calendar className="h-4 w-4" /> },
       { to: '/calendar', label: 'Calendrier', icon: <CalendarDays className="h-4 w-4" /> },
       { to: '/opportunities', label: 'Opportunités', icon: <Zap className="h-4 w-4" /> },
+      { to: '/notes', label: 'Notes équipe', icon: <StickyNote className="h-4 w-4" /> },
     ],
   },
   {
