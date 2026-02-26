@@ -134,6 +134,8 @@ export function ProspectDetailPage() {
   const [lossDialogOpen, setLossDialogOpen] = useState(false)
   const [selectedLossReason, setSelectedLossReason] = useState<LossReason | ''>('')
   const [lossNotes, setLossNotes] = useState('')
+  const [lossRecallDate, setLossRecallDate] = useState('')
+  const [lossRecallNote, setLossRecallNote] = useState('')
 
   useEffect(() => {
     function handleKeyNav(e: KeyboardEvent) {
@@ -366,9 +368,25 @@ export function ProspectDetailPage() {
           // Non-blocking
         }
       }
+      // Creer un rappel optionnel si une date de rappel est definie
+      if (lossRecallDate && session?.user) {
+        try {
+          await createReminder.mutateAsync({
+            prospect_id: prospect!.id,
+            commercial_id: session.user.id,
+            remind_at: new Date(lossRecallDate + 'T09:00:00').toISOString(),
+            note: lossRecallNote.trim() || `Relance ${prospect!.company_name} (perdu — peut-être plus tard)`,
+          })
+          toast.success('Rappel créé pour la relance future')
+        } catch {
+          // Non-blocking
+        }
+      }
       setLossDialogOpen(false)
       setSelectedLossReason('')
       setLossNotes('')
+      setLossRecallDate('')
+      setLossRecallNote('')
     } catch {
       toast.error('Erreur lors de la sauvegarde')
     }
@@ -1377,18 +1395,50 @@ export function ProspectDetailPage() {
                 value={lossNotes}
                 onChange={(e) => setLossNotes(e.target.value)}
                 placeholder="Détails supplémentaires..."
-                rows={3}
+                rows={2}
               />
+            </div>
+            {/* Rappel optionnel — "non maintenant, peut-être plus tard" */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-600" />
+                <p className="text-sm font-medium text-amber-800">Rappel futur (optionnel)</p>
+              </div>
+              <p className="text-xs text-amber-700">
+                Il dit non maintenant mais peut-être plus tard ? Planifie une relance.
+              </p>
+              <div className="space-y-2">
+                <Label className="text-xs">Date de rappel</Label>
+                <Input
+                  type="date"
+                  value={lossRecallDate}
+                  onChange={(e) => setLossRecallDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="bg-white"
+                />
+              </div>
+              {lossRecallDate && (
+                <div className="space-y-2">
+                  <Label className="text-xs">Note pour le rappel</Label>
+                  <Input
+                    type="text"
+                    value={lossRecallNote}
+                    onChange={(e) => setLossRecallNote(e.target.value)}
+                    placeholder="Ex: Rappeler en mars, budget prévu..."
+                    className="bg-white"
+                  />
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setLossDialogOpen(false)}>Annuler</Button>
+            <Button variant="ghost" onClick={() => { setLossDialogOpen(false); setLossRecallDate(''); setLossRecallNote('') }}>Annuler</Button>
             <Button
               onClick={saveLossReason}
               disabled={!selectedLossReason || updateProspect.isPending}
               variant="destructive"
             >
-              Enregistrer
+              Enregistrer{lossRecallDate ? ' + Rappel' : ''}
             </Button>
           </DialogFooter>
         </DialogContent>
