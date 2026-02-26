@@ -30,6 +30,7 @@ const PerformancePage = lazy(() => import('@/features/analytics/pages/performanc
 const ObjectivesPage = lazy(() => import('@/features/analytics/pages/objectives-page').then(m => ({ default: m.ObjectivesPage })))
 const FollowupPage = lazy(() => import('@/features/clients/pages/followup-page').then(m => ({ default: m.FollowupPage })))
 const NotesPage = lazy(() => import('@/features/notes/pages/notes-page').then(m => ({ default: m.NotesPage })))
+const RemindersPage = lazy(() => import('@/features/reminders/pages/reminders-page').then(m => ({ default: m.RemindersPage })))
 
 function PageLoader() {
   return (
@@ -98,6 +99,11 @@ export const router = createBrowserRouter([
           {
             path: '/notes',
             element: <LazyPage><NotesPage /></LazyPage>,
+          },
+          // Rappels centralises (all users)
+          {
+            path: '/rappels',
+            element: <LazyPage><RemindersPage /></LazyPage>,
           },
           // Performance (all users)
           {

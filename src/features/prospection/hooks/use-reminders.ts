@@ -3,6 +3,7 @@ import {
   createReminder,
   getRemindersForProspect,
   getMyReminders,
+  getAllReminders,
   completeReminder,
 } from '../services/reminder-service'
 import { toast } from 'sonner'
@@ -12,6 +13,7 @@ interface CreateReminderParams {
   commercial_id: string
   remind_at: string
   note?: string | null
+  context?: string | null
 }
 
 export function useRemindersForProspect(prospectId: string | undefined) {
@@ -19,6 +21,14 @@ export function useRemindersForProspect(prospectId: string | undefined) {
     queryKey: ['reminders', 'prospect', prospectId],
     queryFn: () => getRemindersForProspect(prospectId!),
     enabled: !!prospectId,
+  })
+}
+
+export function useAllReminders(options?: { includeCompleted?: boolean }) {
+  return useQuery({
+    queryKey: ['reminders', 'all', options],
+    queryFn: () => getAllReminders(options),
+    staleTime: 30_000,
   })
 }
 

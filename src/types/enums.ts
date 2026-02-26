@@ -475,3 +475,50 @@ export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
   termine: 'bg-gray-100 text-gray-800',
   resilie: 'bg-red-100 text-red-800',
 }
+
+// ============================================================
+// Reminder context — differenciates types of callbacks
+// ============================================================
+export const REMINDER_CONTEXT = {
+  COLD_CALL: 'cold_call',
+  POST_SITE: 'post_site',
+  POST_RDV: 'post_rdv',
+  POST_PERTE: 'post_perte',
+  MANUEL: 'manuel',
+} as const
+
+export type ReminderContext = (typeof REMINDER_CONTEXT)[keyof typeof REMINDER_CONTEXT]
+
+export const REMINDER_CONTEXT_LABELS: Record<ReminderContext, string> = {
+  cold_call: 'Cold call',
+  post_site: 'Suivi site',
+  post_rdv: 'Suivi RDV',
+  post_perte: 'Relance perdu',
+  manuel: 'Manuel',
+}
+
+// Badge colors (bg + text)
+export const REMINDER_CONTEXT_COLORS: Record<ReminderContext, string> = {
+  cold_call: 'bg-slate-100 text-slate-700 border-slate-200',
+  post_site: 'bg-blue-100 text-blue-700 border-blue-200',
+  post_rdv: 'bg-purple-100 text-purple-700 border-purple-200',
+  post_perte: 'bg-amber-100 text-amber-700 border-amber-200',
+  manuel: 'bg-gray-100 text-gray-600 border-gray-200',
+}
+
+// Left border accent for reminder cards
+export const REMINDER_CONTEXT_BORDER: Record<ReminderContext, string> = {
+  cold_call: 'border-l-slate-400',
+  post_site: 'border-l-blue-400',
+  post_rdv: 'border-l-purple-400',
+  post_perte: 'border-l-amber-400',
+  manuel: 'border-l-gray-300',
+}
+
+// Helper: derive context from opportunity status
+export function contextFromOppStatus(oppStatus: string): ReminderContext {
+  if (['site_envoye', 'site_en_attente'].includes(oppStatus)) return 'post_site'
+  if (['rdv', 'en_attente_retour'].includes(oppStatus)) return 'post_rdv'
+  return 'cold_call'
+}
+

@@ -6,6 +6,7 @@ interface CreateReminderParams {
   commercial_id: string
   remind_at: string
   note?: string | null
+  context?: string | null
 }
 
 export async function createReminder(params: CreateReminderParams): Promise<Reminder> {
@@ -28,6 +29,22 @@ export async function getRemindersForProspect(prospectId: string): Promise<Remin
 
   if (error) throw error
   return (data ?? []) as Reminder[]
+}
+
+export async function getAllReminders(options?: {
+  includeCompleted?: boolean
+}): Promise<Reminder[]> {
+  let query = supabase
+    .from('reminders')
+    .select('*, prospect:prospects!reminders_prospect_id_fkey(id, company_name, phone, status), commercial:profiles!reminders_commercial_id_fkey(id, full_name)')
+
+  if (!options?.includeCompleted) {
+    query = query.eq('is_completed', false)
+  }
+
+  const { data, error } = await query.order('remind_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as unknown as Reminder[]
 }
 
 export async function getMyReminders(commercialId: string, options?: {

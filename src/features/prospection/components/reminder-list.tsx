@@ -5,6 +5,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { Check, Clock, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  REMINDER_CONTEXT_LABELS,
+  REMINDER_CONTEXT_COLORS,
+  REMINDER_CONTEXT_BORDER,
+  type ReminderContext,
+} from '@/types/enums'
 
 interface ReminderListProps {
   prospectId: string
@@ -51,28 +57,36 @@ export function ReminderList({ prospectId, onComplete }: ReminderListProps) {
         const isOverdue = !reminder.is_completed && new Date(reminder.remind_at) < now
         const isToday = !reminder.is_completed &&
           new Date(reminder.remind_at).toDateString() === now.toDateString()
+        const ctx = (reminder.context ?? 'manuel') as ReminderContext
+        const borderColor = REMINDER_CONTEXT_BORDER[ctx] ?? 'border-l-gray-300'
 
         return (
           <div
             key={reminder.id}
             className={cn(
-              'flex items-center gap-3 rounded-lg border p-3',
+              'flex items-center gap-3 rounded-lg border border-l-4 p-3',
+              borderColor,
               reminder.is_completed && 'opacity-50',
               isOverdue && 'border-red-300 bg-red-50',
               isToday && !isOverdue && 'border-orange-300 bg-orange-50',
+              !isOverdue && !isToday && !reminder.is_completed && 'bg-background',
             )}
           >
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 text-sm">
-                {isOverdue && <AlertTriangle className="h-4 w-4 text-red-500" />}
-                {isToday && !isOverdue && <Clock className="h-4 w-4 text-orange-500" />}
-                <span className={cn(
-                  'font-medium',
-                  reminder.is_completed && 'line-through',
-                )}>
+              <div className="flex items-center gap-2 flex-wrap text-sm">
+                {isOverdue && <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />}
+                {isToday && !isOverdue && <Clock className="h-4 w-4 text-orange-500 shrink-0" />}
+                <span className={cn('font-medium', reminder.is_completed && 'line-through')}>
                   {formatDate(reminder.remind_at)}
                 </span>
                 {isOverdue && <span className="text-xs text-red-600 font-medium">En retard</span>}
+                {/* Context badge */}
+                <span className={cn(
+                  'text-[10px] font-medium px-1.5 py-0.5 rounded border',
+                  REMINDER_CONTEXT_COLORS[ctx] ?? 'bg-gray-100 text-gray-600 border-gray-200',
+                )}>
+                  {REMINDER_CONTEXT_LABELS[ctx] ?? ctx}
+                </span>
               </div>
               {reminder.note && (
                 <p className="mt-1 text-sm text-muted-foreground">{reminder.note}</p>

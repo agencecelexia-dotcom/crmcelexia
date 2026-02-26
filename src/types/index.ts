@@ -85,6 +85,7 @@ export interface Reminder {
   commercial_id: string
   remind_at: string
   note: string | null
+  context: string | null
   is_completed: boolean
   completed_at: string | null
   created_at: string

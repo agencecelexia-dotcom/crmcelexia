@@ -21,6 +21,7 @@ import {
   DEATH_REASON_LABELS,
   OPPORTUNITY_PIPELINE_STAGES,
   OPPORTUNITY_STATUS_LABELS,
+  contextFromOppStatus,
   type CallResult,
   type ProspectStatus,
   type LossReason,
@@ -376,6 +377,7 @@ export function ProspectDetailPage() {
             commercial_id: session.user.id,
             remind_at: new Date(lossRecallDate + 'T09:00:00').toISOString(),
             note: lossRecallNote.trim() || `Relance ${prospect!.company_name} (perdu — peut-être plus tard)`,
+            context: 'post_perte',
           })
           toast.success('Rappel créé pour la relance future')
         } catch {
@@ -1318,38 +1320,60 @@ export function ProspectDetailPage() {
                   return
                 }
                 try {
-                  const previousStatus = prospect.status
-                  // 1. Log the call (commercial called manually from phone)
-                  if (session?.user) {
-                    await logCallMutation.mutateAsync({
-                      prospect_id: prospect.id,
-                      commercial_id: session.user.id,
-                      result: 'reached_callback' as CallResult,
-                      new_status: 'a_rappeler' as ProspectStatus,
-                      note: rappelerNote.trim(),
-                    })
-                  }
-                  // 2. Create reminder
-                  if (session?.user) {
-                    await createReminder.mutateAsync({
-                      prospect_id: prospect.id,
-                      commercial_id: session.user.id,
-                      remind_at: new Date(`${rappelerDate}T${rappelerTime}:00`).toISOString(),
-                      note: rappelerNote.trim(),
-                    })
-                  }
-                  // Register undo
-                  setUndoInfo({ previousStatus: previousStatus as ProspectStatus, newStatus: 'a_rappeler' as ProspectStatus })
-                  setUndoAction({
-                    label: `Annuler: ${prospect.company_name} → À rappeler`,
-                    undo: async () => {
-                      await updateProspect.mutateAsync({
-                        id: prospect.id,
-                        updates: { status: previousStatus },
+                  // Si une opportunite est en phase avancee (post-site, post-rdv),
+                  // on NE change PAS le statut prospect — il est deja significatif.
+                  // On cree juste un rappel avec le contexte adequat.
+                  const pipelineStages = ['site_envoye', 'rdv', 'en_attente_retour']
+                  const hasActivePipeline = linkedOpportunity && pipelineStages.includes(linkedOpportunity.status)
+                  const reminderContext = hasActivePipeline
+                    ? contextFromOppStatus(linkedOpportunity!.status)
+                    : 'cold_call'
+
+                  if (hasActivePipeline) {
+                    // Pas de changement de statut prospect — seulement un rappel
+                    if (session?.user) {
+                      await createReminder.mutateAsync({
+                        prospect_id: prospect.id,
+                        commercial_id: session.user.id,
+                        remind_at: new Date(`${rappelerDate}T${rappelerTime}:00`).toISOString(),
+                        note: rappelerNote.trim(),
+                        context: reminderContext,
                       })
-                    },
-                  })
-                  toast.success('Statut → À rappeler, rappel planifié')
+                    }
+                    toast.success('Rappel planifié (statut conservé)')
+                  } else {
+                    // Flux normal cold call : log appel + change statut + rappel
+                    const previousStatus = prospect.status
+                    if (session?.user) {
+                      await logCallMutation.mutateAsync({
+                        prospect_id: prospect.id,
+                        commercial_id: session.user.id,
+                        result: 'reached_callback' as CallResult,
+                        new_status: 'a_rappeler' as ProspectStatus,
+                        note: rappelerNote.trim(),
+                      })
+                    }
+                    if (session?.user) {
+                      await createReminder.mutateAsync({
+                        prospect_id: prospect.id,
+                        commercial_id: session.user.id,
+                        remind_at: new Date(`${rappelerDate}T${rappelerTime}:00`).toISOString(),
+                        note: rappelerNote.trim(),
+                        context: reminderContext,
+                      })
+                    }
+                    setUndoInfo({ previousStatus: previousStatus as ProspectStatus, newStatus: 'a_rappeler' as ProspectStatus })
+                    setUndoAction({
+                      label: `Annuler: ${prospect.company_name} → À rappeler`,
+                      undo: async () => {
+                        await updateProspect.mutateAsync({
+                          id: prospect.id,
+                          updates: { status: previousStatus },
+                        })
+                      },
+                    })
+                    toast.success('Statut → À rappeler, rappel planifié')
+                  }
                   setRappelerDialogOpen(false)
                   setRappelerDate('')
                   setRappelerTime('09:00')
