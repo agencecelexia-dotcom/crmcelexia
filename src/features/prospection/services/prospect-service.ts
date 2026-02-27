@@ -150,12 +150,16 @@ export async function updateProspect(id: string, updates: Partial<Prospect>): Pr
 
   if (error) throw error
 
+  console.log('[n8n-debug] updateProspect called, updates.status=', updates.status, 'data.website=', data.website)
   if (updates.status === 'site_en_attente' && !data.website) {
+    console.log('[n8n-debug] Firing webhook to', N8N_SITE_DEPLOY_WEBHOOK)
     fetch(N8N_SITE_DEPLOY_WEBHOOK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ record: data }),
-    }).catch(err => console.error('[n8n] Site deploy webhook failed:', err))
+    })
+      .then(res => console.log('[n8n-debug] Webhook response:', res.status, res.statusText))
+      .catch(err => console.error('[n8n] Site deploy webhook failed:', err))
   }
 
   return data as Prospect
