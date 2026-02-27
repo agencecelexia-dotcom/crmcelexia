@@ -848,19 +848,40 @@ export function ProspectDetailPage() {
                       </Button>
                     )}
                     {prospect.status === 'site_en_attente' && (
-                      <Button
-                        variant="outline"
-                        className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
-                        size="sm"
-                        onClick={() => {
-                          setDateEnvoiSite(new Date().toISOString().split('T')[0])
-                          setSiteUrl(prospect.website ?? '')
-                          setSiteEnvoyeDialogOpen(true)
-                        }}
-                      >
-                        <Send className="mr-2 h-4 w-4" />
-                        Site envoyé
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                          size="sm"
+                          onClick={() => {
+                            setDateEnvoiSite(new Date().toISOString().split('T')[0])
+                            setSiteUrl(prospect.website ?? '')
+                            setSiteEnvoyeDialogOpen(true)
+                          }}
+                        >
+                          <Send className="mr-2 h-4 w-4" />
+                          Site envoyé
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          className="w-full text-muted-foreground hover:text-foreground"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await updateProspect.mutateAsync({
+                                id: prospect.id,
+                                updates: { status: 'nouveau' } as Record<string, unknown> as never,
+                              })
+                              toast.success('Statut → Nouveau')
+                            } catch {
+                              toast.error('Erreur lors de la mise à jour')
+                            }
+                          }}
+                        >
+                          <Undo2 className="mr-2 h-4 w-4" />
+                          Remettre en nouveau
+                        </Button>
+                      </>
                     )}
                     {calcomLink ? (
                       <Button variant="outline" className="w-full" size="sm" onClick={openCalcom}>
