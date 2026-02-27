@@ -1,7 +1,28 @@
 import { supabase } from '@/lib/supabase/client'
 import type { Opportunity, PipelineStats } from '@/types'
 import type { OpportunityStatus } from '@/types/enums'
-import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
+import { DEFAULT_PAGE_SIZE, N8N_SITE_DEPLOY_WEBHOOK } from '@/lib/constants'
+
+/**
+ * Trigger n8n site deployment workflow when opportunity status becomes site_a_envoyer.
+ * Fire-and-forget: never blocks the caller, never throws.
+ */
+function triggerSiteDeployment(prospectId: string) {
+  supabase
+    .from('prospects')
+    .select('*')
+    .eq('id', prospectId)
+    .single()
+    .then(({ data: prospect }) => {
+      if (!prospect || prospect.website) return
+      fetch(N8N_SITE_DEPLOY_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ record: prospect }),
+      }).catch(err => console.error('[n8n] Site deploy webhook failed:', err))
+    })
+    .catch(err => console.error('[n8n] Failed to fetch prospect for site deploy:', err))
+}
 
 const OPP_SELECT = '*, prospect:prospects!opportunities_prospect_id_fkey(id, company_name, phone, profession), commercial:profiles!opportunities_commercial_id_fkey(id, full_name)'
 
@@ -145,6 +166,11 @@ export async function createOpportunity(params: {
     .single()
 
   if (error) throw error
+
+  if (data.prospect_id) {
+    triggerSiteDeployment(data.prospect_id)
+  }
+
   return data as unknown as Opportunity
 }
 
@@ -179,6 +205,11 @@ export async function updateOpportunityStatus(
     .single()
 
   if (error) throw error
+
+  if (newStatus === 'site_a_envoyer' && data.prospect_id) {
+    triggerSiteDeployment(data.prospect_id)
+  }
+
   return data as unknown as Opportunity
 }
 

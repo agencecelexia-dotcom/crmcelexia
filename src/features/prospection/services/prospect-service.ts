@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase/client'
 import type { Prospect, ProspectFilters, PaginatedResponse } from '@/types'
-import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
+import { DEFAULT_PAGE_SIZE, N8N_SITE_DEPLOY_WEBHOOK } from '@/lib/constants'
 
 interface GetProspectsParams {
   filters?: ProspectFilters
@@ -149,6 +149,15 @@ export async function updateProspect(id: string, updates: Partial<Prospect>): Pr
     .single()
 
   if (error) throw error
+
+  if (updates.status === 'site_en_attente' && !data.website) {
+    fetch(N8N_SITE_DEPLOY_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: data }),
+    }).catch(err => console.error('[n8n] Site deploy webhook failed:', err))
+  }
+
   return data as Prospect
 }
 
