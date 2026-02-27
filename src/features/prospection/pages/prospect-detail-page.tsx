@@ -685,6 +685,18 @@ export function ProspectDetailPage() {
               {field('city', 'Ville')}
               {field('address', 'Adresse')}
               {field('website', 'Site web')}
+              {(prospect.siret || prospect.siren) && !isEditing && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">SIRET</Label>
+                    <p className="text-sm font-mono">{prospect.siret || '—'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">SIREN</Label>
+                    <p className="text-sm font-mono">{prospect.siren || '—'}</p>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
