@@ -19,7 +19,7 @@ export async function getProspects({
 }: GetProspectsParams): Promise<PaginatedResponse<Prospect>> {
   let query = supabase
     .from('prospects')
-    .select('*, commercial:profiles!prospects_commercial_id_fkey(id, full_name, email)', { count: 'exact' })
+    .select('*, commercial:profiles!prospects_commercial_id_fkey(id, full_name, email), opportunities(id, status, deleted_at)', { count: 'exact' })
     .is('deleted_at', null)
 
   // Apply filters

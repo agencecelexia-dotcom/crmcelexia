@@ -799,7 +799,9 @@ export function ProspectDetailPage() {
                       onClick={() => setRappelerDialogOpen(true)}
                     >
                       <PhoneForwarded className="mr-2 h-4 w-4" />
-                      À rappeler
+                      {linkedOpportunity && ['site_envoye', 'rdv', 'en_attente_retour'].includes(linkedOpportunity.status)
+                        ? 'Planifier un suivi'
+                        : 'À rappeler'}
                     </Button>
                     {['nouveau', 'messagerie', 'appele_sans_reponse', 'a_rappeler'].includes(prospect.status) && (
                       <Button
@@ -1268,12 +1270,19 @@ export function ProspectDetailPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <PhoneForwarded className="h-5 w-5" />
-              À rappeler
+              {linkedOpportunity && ['site_envoye', 'rdv', 'en_attente_retour'].includes(linkedOpportunity.status)
+                ? 'Planifier un suivi'
+                : 'À rappeler'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="rounded-lg bg-muted p-3">
               <p className="font-medium">{prospect.company_name}</p>
+              {linkedOpportunity && ['site_envoye', 'rdv', 'en_attente_retour'].includes(linkedOpportunity.status) && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Pipeline : {OPPORTUNITY_STATUS_LABELS[linkedOpportunity.status as OpportunityStatus] ?? linkedOpportunity.status} — le statut sera conservé
+                </p>
+              )}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">

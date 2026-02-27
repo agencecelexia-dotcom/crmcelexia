@@ -52,6 +52,7 @@ export interface Prospect {
   deleted_at: string | null
   // Joined
   commercial?: Profile
+  opportunities?: { id: string; status: string; deleted_at: string | null }[]
 }
 
 export interface TeamNote {

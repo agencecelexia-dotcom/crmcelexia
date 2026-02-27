@@ -22,7 +22,13 @@ import {
   REMINDER_CONTEXT_LABELS,
   REMINDER_CONTEXT_COLORS,
   REMINDER_CONTEXT_BORDER,
+  OPPORTUNITY_STATUS_LABELS,
+  OPPORTUNITY_STATUS_COLORS,
+  PROSPECT_STATUS_LABELS,
+  PROSPECT_STATUS_COLORS,
   type ReminderContext,
+  type OpportunityStatus,
+  type ProspectStatus,
 } from '@/types/enums'
 import type { Reminder } from '@/types'
 
@@ -64,7 +70,8 @@ function ReminderCard({ reminder, onComplete, isPending }: ReminderCardProps) {
   const overdue = isOverdue(reminder)
   const today = isToday(reminder)
   const border = REMINDER_CONTEXT_BORDER[ctx] ?? 'border-l-gray-300'
-  const prospect = reminder.prospect as { id: string; company_name: string; phone?: string; status?: string } | undefined
+  const prospect = reminder.prospect as { id: string; company_name: string; phone?: string; status?: string; opportunities?: { id: string; status: string; deleted_at: string | null }[] } | undefined
+  const activeOpp = prospect?.opportunities?.find(o => !o.deleted_at)
 
   return (
     <div className={cn(
@@ -90,16 +97,34 @@ function ReminderCard({ reminder, onComplete, isPending }: ReminderCardProps) {
           {today && !overdue && <span className="text-xs text-orange-600 font-medium">Aujourd'hui</span>}
         </div>
 
-        {/* Prospect */}
+        {/* Prospect + pipeline stage badge */}
         {prospect && (
-          <button
-            onClick={() => navigate(`/prospects/${prospect.id}`)}
-            className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors"
-          >
-            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-            {prospect.company_name}
-            <ExternalLink className="h-3 w-3 text-muted-foreground" />
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => navigate(`/prospects/${prospect.id}`)}
+              className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors"
+            >
+              <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+              {prospect.company_name}
+              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+            </button>
+            {/* Real pipeline stage */}
+            {activeOpp ? (
+              <span className={cn(
+                'text-[10px] font-medium px-1.5 py-0.5 rounded',
+                OPPORTUNITY_STATUS_COLORS[activeOpp.status as OpportunityStatus] ?? 'bg-gray-100 text-gray-700',
+              )}>
+                {OPPORTUNITY_STATUS_LABELS[activeOpp.status as OpportunityStatus] ?? activeOpp.status}
+              </span>
+            ) : prospect.status ? (
+              <span className={cn(
+                'text-[10px] font-medium px-1.5 py-0.5 rounded',
+                PROSPECT_STATUS_COLORS[prospect.status as ProspectStatus] ?? 'bg-gray-100 text-gray-700',
+              )}>
+                {PROSPECT_STATUS_LABELS[prospect.status as ProspectStatus] ?? prospect.status}
+              </span>
+            ) : null}
+          </div>
         )}
 
         {/* Note */}

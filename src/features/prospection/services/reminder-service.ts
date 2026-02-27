@@ -36,7 +36,7 @@ export async function getAllReminders(options?: {
 }): Promise<Reminder[]> {
   let query = supabase
     .from('reminders')
-    .select('*, prospect:prospects!reminders_prospect_id_fkey(id, company_name, phone, status), commercial:profiles!reminders_commercial_id_fkey(id, full_name)')
+    .select('*, prospect:prospects!reminders_prospect_id_fkey(id, company_name, phone, status, opportunities(id, status, deleted_at)), commercial:profiles!reminders_commercial_id_fkey(id, full_name)')
 
   if (!options?.includeCompleted) {
     query = query.eq('is_completed', false)

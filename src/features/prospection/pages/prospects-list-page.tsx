@@ -10,6 +10,9 @@ import {
   PROSPECT_STATUS_LABELS,
   PROSPECT_STATUS_COLORS,
   PROSPECT_STATUS_ROW_COLORS,
+  OPPORTUNITY_STATUS_LABELS,
+  OPPORTUNITY_STATUS_COLORS,
+  type OpportunityStatus,
 } from '@/types/enums'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -664,10 +667,24 @@ export function ProspectsListPage() {
                           </a>
                         </TableCell>
                         <TableCell>
-                          <StatusBadge
-                            label={PROSPECT_STATUS_LABELS[prospect.status]}
-                            colorClass={PROSPECT_STATUS_COLORS[prospect.status]}
-                          />
+                          {(() => {
+                            const activeOpp = prospect.opportunities?.find(o => !o.deleted_at)
+                            if (activeOpp) {
+                              const oppStatus = activeOpp.status as OpportunityStatus
+                              return (
+                                <StatusBadge
+                                  label={OPPORTUNITY_STATUS_LABELS[oppStatus] ?? activeOpp.status}
+                                  colorClass={OPPORTUNITY_STATUS_COLORS[oppStatus] ?? 'bg-gray-100 text-gray-800'}
+                                />
+                              )
+                            }
+                            return (
+                              <StatusBadge
+                                label={PROSPECT_STATUS_LABELS[prospect.status]}
+                                colorClass={PROSPECT_STATUS_COLORS[prospect.status]}
+                              />
+                            )
+                          })()}
                         </TableCell>
                         <TableCell className="text-sm">{prospect.profession ?? '—'}</TableCell>
                         <TableCell className="text-sm">{prospect.city ?? '—'}</TableCell>
