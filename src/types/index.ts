@@ -387,7 +387,7 @@ export interface PipelineStats {
   close_collected: number
   /** Cumul prix close - close_collected (en attente versement 2) */
   close_pending: number
-  /** Potentiel = cumul prix des opps actives (hors close, perdu, mort) */
+  /** Potentiel = cumul prix des opps actives (hors close, perdu) */
   active_pipeline: number
   active_count: number
   won_count: number

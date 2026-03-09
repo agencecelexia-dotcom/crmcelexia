@@ -344,7 +344,6 @@ export const OPPORTUNITY_STATUS = {
   EN_ATTENTE_RETOUR: 'en_attente_retour',
   CLOSE: 'close',
   PERDU: 'perdu',
-  MORT: 'mort',
 } as const
 
 export type OpportunityStatus = (typeof OPPORTUNITY_STATUS)[keyof typeof OPPORTUNITY_STATUS]
@@ -356,7 +355,6 @@ export const OPPORTUNITY_STATUS_LABELS: Record<OpportunityStatus, string> = {
   en_attente_retour: 'En attente de retour',
   close: 'Close',
   perdu: 'Perdu',
-  mort: 'Mort',
 }
 
 export const OPPORTUNITY_STATUS_COLORS: Record<OpportunityStatus, string> = {
@@ -366,7 +364,6 @@ export const OPPORTUNITY_STATUS_COLORS: Record<OpportunityStatus, string> = {
   en_attente_retour: 'bg-orange-100 text-orange-800',
   close: 'bg-green-100 text-green-800',
   perdu: 'bg-red-100 text-red-800',
-  mort: 'bg-gray-100 text-gray-800',
 }
 
 // Colonnes actives du Kanban (dans l'ordre)
@@ -386,7 +383,6 @@ export const OPPORTUNITY_STAGE_HEX: Record<OpportunityStatus, string> = {
   en_attente_retour: '#F97316',
   close: '#10B981',
   perdu: '#EF4444',
-  mort: '#6B7280',
 }
 
 // ── Alert Types ──

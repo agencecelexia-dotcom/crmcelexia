@@ -18,14 +18,12 @@ import {
   CALL_RESULT_TO_STATUS,
   LOSS_REASON_LABELS,
   LOSS_REASON_COLORS,
-  DEATH_REASON_LABELS,
   OPPORTUNITY_PIPELINE_STAGES,
   OPPORTUNITY_STATUS_LABELS,
   contextFromOppStatus,
   type CallResult,
   type ProspectStatus,
   type LossReason,
-  type DeathReason,
   type OpportunityStatus,
 } from '@/types/enums'
 import { useLogCall } from '../hooks/use-calls'
@@ -69,6 +67,7 @@ import { toast } from 'sonner'
 import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
 import { useUndo } from '@/hooks/use-undo'
 import { supabase } from '@/lib/supabase/client'
+import { N8N_SITE_DESTROY_WEBHOOK } from '@/lib/constants'
 import {
   Dialog,
   DialogContent,
@@ -120,9 +119,6 @@ export function ProspectDetailPage() {
   const [pendingOppLoss, setPendingOppLoss] = useState<boolean>(false)
   const [oppLossReason, setOppLossReason] = useState<string>('')
   const [oppLossNotes, setOppLossNotes] = useState('')
-  const [pendingOppDeath, setPendingOppDeath] = useState<boolean>(false)
-  const [oppDeathReason, setOppDeathReason] = useState<string>('')
-  const [oppRecallDate, setOppRecallDate] = useState('')
   const [pendingOppSiteEnvoye, setPendingOppSiteEnvoye] = useState(false)
   const [oppSiteUrl, setOppSiteUrl] = useState('')
   const [oppDateEnvoiSite, setOppDateEnvoiSite] = useState('')
@@ -144,7 +140,7 @@ export function ProspectDetailPage() {
       const tag = (e.target as HTMLElement)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       // Don't navigate if a dialog is open
-      if (callLoggerOpen || reminderFormOpen || rdvFormOpen || lossDialogOpen || rappelerDialogOpen || siteEnvoyeDialogOpen || pendingOppDeath || pendingOppSiteEnvoye || isEditing) return
+      if (callLoggerOpen || reminderFormOpen || rdvFormOpen || lossDialogOpen || rappelerDialogOpen || siteEnvoyeDialogOpen || pendingOppSiteEnvoye || isEditing) return
 
       if (e.key === 'ArrowDown' && currentIndex >= 0 && currentIndex < prospectIds.length - 1) {
         e.preventDefault()
@@ -156,7 +152,7 @@ export function ProspectDetailPage() {
     }
     document.addEventListener('keydown', handleKeyNav)
     return () => document.removeEventListener('keydown', handleKeyNav)
-  }, [currentIndex, prospectIds, navigate, callLoggerOpen, reminderFormOpen, rdvFormOpen, lossDialogOpen, rappelerDialogOpen, siteEnvoyeDialogOpen, pendingOppDeath, pendingOppSiteEnvoye, isEditing])
+  }, [currentIndex, prospectIds, navigate, callLoggerOpen, reminderFormOpen, rdvFormOpen, lossDialogOpen, rappelerDialogOpen, siteEnvoyeDialogOpen, pendingOppSiteEnvoye, isEditing])
 
   // Supabase Realtime: listen for new RDVs created for this prospect (by webhook)
   useEffect(() => {
@@ -344,6 +340,12 @@ export function ProspectDetailPage() {
         } as Record<string, unknown> as never,
       })
       toast.success('Raison de perte enregistrée')
+      // Trigger site destruction (n8n derives repo name even without website field)
+      fetch(N8N_SITE_DESTROY_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ record: prospect }),
+      }).catch(() => {/* fire-and-forget */})
       // Register undo
       setUndoInfo({ previousStatus: previousStatus as ProspectStatus, newStatus: 'perdu' as ProspectStatus })
       setUndoAction({
@@ -976,38 +978,29 @@ export function ProspectDetailPage() {
                   })}
                 </div>
 
-                {/* Séparateur + statuts terminaux */}
+                {/* Séparateur + statut terminal */}
                 <Separator />
-                <div className="grid grid-cols-2 gap-1">
-                  {(['perdu', 'mort'] as OpportunityStatus[]).map((stage) => {
-                    const isCurrent = linkedOpportunity.status === stage
+                <div className="grid grid-cols-1 gap-1">
+                  {(() => {
+                    const isCurrent = linkedOpportunity.status === 'perdu'
                     return (
                       <button
-                        key={stage}
                         disabled={updateOppStatus.isPending}
                         onClick={() => {
                           if (isCurrent) return
-                          if (stage === 'perdu') {
-                            setPendingOppLoss(true)
-                          } else {
-                            setPendingOppDeath(true)
-                          }
+                          setPendingOppLoss(true)
                         }}
                         className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                           isCurrent
-                            ? stage === 'perdu'
-                              ? 'bg-red-600 text-white border-red-600 cursor-default'
-                              : 'bg-gray-500 text-white border-gray-500 cursor-default'
-                            : stage === 'perdu'
-                              ? 'bg-white border-red-200 text-red-600 hover:bg-red-50'
-                              : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                            ? 'bg-red-600 text-white border-red-600 cursor-default'
+                            : 'bg-white border-red-200 text-red-600 hover:bg-red-50'
                         } disabled:opacity-50`}
                       >
                         {isCurrent && <CheckCircle2 className="h-3 w-3 shrink-0" />}
-                        {OPPORTUNITY_STATUS_LABELS[stage]}
+                        {OPPORTUNITY_STATUS_LABELS['perdu']}
                       </button>
                     )
-                  })}
+                  })()}
                 </div>
               </CardContent>
             </Card>
@@ -1063,62 +1056,6 @@ export function ProspectDetailPage() {
                   }}
                 >
                   Confirmer la perte
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Dialog raison mort opportunite depuis fiche prospect */}
-          <Dialog open={pendingOppDeath} onOpenChange={(open) => { if (!open) { setPendingOppDeath(false); setOppDeathReason(''); setOppRecallDate('') } }}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Raison — Mort</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label>Raison *</Label>
-                  <Select value={oppDeathReason} onValueChange={setOppDeathReason}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner une raison..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(Object.entries(DEATH_REASON_LABELS) as [DeathReason, string][]).map(([val, label]) => (
-                        <SelectItem key={val} value={val}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Date de rappel {oppDeathReason === 'rappeler_plus_tard' && '*'}</Label>
-                  <Input
-                    type="date"
-                    value={oppRecallDate}
-                    onChange={(e) => setOppRecallDate(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Quand rappeler ce prospect ?
-                  </p>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => { setPendingOppDeath(false); setOppDeathReason(''); setOppRecallDate('') }}>
-                  Annuler
-                </Button>
-                <Button
-                  disabled={!oppDeathReason || (oppDeathReason === 'rappeler_plus_tard' && !oppRecallDate) || updateOppStatus.isPending}
-                  onClick={() => {
-                    if (!linkedOpportunity || !oppDeathReason) return
-                    updateOppStatus.mutate({
-                      id: linkedOpportunity.id,
-                      status: 'mort',
-                      extra: { death_reason: oppDeathReason, recall_date: oppRecallDate || undefined },
-                    })
-                    setPendingOppDeath(false)
-                    setOppDeathReason('')
-                    setOppRecallDate('')
-                  }}
-                >
-                  Confirmer
                 </Button>
               </DialogFooter>
             </DialogContent>

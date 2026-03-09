@@ -4,7 +4,6 @@ import {
   OPPORTUNITY_STATUS_LABELS,
   OPPORTUNITY_STATUS_COLORS,
   LOSS_REASON_LABELS,
-  DEATH_REASON_LABELS,
   type OpportunityStatus,
   type LossReason,
 } from '@/types/enums'
@@ -54,10 +53,6 @@ export function OpportunityDetailDialog({ opportunity, open, onOpenChange }: Opp
   const [lossReason, setLossReason] = useState<string>('')
   const [lossNotes, setLossNotes] = useState('')
 
-  const [pendingDeath, setPendingDeath] = useState(false)
-  const [deathReason, setDeathReason] = useState<string>('')
-  const [recallDate, setRecallDate] = useState('')
-
   useEffect(() => {
     if (opportunity && open) {
       setEditing(false)
@@ -105,18 +100,6 @@ export function OpportunityDetailDialog({ opportunity, open, onOpenChange }: Opp
     setLossNotes('')
   }
 
-  function confirmDeath() {
-    if (!deathReason || !opportunity) return
-    statusMutation.mutate({
-      id: opportunity.id,
-      status: 'mort',
-      extra: { death_reason: deathReason, recall_date: recallDate || undefined },
-    })
-    setPendingDeath(false)
-    setDeathReason('')
-    setRecallDate('')
-  }
-
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -156,10 +139,6 @@ export function OpportunityDetailDialog({ opportunity, open, onOpenChange }: Opp
                   const newStatus = v as OpportunityStatus
                   if (newStatus === 'perdu') {
                     setPendingLoss(true)
-                    return
-                  }
-                  if (newStatus === 'mort') {
-                    setPendingDeath(true)
                     return
                   }
                   statusMutation.mutate({ id: opportunity.id, status: newStatus })
@@ -242,18 +221,6 @@ export function OpportunityDetailDialog({ opportunity, open, onOpenChange }: Opp
             </div>
           )}
 
-          {/* Death reason (if mort) */}
-          {opportunity.status === 'mort' && opportunity.death_reason && (
-            <div className="rounded-lg bg-gray-100 p-3 space-y-1">
-              <p className="text-sm font-medium text-gray-800">
-                Raison : {DEATH_REASON_LABELS[opportunity.death_reason as keyof typeof DEATH_REASON_LABELS] ?? opportunity.death_reason}
-              </p>
-              {opportunity.recall_date && (
-                <p className="text-sm text-gray-600">Rappel : {formatDateShort(opportunity.recall_date)}</p>
-              )}
-            </div>
-          )}
-
           {/* Notes */}
           {editing ? (
             <div className="space-y-1">
@@ -331,51 +298,6 @@ export function OpportunityDetailDialog({ opportunity, open, onOpenChange }: Opp
       </DialogContent>
     </Dialog>
 
-    {/* Death reason dialog */}
-    <Dialog open={pendingDeath} onOpenChange={(open) => { if (!open) { setPendingDeath(false); setDeathReason(''); setRecallDate('') } }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Raison — Mort</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label>Raison *</Label>
-            <Select value={deathReason} onValueChange={setDeathReason}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner une raison..." />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(DEATH_REASON_LABELS).map(([val, label]) => (
-                  <SelectItem key={val} value={val}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Date de rappel {deathReason === 'rappeler_plus_tard' && '*'}</Label>
-            <Input
-              type="date"
-              value={recallDate}
-              onChange={(e) => setRecallDate(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Quand rappeler ce prospect ?
-            </p>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => { setPendingDeath(false); setDeathReason(''); setRecallDate('') }}>
-            Annuler
-          </Button>
-          <Button
-            onClick={confirmDeath}
-            disabled={!deathReason || (deathReason === 'rappeler_plus_tard' && !recallDate)}
-          >
-            Confirmer
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
     </>
   )
 }

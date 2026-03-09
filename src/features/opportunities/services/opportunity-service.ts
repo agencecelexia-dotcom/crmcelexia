@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase/client'
 import type { Opportunity, PipelineStats } from '@/types'
 import type { OpportunityStatus } from '@/types/enums'
-import { DEFAULT_PAGE_SIZE, N8N_SITE_DEPLOY_WEBHOOK } from '@/lib/constants'
+import { DEFAULT_PAGE_SIZE, N8N_SITE_DEPLOY_WEBHOOK, N8N_SITE_DESTROY_WEBHOOK } from '@/lib/constants'
 
 /**
  * Trigger n8n site deployment workflow when opportunity status becomes site_a_envoyer.
@@ -22,6 +22,28 @@ async function triggerSiteDeployment(prospectId: string) {
     }).catch((err: unknown) => console.error('[n8n] Site deploy webhook failed:', err))
   } catch (err) {
     console.error('[n8n] Failed to fetch prospect for site deploy:', err)
+  }
+}
+
+/**
+ * Trigger n8n site destruction workflow when opportunity status becomes perdu.
+ * Deletes the site from GitHub + Vercel. Fire-and-forget.
+ */
+async function triggerSiteDestruction(prospectId: string) {
+  try {
+    const { data: prospect } = await supabase
+      .from('prospects')
+      .select('*')
+      .eq('id', prospectId)
+      .single()
+    if (!prospect) return
+    fetch(N8N_SITE_DESTROY_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: prospect }),
+    }).catch((err: unknown) => console.error('[n8n] Site destroy webhook failed:', err))
+  } catch (err) {
+    console.error('[n8n] Failed to fetch prospect for site destroy:', err)
   }
 }
 
@@ -211,6 +233,10 @@ export async function updateOpportunityStatus(
     triggerSiteDeployment(data.prospect_id)
   }
 
+  if (newStatus === 'perdu' && data.prospect_id) {
+    triggerSiteDestruction(data.prospect_id)
+  }
+
   return data as unknown as Opportunity
 }
 
@@ -230,11 +256,10 @@ export async function getPipelineStats(commercialId?: string): Promise<PipelineS
 
   const all = (data ?? []) as { status: string; project_price: number; amount_collected: number }[]
 
-  const terminal = ['perdu', 'mort']
+  const terminal = ['perdu']
   const active = all.filter(o => !terminal.includes(o.status) && o.status !== 'close')
   const won = all.filter(o => o.status === 'close')
   const lost = all.filter(o => o.status === 'perdu')
-  const dead = all.filter(o => o.status === 'mort')
 
   const nonTerminal = all.filter(o => !terminal.includes(o.status))
   const total_project_price = nonTerminal.reduce((sum, o) => sum + (o.project_price || 0), 0)
@@ -263,7 +288,7 @@ export async function getPipelineStats(commercialId?: string): Promise<PipelineS
     won_count: won.length,
     won_total,
     lost_count: lost.length,
-    dead_count: dead.length,
+    dead_count: 0,
     by_stage,
   }
 }
