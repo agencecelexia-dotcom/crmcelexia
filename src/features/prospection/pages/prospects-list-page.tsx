@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useProspects, useDeleteProspects } from '../hooks/use-prospects'
+import { useProspects, useDeleteProspects, useTeamMembers } from '../hooks/use-prospects'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { useDebounce } from '@/hooks/use-debounce'
 import { DEBOUNCE_MS } from '@/lib/constants'
@@ -70,7 +70,7 @@ const STATUS_OPTIONS = (Object.entries(PROSPECT_STATUS_LABELS) as [ProspectStatu
   .filter(([value]) => value !== 'appele_sans_reponse') // hide legacy status
 
 export function ProspectsListPage() {
-  const { isFounder } = useAuth()
+  const { isFounder, profile } = useAuth()
   const navigate = useNavigate()
 
   const [page, setPage] = useState(1)
@@ -89,6 +89,7 @@ export function ProspectsListPage() {
   const [lastCalledTo, setLastCalledTo] = useState('')
   const [phonePrefixes, setPhonePrefixes] = useState<string[]>([])
   const [phonePrefixInput, setPhonePrefixInput] = useState('')
+  const [commercialFilter, setCommercialFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState('created_at')
   const [sortDesc, setSortDesc] = useState(true)
 
@@ -101,6 +102,7 @@ export function ProspectsListPage() {
   const [showAssignModal, setShowAssignModal] = useState(false)
 
   const deleteProspects = useDeleteProspects()
+  const { data: teamMembers } = useTeamMembers()
 
   const debouncedCity = useDebounce(cityFilter, DEBOUNCE_MS)
   const debouncedProfession = useDebounce(professionFilter, DEBOUNCE_MS)
@@ -110,6 +112,7 @@ export function ProspectsListPage() {
     status: statusFilter !== 'all' ? [statusFilter] : undefined,
     city: debouncedCity ? [debouncedCity] : undefined,
     profession: debouncedProfession ? [debouncedProfession] : undefined,
+    commercial_id: commercialFilter !== 'all' ? commercialFilter : undefined,
     never_called: neverCalled || undefined,
     has_overdue_reminder: hasOverdue || undefined,
     has_reminder_today: hasReminderToday || undefined,
@@ -146,6 +149,7 @@ export function ProspectsListPage() {
   const activeFilterCount = useMemo(() => {
     let c = 0
     if (statusFilter !== 'all') c++
+    if (commercialFilter !== 'all') c++
     if (cityFilter) c++
     if (professionFilter) c++
     if (neverCalled) c++
@@ -157,12 +161,12 @@ export function ProspectsListPage() {
     if (lastCalledTo) c++
     if (phonePrefixes.length > 0) c++
     return c
-  }, [statusFilter, cityFilter, professionFilter, neverCalled, hasOverdue, hasReminderToday, dateFrom, dateTo, lastCalledFrom, lastCalledTo, phonePrefixes])
+  }, [statusFilter, commercialFilter, cityFilter, professionFilter, neverCalled, hasOverdue, hasReminderToday, dateFrom, dateTo, lastCalledFrom, lastCalledTo, phonePrefixes])
 
   // Clear selection when page/filters change
   useEffect(() => {
     setSelectedIds(new Set())
-  }, [page, debouncedSearch, statusFilter, debouncedCity, debouncedProfession, neverCalled, hasOverdue])
+  }, [page, debouncedSearch, statusFilter, commercialFilter, debouncedCity, debouncedProfession, neverCalled, hasOverdue])
 
   // Selection helpers
   const allOnPageSelected = prospects.length > 0 && prospects.every((p) => selectedIds.has(p.id))
@@ -212,6 +216,7 @@ export function ProspectsListPage() {
 
   function clearAllFilters() {
     setStatusFilter('all')
+    setCommercialFilter('all')
     setCityFilter('')
     setProfessionFilter('')
     setNeverCalled(false)
@@ -343,6 +348,29 @@ export function ProspectsListPage() {
                   ))}
                 </SelectContent>
               </Select>
+
+              {isFounder && (
+                <Select
+                  value={commercialFilter}
+                  onValueChange={(v) => { setCommercialFilter(v); setPage(1) }}
+                >
+                  <SelectTrigger className="w-[180px] h-9">
+                    <Users className="h-4 w-4 mr-1.5 text-muted-foreground" />
+                    <SelectValue placeholder="Tous les commerciaux" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les commerciaux</SelectItem>
+                    {profile && <SelectItem value={profile.id}>Mes prospects</SelectItem>}
+                    {teamMembers
+                      ?.filter((m) => m.id !== profile?.id)
+                      .map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.full_name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
 
               <Button
                 variant={showAdvanced ? 'secondary' : 'outline'}
