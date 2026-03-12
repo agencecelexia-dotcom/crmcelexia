@@ -189,6 +189,15 @@ export async function getDistinctCities(): Promise<string[]> {
   return unique.sort()
 }
 
+export async function reassignPendingReminders(prospectId: string, newCommercialId: string): Promise<void> {
+  const { error } = await supabase
+    .from('reminders')
+    .update({ commercial_id: newCommercialId })
+    .eq('prospect_id', prospectId)
+    .eq('is_completed', false)
+  if (error) throw error
+}
+
 export async function deleteProspects(ids: string[]): Promise<void> {
   // Soft delete - set deleted_at
   const { error } = await supabase
@@ -204,6 +213,14 @@ export async function assignProspects(ids: string[], commercialId: string): Prom
     .update({ commercial_id: commercialId })
     .in('id', ids)
   if (error) throw error
+
+  // Reassign pending reminders to the new commercial
+  const { error: reminderError } = await supabase
+    .from('reminders')
+    .update({ commercial_id: commercialId })
+    .in('prospect_id', ids)
+    .eq('is_completed', false)
+  if (reminderError) throw reminderError
 }
 
 export async function assignProspectsSplit(
@@ -222,6 +239,13 @@ export async function assignProspectsSplit(
         .update({ commercial_id })
         .in('id', chunk)
       if (error) throw error
+      // Reassign pending reminders to the new commercial
+      const { error: reminderError } = await supabase
+        .from('reminders')
+        .update({ commercial_id })
+        .in('prospect_id', chunk)
+        .eq('is_completed', false)
+      if (reminderError) throw reminderError
     }
     offset += count
   }
@@ -234,5 +258,11 @@ export async function assignProspectsSplit(
       .update({ commercial_id: lastCommercial })
       .in('id', remaining)
     if (error) throw error
+    const { error: reminderError } = await supabase
+      .from('reminders')
+      .update({ commercial_id: lastCommercial })
+      .in('prospect_id', remaining)
+      .eq('is_completed', false)
+    if (reminderError) throw reminderError
   }
 }

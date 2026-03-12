@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useProspect, useProspects, useUpdateProspect, useTeamMembers } from '../hooks/use-prospects'
 import { useConvertProspect } from '@/features/clients/hooks/use-clients'
+import { reassignPendingReminders } from '../services/prospect-service'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -1109,6 +1110,7 @@ export function ProspectDetailPage() {
                             id: prospect.id,
                             updates: { commercial_id: v } as Record<string, unknown> as never,
                           })
+                          await reassignPendingReminders(prospect.id, v)
                           toast.success('Commercial modifié')
                         } catch {
                           toast.error('Erreur lors du changement')
@@ -1140,6 +1142,7 @@ export function ProspectDetailPage() {
                           id: prospect.id,
                           updates: { commercial_id: v } as Record<string, unknown> as never,
                         })
+                        await reassignPendingReminders(prospect.id, v)
                         toast.success('Commercial assigné')
                       } catch {
                         toast.error('Erreur lors de l\'assignation')
