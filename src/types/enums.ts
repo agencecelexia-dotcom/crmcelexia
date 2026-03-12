@@ -64,7 +64,7 @@ export const PROSPECT_STATUS_TRANSITIONS: Record<ProspectStatus, ProspectStatus[
   messagerie: ['messagerie', 'site_en_attente', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu', 'faux_numero'],
   site_en_attente: ['site_envoye', 'a_rappeler', 'rdv_pris', 'negatif', 'perdu'],
   site_envoye: ['a_rappeler', 'rdv_pris', 'negatif', 'perdu'],
-  a_rappeler: ['messagerie', 'site_en_attente', 'negatif', 'rdv_pris', 'perdu', 'faux_numero'],
+  a_rappeler: ['messagerie', 'a_rappeler', 'site_en_attente', 'negatif', 'rdv_pris', 'perdu', 'faux_numero'],
   rdv_pris: ['rdv_pris', 'converti_client', 'perdu', 'a_rappeler'],
   negatif: ['a_rappeler', 'rdv_pris'],
   perdu: ['a_rappeler', 'rdv_pris'],
