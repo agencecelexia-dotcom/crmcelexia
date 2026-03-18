@@ -42,7 +42,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
-import { useCalcomLinks, buildCalcomUrl, type ServiceType } from '@/hooks/use-calcom'
+import { useCalcomLinks, buildCalcomUrl } from '@/hooks/use-calcom'
 
 interface ProspectCallPanelProps {
   prospect: Prospect
