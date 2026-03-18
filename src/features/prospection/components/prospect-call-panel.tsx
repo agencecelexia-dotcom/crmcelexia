@@ -42,7 +42,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
-import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
+import { useCalcomLinks, buildCalcomUrl, type ServiceType } from '@/hooks/use-calcom'
 
 interface ProspectCallPanelProps {
   prospect: Prospect
@@ -69,7 +69,8 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
   const { data: calls } = useCallsForProspect(prospect.id)
   const { data: reminders } = useRemindersForProspect(prospect.id)
   const { data: rdvs } = useRdvForProspect(prospect.id)
-  const { data: calcomLink } = useCalcomLink()
+  const { data: calcomLinks } = useCalcomLinks()
+  const [showServiceChoice, setShowServiceChoice] = useState(false)
 
   const [callNote, setCallNote] = useState('')
   const [prospectNotes, setProspectNotes] = useState(prospect.notes ?? '')
@@ -116,14 +117,10 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
       toast.success(`Appel enregistré — ${PROSPECT_STATUS_LABELS[newStatus]}`)
       setCallNote('')
 
-      // "RDV pris" → open Cal.com to book, webhook creates the RDV automatically
+      // "RDV pris" → show choice between Site Web and Pub
       if (result === 'reached_rdv') {
-        if (calcomLink) {
-          const bookingUrl = buildCalcomUrl(calcomLink, prospect)
-          if (bookingUrl) {
-            window.open(bookingUrl, '_blank', 'noopener,noreferrer')
-            toast.info('Réservez un créneau sur Cal.com — le RDV sera créé automatiquement')
-          }
+        if (calcomLinks?.site_web || calcomLinks?.pub) {
+          setShowServiceChoice(true)
         } else {
           toast.warning('Cal.com non configuré — pensez à créer le RDV manuellement depuis la fiche prospect')
         }
@@ -282,21 +279,81 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
             />
           </div>
 
-          {/* Cal.com direct booking — always available when configured */}
-          {calcomLink && (
-            <button
-              onClick={() => {
-                const bookingUrl = buildCalcomUrl(calcomLink, prospect)
-                if (bookingUrl) {
-                  window.open(bookingUrl, '_blank', 'noopener,noreferrer')
-                  toast.info('Réservez un créneau — le RDV sera créé automatiquement')
-                }
-              }}
-              className="mt-3 flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-sm font-medium text-primary transition-colors"
-            >
-              <CalendarPlus className="h-4 w-4" />
-              Réserver un créneau (Cal.com)
-            </button>
+          {/* Cal.com booking buttons — Site Web & Pub */}
+          {(calcomLinks?.site_web || calcomLinks?.pub) && (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {calcomLinks.site_web && (
+                <button
+                  onClick={() => {
+                    const bookingUrl = buildCalcomUrl(calcomLinks.site_web, prospect, 'site_web')
+                    if (bookingUrl) {
+                      window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+                      toast.info('RDV Site Web — réservez un créneau')
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-blue-300 bg-blue-50 hover:bg-blue-100 text-sm font-medium text-blue-700 transition-colors"
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  RDV Site Web
+                </button>
+              )}
+              {calcomLinks.pub && (
+                <button
+                  onClick={() => {
+                    const bookingUrl = buildCalcomUrl(calcomLinks.pub, prospect, 'pub')
+                    if (bookingUrl) {
+                      window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+                      toast.info('RDV Pub — réservez un créneau')
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-orange-300 bg-orange-50 hover:bg-orange-100 text-sm font-medium text-orange-700 transition-colors"
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  RDV Pub (LSA)
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Service choice dialog after "RDV pris" call result */}
+          {showServiceChoice && (
+            <div className="mt-3 p-3 rounded-lg border-2 border-primary/30 bg-primary/5 space-y-2">
+              <p className="text-sm font-semibold text-center">Quel type de RDV ?</p>
+              <div className="grid grid-cols-2 gap-2">
+                {calcomLinks?.site_web && (
+                  <button
+                    onClick={() => {
+                      const bookingUrl = buildCalcomUrl(calcomLinks.site_web, prospect, 'site_web')
+                      if (bookingUrl) window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+                      setShowServiceChoice(false)
+                    }}
+                    className="flex items-center justify-center gap-2 px-3 py-3 rounded-lg border-2 border-blue-300 bg-blue-50 hover:bg-blue-100 text-sm font-bold text-blue-700 transition-colors"
+                  >
+                    <CalendarPlus className="h-4 w-4" />
+                    Site Web
+                  </button>
+                )}
+                {calcomLinks?.pub && (
+                  <button
+                    onClick={() => {
+                      const bookingUrl = buildCalcomUrl(calcomLinks.pub, prospect, 'pub')
+                      if (bookingUrl) window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+                      setShowServiceChoice(false)
+                    }}
+                    className="flex items-center justify-center gap-2 px-3 py-3 rounded-lg border-2 border-orange-300 bg-orange-50 hover:bg-orange-100 text-sm font-bold text-orange-700 transition-colors"
+                  >
+                    <CalendarPlus className="h-4 w-4" />
+                    Pub (LSA)
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => setShowServiceChoice(false)}
+                className="w-full text-xs text-muted-foreground hover:text-foreground"
+              >
+                Annuler
+              </button>
+            </div>
           )}
         </div>
 

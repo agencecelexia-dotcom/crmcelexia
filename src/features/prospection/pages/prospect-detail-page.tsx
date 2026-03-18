@@ -45,7 +45,7 @@ import {
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
+import { useCalcomLinks, buildCalcomUrl, type ServiceType } from '@/hooks/use-calcom'
 import { supabase } from '@/lib/supabase/client'
 import {
   Dialog,
@@ -71,7 +71,8 @@ export function ProspectDetailPage() {
   const updateProspect = useUpdateProspect()
   const convertProspect = useConvertProspect()
   const queryClient = useQueryClient()
-  const { data: calcomLink } = useCalcomLink()
+  const { data: calcomLinks } = useCalcomLinks()
+  const hasCalcom = !!(calcomLinks?.site_web || calcomLinks?.pub)
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, string>>({})
   const [callLoggerOpen, setCallLoggerOpen] = useState(false)
@@ -296,9 +297,11 @@ export function ProspectDetailPage() {
     }
   }
 
-  async function openCalcom() {
-    if (!calcomLink || !prospect) return
-    const bookingUrl = buildCalcomUrl(calcomLink, prospect)
+  async function openCalcom(serviceType: ServiceType) {
+    if (!calcomLinks || !prospect) return
+    const link = serviceType === 'pub' ? calcomLinks.pub : calcomLinks.site_web
+    if (!link) return
+    const bookingUrl = buildCalcomUrl(link, prospect, serviceType)
     if (bookingUrl) {
       window.open(bookingUrl, '_blank', 'noopener,noreferrer')
 
@@ -316,10 +319,13 @@ export function ProspectDetailPage() {
         }
       }
 
-      toast.info('Réservez un créneau sur Cal.com — le RDV apparaîtra ici automatiquement')
+      toast.info(`RDV ${serviceType === 'pub' ? 'Pub' : 'Site Web'} — réservez un créneau sur Cal.com`)
       startCalcomPolling()
     }
   }
+
+  // Service choice for RDV booking
+  const [showServiceChoice, setShowServiceChoice] = useState(false)
 
   function handleCallSuccess(callId: string, result: CallResult) {
     setLastCallId(callId)
@@ -329,10 +335,10 @@ export function ProspectDetailPage() {
       setLossDialogOpen(true)
     }
 
-    // "RDV pris" → Cal.com if configured, otherwise manual RDV form
+    // "RDV pris" → show service type choice, or manual form
     if (result === 'reached_rdv') {
-      if (calcomLink) {
-        openCalcom()
+      if (hasCalcom) {
+        setShowServiceChoice(true)
       } else {
         setRdvFormOpen(true)
       }
@@ -518,10 +524,19 @@ export function ProspectDetailPage() {
                   </span>
                 )}
               </div>
-              {calcomLink ? (
-                <Button variant="ghost" size="sm" onClick={openCalcom}>
-                  <CalendarDays className="mr-1 h-4 w-4" /> Réserver (Cal.com)
-                </Button>
+              {hasCalcom ? (
+                <div className="flex gap-1">
+                  {calcomLinks?.site_web && (
+                    <Button variant="ghost" size="sm" onClick={() => openCalcom('site_web')} className="text-blue-600 hover:text-blue-700">
+                      <CalendarDays className="mr-1 h-4 w-4" /> Site Web
+                    </Button>
+                  )}
+                  {calcomLinks?.pub && (
+                    <Button variant="ghost" size="sm" onClick={() => openCalcom('pub')} className="text-orange-600 hover:text-orange-700">
+                      <CalendarDays className="mr-1 h-4 w-4" /> Pub
+                    </Button>
+                  )}
+                </div>
               ) : (
                 <Button variant="ghost" size="sm" onClick={() => setRdvFormOpen(true)}>
                   <CalendarDays className="mr-1 h-4 w-4" /> Planifier
@@ -578,11 +593,21 @@ export function ProspectDetailPage() {
                       <Phone className="mr-2 h-4 w-4" />
                       Logger un appel
                     </Button>
-                    {calcomLink ? (
-                      <Button variant="outline" className="w-full" size="sm" onClick={openCalcom}>
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        Réserver un RDV (Cal.com)
-                      </Button>
+                    {hasCalcom ? (
+                      <div className="grid grid-cols-2 gap-2 w-full">
+                        {calcomLinks?.site_web && (
+                          <Button variant="outline" size="sm" onClick={() => openCalcom('site_web')} className="border-blue-200 text-blue-700 hover:bg-blue-50">
+                            <CalendarDays className="mr-1 h-4 w-4" />
+                            RDV Site
+                          </Button>
+                        )}
+                        {calcomLinks?.pub && (
+                          <Button variant="outline" size="sm" onClick={() => openCalcom('pub')} className="border-orange-200 text-orange-700 hover:bg-orange-50">
+                            <CalendarDays className="mr-1 h-4 w-4" />
+                            RDV Pub
+                          </Button>
+                        )}
+                      </div>
                     ) : (
                       <Button variant="outline" className="w-full" size="sm" onClick={() => setRdvFormOpen(true)}>
                         <CalendarDays className="mr-2 h-4 w-4" />
@@ -728,7 +753,7 @@ export function ProspectDetailPage() {
         onOpenChange={setReminderFormOpen}
       />
       {/* Manual RDV form — only used when Cal.com is NOT configured */}
-      {!calcomLink && (
+      {!hasCalcom && (
         <RdvForm
           prospect={prospect}
           open={rdvFormOpen}
@@ -737,6 +762,35 @@ export function ProspectDetailPage() {
           defaultType={lastCallId ? 'visio' : undefined}
         />
       )}
+
+      {/* Service choice dialog — shown after "RDV pris" call result */}
+      <Dialog open={showServiceChoice} onOpenChange={setShowServiceChoice}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Quel type de RDV ?</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-4">
+            {calcomLinks?.site_web && (
+              <button
+                onClick={() => { openCalcom('site_web'); setShowServiceChoice(false) }}
+                className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-colors"
+              >
+                <CalendarDays className="h-8 w-8 text-blue-600" />
+                <span className="font-bold text-blue-700">Site Web</span>
+              </button>
+            )}
+            {calcomLinks?.pub && (
+              <button
+                onClick={() => { openCalcom('pub'); setShowServiceChoice(false) }}
+                className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-orange-200 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 transition-colors"
+              >
+                <CalendarDays className="h-8 w-8 text-orange-600" />
+                <span className="font-bold text-orange-700">Pub (LSA)</span>
+              </button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Loss Reason Dialog */}
       <Dialog open={lossDialogOpen} onOpenChange={setLossDialogOpen}>

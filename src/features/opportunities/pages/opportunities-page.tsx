@@ -37,6 +37,7 @@ import {
   Target,
   BarChart3,
   Plus,
+  ArrowLeft,
 } from 'lucide-react'
 import { formatCurrency, formatPercentage } from '@/lib/format'
 import {
@@ -47,6 +48,8 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
+import { useNavigate } from 'react-router-dom'
+import type { ServiceType } from '../services/opportunity-service'
 
 const STAGE_COLORS: Record<string, string> = {
   qualification: '#6B7280',
@@ -55,21 +58,42 @@ const STAGE_COLORS: Record<string, string> = {
   closing: '#8B5CF6',
 }
 
-export function OpportunitiesPage() {
+const SERVICE_CONFIG = {
+  site_web: {
+    title: 'Opportunités — Site Web',
+    subtitle: 'Pipeline de vente de sites web',
+    accentColor: 'blue',
+  },
+  pub: {
+    title: 'Opportunités — Pub (LSA)',
+    subtitle: 'Pipeline publicité — Local Services Ads',
+    accentColor: 'orange',
+  },
+} as const
+
+interface OpportunitiesPageProps {
+  serviceType: ServiceType
+}
+
+export function OpportunitiesPage({ serviceType }: OpportunitiesPageProps) {
   const { profile, isFounder } = useAuth()
+  const navigate = useNavigate()
   const commercialId = isFounder ? undefined : profile?.id
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [showCreate, setShowCreate] = useState(false)
 
+  const config = SERVICE_CONFIG[serviceType]
+
   const filters = {
     search: search || undefined,
     status: statusFilter !== 'all' ? [statusFilter as OpportunityStatus] : undefined,
     commercial_id: commercialId,
+    service_type: serviceType,
   }
 
   const { data: opportunities, isLoading } = useOpportunities(filters)
-  const { data: pipeline } = usePipelineStats(commercialId)
+  const { data: pipeline } = usePipelineStats(commercialId, serviceType)
   const createMutation = useCreateOpportunity()
 
   const [form, setForm] = useState({
@@ -80,6 +104,9 @@ export function OpportunitiesPage() {
     monthly_recurring: 0,
     expected_close_date: '',
     notes: '',
+    // Pub-specific fields
+    client_revenue: 0,
+    commission_rate: 10,
   })
 
   const handleCreate = async () => {
@@ -93,17 +120,25 @@ export function OpportunitiesPage() {
       monthly_recurring: form.monthly_recurring || null,
       expected_close_date: form.expected_close_date || null,
       notes: form.notes || null,
+      service_type: serviceType,
+      client_revenue: serviceType === 'pub' ? (form.client_revenue || null) : null,
+      commission_rate: serviceType === 'pub' ? form.commission_rate : null,
     })
     setShowCreate(false)
-    setForm({ name: '', prospect_id: '', estimated_value: 0, probability: 50, monthly_recurring: 0, expected_close_date: '', notes: '' })
+    setForm({ name: '', prospect_id: '', estimated_value: 0, probability: 50, monthly_recurring: 0, expected_close_date: '', notes: '', client_revenue: 0, commission_rate: 10 })
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Opportunités</h1>
-          <p className="text-muted-foreground">Pipeline commercial et forecast</p>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/opportunities')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{config.title}</h1>
+            <p className="text-muted-foreground">{config.subtitle}</p>
+          </div>
         </div>
         <Dialog open={showCreate} onOpenChange={setShowCreate}>
           <DialogTrigger asChild>
@@ -111,12 +146,12 @@ export function OpportunitiesPage() {
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Créer une opportunité</DialogTitle>
+              <DialogTitle>Créer une opportunité {serviceType === 'pub' ? '(Pub)' : '(Site Web)'}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
                 <Label>Nom *</Label>
-                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Ex: Refonte site web" />
+                <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder={serviceType === 'pub' ? 'Ex: LSA Plombier Paris' : 'Ex: Refonte site web'} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -128,6 +163,27 @@ export function OpportunitiesPage() {
                   <Input type="number" min={0} max={100} value={form.probability} onChange={e => setForm(f => ({ ...f, probability: Number(e.target.value) }))} />
                 </div>
               </div>
+
+              {/* Pub-specific: commission fields */}
+              {serviceType === 'pub' && (
+                <div className="grid grid-cols-2 gap-4 p-3 rounded-lg border border-orange-200 bg-orange-50/50">
+                  <div>
+                    <Label>CA généré pour le client (EUR)</Label>
+                    <Input type="number" min={0} value={form.client_revenue} onChange={e => setForm(f => ({ ...f, client_revenue: Number(e.target.value) }))} />
+                  </div>
+                  <div>
+                    <Label>Commission (%)</Label>
+                    <Input type="number" min={0} max={100} value={form.commission_rate} onChange={e => setForm(f => ({ ...f, commission_rate: Number(e.target.value) }))} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Commission calculée</Label>
+                    <p className="text-lg font-semibold text-orange-700">
+                      {formatCurrency(form.client_revenue * form.commission_rate / 100)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>MRR mensuel</Label>
@@ -248,6 +304,9 @@ export function OpportunitiesPage() {
                   <TableHead className="text-right">Valeur estimée</TableHead>
                   <TableHead className="text-right">Probabilité</TableHead>
                   <TableHead className="text-right">Revenu projeté</TableHead>
+                  {serviceType === 'pub' && (
+                    <TableHead className="text-right">Commission</TableHead>
+                  )}
                   <TableHead className="text-right">MRR</TableHead>
                   <TableHead>Closing prévu</TableHead>
                 </TableRow>
@@ -272,6 +331,11 @@ export function OpportunitiesPage() {
                     <TableCell className="text-right tabular-nums text-primary font-semibold">
                       {formatCurrency(opp.projected_revenue)}
                     </TableCell>
+                    {serviceType === 'pub' && (
+                      <TableCell className="text-right tabular-nums text-orange-600 font-semibold">
+                        {opp.commission_amount ? formatCurrency(opp.commission_amount) : '—'}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right tabular-nums">
                       {opp.monthly_recurring ? formatCurrency(opp.monthly_recurring) : '—'}
                     </TableCell>

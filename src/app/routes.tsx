@@ -23,6 +23,7 @@ const TargetsPage = lazy(() => import('@/features/settings/pages/targets-page').
 
 // New pages
 const CalendarPage = lazy(() => import('@/features/calendar/pages/calendar-page').then(m => ({ default: m.CalendarPage })))
+const OpportunitiesChoicePage = lazy(() => import('@/features/opportunities/pages/opportunities-choice-page').then(m => ({ default: m.OpportunitiesChoicePage })))
 const OpportunitiesPage = lazy(() => import('@/features/opportunities/pages/opportunities-page').then(m => ({ default: m.OpportunitiesPage })))
 const ContractsPage = lazy(() => import('@/features/contracts/pages/contracts-page').then(m => ({ default: m.ContractsPage })))
 const PaymentsPage = lazy(() => import('@/features/payments/pages/payments-page').then(m => ({ default: m.PaymentsPage })))
@@ -91,7 +92,15 @@ export const router = createBrowserRouter([
           // Opportunities (all users)
           {
             path: '/opportunities',
-            element: <LazyPage><OpportunitiesPage /></LazyPage>,
+            element: <LazyPage><OpportunitiesChoicePage /></LazyPage>,
+          },
+          {
+            path: '/opportunities/site-web',
+            element: <LazyPage><OpportunitiesPage serviceType="site_web" /></LazyPage>,
+          },
+          {
+            path: '/opportunities/pub',
+            element: <LazyPage><OpportunitiesPage serviceType="pub" /></LazyPage>,
           },
           // Performance (all users)
           {

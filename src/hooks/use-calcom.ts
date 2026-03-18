@@ -1,6 +1,28 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 
+export type ServiceType = 'site_web' | 'pub'
+
+export function useCalcomLinks() {
+  return useQuery({
+    queryKey: ['company-settings', 'calcom_links'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('calcom_link, calcom_link_pub')
+        .limit(1)
+        .single()
+      if (error) return { site_web: '', pub: '' }
+      return {
+        site_web: (data?.calcom_link as string) || '',
+        pub: (data?.calcom_link_pub as string) || '',
+      }
+    },
+    staleTime: 5 * 60_000,
+  })
+}
+
+/** @deprecated Use useCalcomLinks() instead */
 export function useCalcomLink() {
   return useQuery({
     queryKey: ['company-settings', 'calcom_link'],
@@ -31,6 +53,7 @@ export function buildCalcomUrl(
     contact_email?: string | null
     phone?: string | null
   },
+  serviceType?: ServiceType,
 ): string {
   if (!calcomLink) return ''
 
@@ -57,6 +80,7 @@ export function buildCalcomUrl(
     url.searchParams.set('metadata[prospect_id]', prospect.id)
     url.searchParams.set('metadata[company]', prospect.company_name)
     if (prospect.phone) url.searchParams.set('metadata[phone]', prospect.phone)
+    if (serviceType) url.searchParams.set('metadata[service_type]', serviceType)
 
     return url.toString()
   } catch {

@@ -272,6 +272,10 @@ export interface Opportunity {
   loss_reason: LossReason | null
   loss_notes: string | null
   notes: string | null
+  service_type: 'site_web' | 'pub'
+  client_revenue: number | null
+  commission_rate: number | null
+  commission_amount: number | null
   created_at: string
   updated_at: string
   // Joined

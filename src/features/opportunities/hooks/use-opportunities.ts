@@ -54,10 +54,10 @@ export function useUpdateOpportunity() {
   })
 }
 
-export function usePipelineStats(commercialId?: string) {
+export function usePipelineStats(commercialId?: string, serviceType?: string) {
   return useQuery({
-    queryKey: ['pipeline', 'stats', commercialId],
-    queryFn: () => getPipelineStats(commercialId),
+    queryKey: ['pipeline', 'stats', commercialId, serviceType],
+    queryFn: () => getPipelineStats(commercialId, serviceType as 'site_web' | 'pub' | undefined),
     staleTime: STALE_TIME_DASHBOARD,
   })
 }

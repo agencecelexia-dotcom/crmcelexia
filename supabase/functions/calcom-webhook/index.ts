@@ -604,21 +604,37 @@ async function handleBookingCreated(
   }
 
   // --- Create the RDV ---
+  // Extract service_type from metadata (set by CRM when opening Cal.com)
+  const serviceType = (metadata.service_type as string) || null
+  // Also try to detect from Cal.com event slug
+  const eventSlug = (payload.eventType?.slug as string) || (payload.type as string) || ''
+  const detectedServiceType = serviceType
+    || (eventSlug.includes('apport') || eventSlug.includes('pub') || eventSlug.includes('affaires') ? 'pub' : null)
+    || (eventSlug.includes('site') || eventSlug.includes('presentation') ? 'site_web' : null)
+    || null
+
+  console.log(`[calcom-webhook] Service type: ${detectedServiceType} (from metadata: ${serviceType}, slug: ${eventSlug})`)
+
   const notes = bookingId ? `[cal.com:${bookingId}]` : `[cal.com] ${title}`
+  const rdvInsert: Record<string, unknown> = {
+    prospect_id: prospectId,
+    commercial_id: commercialId,
+    scheduled_at: startTime,
+    duration_minutes: durationMinutes,
+    type: rdvType,
+    status: 'prevu',
+    meeting_url: meetingUrl,
+    location: rdvType === 'presentiel' ? location : null,
+    notes,
+    external_booking_id: bookingId || null,
+  }
+  if (detectedServiceType) {
+    rdvInsert.service_type = detectedServiceType
+  }
+
   const { data: rdv, error: insertErr } = await supabase
     .from('rendez_vous')
-    .insert({
-      prospect_id: prospectId,
-      commercial_id: commercialId,
-      scheduled_at: startTime,
-      duration_minutes: durationMinutes,
-      type: rdvType,
-      status: 'prevu',
-      meeting_url: meetingUrl,
-      location: rdvType === 'presentiel' ? location : null,
-      notes,
-      external_booking_id: bookingId || null,
-    })
+    .insert(rdvInsert)
     .select('id')
     .single()
 

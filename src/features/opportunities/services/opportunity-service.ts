@@ -3,12 +3,15 @@ import type { Opportunity, PipelineStats } from '@/types'
 import type { OpportunityStatus } from '@/types/enums'
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 
+export type ServiceType = 'site_web' | 'pub'
+
 export interface OpportunityFilters {
   search?: string
   status?: OpportunityStatus[]
   commercial_id?: string
   min_value?: number
   max_value?: number
+  service_type?: ServiceType
 }
 
 export async function getOpportunities({
@@ -43,6 +46,10 @@ export async function getOpportunities({
 
   if (filters.max_value !== undefined) {
     query = query.lte('estimated_value', filters.max_value)
+  }
+
+  if (filters.service_type) {
+    query = query.eq('service_type', filters.service_type)
   }
 
   const from = (page - 1) * pageSize
@@ -83,6 +90,9 @@ export async function createOpportunity(params: {
   monthly_recurring?: number | null
   expected_close_date?: string | null
   notes?: string | null
+  service_type?: ServiceType
+  client_revenue?: number | null
+  commission_rate?: number | null
 }): Promise<Opportunity> {
   const projected_revenue = params.estimated_value * (params.probability / 100)
 
@@ -119,7 +129,7 @@ export async function updateOpportunity(id: string, updates: Partial<Opportunity
   return data as unknown as Opportunity
 }
 
-export async function getPipelineStats(commercialId?: string): Promise<PipelineStats> {
+export async function getPipelineStats(commercialId?: string, serviceType?: ServiceType): Promise<PipelineStats> {
   let query = supabase
     .from('opportunities')
     .select('status, estimated_value, probability, projected_revenue, expected_close_date')
@@ -127,6 +137,10 @@ export async function getPipelineStats(commercialId?: string): Promise<PipelineS
 
   if (commercialId) {
     query = query.eq('commercial_id', commercialId)
+  }
+
+  if (serviceType) {
+    query = query.eq('service_type', serviceType)
   }
 
   const { data, error } = await query

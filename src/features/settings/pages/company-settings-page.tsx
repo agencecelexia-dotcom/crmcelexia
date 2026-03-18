@@ -19,6 +19,7 @@ interface CompanySettings {
   email: string
   website: string
   calcom_link: string
+  calcom_link_pub: string
 }
 
 export function CompanySettingsPage() {
@@ -72,6 +73,7 @@ export function CompanySettingsPage() {
           email: settings.email,
           website: settings.website,
           calcom_link: settings.calcom_link,
+          calcom_link_pub: settings.calcom_link_pub,
           updated_at: new Date().toISOString(),
         })
         .eq('id', settings.id)
@@ -354,15 +356,28 @@ function CalcomSettingsCard({
         </p>
 
         <div className="space-y-2">
-          <Label htmlFor="calcom_link">Lien Cal.com</Label>
+          <Label htmlFor="calcom_link">Lien Cal.com — Site Web</Label>
           <Input
             id="calcom_link"
             value={settings.calcom_link}
             onChange={(e) => onUpdate('calcom_link', e.target.value)}
-            placeholder="cal.com/votre-nom/30min"
+            placeholder="cal.com/votre-nom/presentation-site-web"
           />
           <p className="text-xs text-muted-foreground">
-            Le lien de votre page de booking Cal.com. Il apparaitra comme bouton "Booker un RDV" dans le panneau prospect.
+            Lien de booking pour les RDV de presentation site web.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="calcom_link_pub">Lien Cal.com — Pub (LSA)</Label>
+          <Input
+            id="calcom_link_pub"
+            value={settings.calcom_link_pub}
+            onChange={(e) => onUpdate('calcom_link_pub', e.target.value)}
+            placeholder="cal.com/votre-nom/apport-d-affaires"
+          />
+          <p className="text-xs text-muted-foreground">
+            Lien de booking pour les RDV d'apport d'affaires / publicite.
           </p>
         </div>
 
