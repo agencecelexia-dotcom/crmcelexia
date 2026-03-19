@@ -48,8 +48,6 @@ import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
 import { buildCalcomUrl } from '@/hooks/use-calcom'
 import { useUndo } from '@/hooks/use-undo'
-import type { OpportunityType } from '@/types/enums'
-
 const CALCOM_SITE_WEB = 'https://cal.com/agence-celexia-1qyn93/presentation-site-web-agence-celexia?overlayCalendar=true'
 const CALCOM_PUB = 'https://cal.com/agence-celexia-1qyn93/apport-d-affaires?overlayCalendar=true'
 
