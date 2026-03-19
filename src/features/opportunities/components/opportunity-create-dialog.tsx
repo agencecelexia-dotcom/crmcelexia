@@ -15,14 +15,17 @@ import { Textarea } from '@/components/ui/textarea'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import type { OpportunityType } from '@/types/enums'
+
 interface OpportunityCreateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   defaultProspectId?: string
   defaultClientId?: string
+  opportunityType?: OpportunityType
 }
 
-export function OpportunityCreateDialog({ open, onOpenChange, defaultProspectId, defaultClientId }: OpportunityCreateDialogProps) {
+export function OpportunityCreateDialog({ open, onOpenChange, defaultProspectId, defaultClientId, opportunityType }: OpportunityCreateDialogProps) {
   const { profile } = useAuth()
   const createMutation = useCreateOpportunity()
 
@@ -53,6 +56,7 @@ export function OpportunityCreateDialog({ open, onOpenChange, defaultProspectId,
         commercial_id: profile.id,
         name: name.trim(),
         project_price: parseFloat(projectPrice) || 0,
+        opportunity_type: opportunityType || 'site_web',
         expected_close_date: expectedCloseDate || null,
         notes: notes.trim() || null,
       })

@@ -1,4 +1,4 @@
-import type { UserRole, ProspectStatus, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus, LossReason, PaymentStatus, OpportunityStatus, ContractStatus } from './enums'
+import type { UserRole, ProspectStatus, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus, LossReason, PaymentStatus, OpportunityStatus, OpportunityType, ContractStatus } from './enums'
 
 export interface Profile {
   id: string
@@ -110,6 +110,7 @@ export interface RendezVous {
   no_show_reason: string | null
   created_from_call_id: string | null
   external_booking_id: string | null
+  booking_type: OpportunityType | null
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -276,8 +277,10 @@ export interface Opportunity {
   commercial_id: string
   name: string
   status: OpportunityStatus
+  opportunity_type: OpportunityType
   project_price: number
   amount_collected: number
+  revenue_generated: number
   expected_close_date: string | null
   loss_reason: LossReason | null
   loss_notes: string | null

@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Opportunity } from '@/types'
-import type { OpportunityStatus } from '@/types/enums'
+import type { OpportunityStatus, OpportunityType } from '@/types/enums'
 import { OPPORTUNITY_PIPELINE_STAGES, LOSS_REASON_LABELS, type LossReason } from '@/types/enums'
 import { useOpportunitiesKanban, useUpdateOpportunityStatus } from '../hooks/use-opportunities'
 import { useAuth } from '@/features/auth/hooks/use-auth'
@@ -26,11 +26,15 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-export function KanbanBoard() {
+interface KanbanBoardProps {
+  opportunityType?: OpportunityType
+}
+
+export function KanbanBoard({ opportunityType }: KanbanBoardProps) {
   const navigate = useNavigate()
   const { profile, isFounder } = useAuth()
   const commercialId = isFounder ? undefined : profile?.id
-  const { data: opportunities, isLoading } = useOpportunitiesKanban(commercialId)
+  const { data: opportunities, isLoading } = useOpportunitiesKanban(commercialId, opportunityType)
   const statusMutation = useUpdateOpportunityStatus()
 
   const [draggingId, setDraggingId] = useState<string | null>(null)

@@ -305,6 +305,21 @@ async function handleBookingCreated(
   }
   if (meetingUrl) rdvType = 'visio'
 
+  // Determine booking type (site_web vs pub) from Cal.com eventTypeSlug or title
+  const eventTypeSlug = (payload.eventTypeSlug as string) || (payload.type as string) || ''
+  const eventTitle = (payload.title as string) || ''
+  let bookingType: 'site_web' | 'pub' = 'site_web' // default
+  if (
+    eventTypeSlug.includes('apport-d-affaires') ||
+    eventTypeSlug.includes('pub') ||
+    eventTypeSlug.includes('lsa') ||
+    eventTitle.toLowerCase().includes('apport') ||
+    eventTitle.toLowerCase().includes('pub')
+  ) {
+    bookingType = 'pub'
+  }
+  console.log(`[calcom-webhook] Booking type detected: ${bookingType} (slug: ${eventTypeSlug})`)
+
   // --- Try to find the prospect ---
 
   let prospectId: string | null = null
@@ -546,6 +561,7 @@ async function handleBookingCreated(
           meeting_url: meetingUrl,
           location: rdvType === 'presentiel' ? location : null,
           type: rdvType,
+          booking_type: bookingType,
           external_booking_id: bookingId,
           updated_at: new Date().toISOString(),
         })
@@ -626,6 +642,7 @@ async function handleBookingCreated(
       location: rdvType === 'presentiel' ? location : null,
       notes,
       external_booking_id: bookingId || null,
+      booking_type: bookingType,
     })
     .select('id')
     .single()
@@ -663,6 +680,7 @@ async function handleBookingCreated(
       action: 'created',
       matchMethod,
       rdvType,
+      bookingType,
       meetingUrl: meetingUrl ? 'present' : 'absent',
       durationMinutes,
     },

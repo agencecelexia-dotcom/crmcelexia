@@ -336,6 +336,27 @@ export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
   autre: 'Autre',
 }
 
+// ── Opportunity Type ──
+export const OPPORTUNITY_TYPE = {
+  SITE_WEB: 'site_web',
+  PUB: 'pub',
+} as const
+
+export type OpportunityType = (typeof OPPORTUNITY_TYPE)[keyof typeof OPPORTUNITY_TYPE]
+
+export const OPPORTUNITY_TYPE_LABELS: Record<OpportunityType, string> = {
+  site_web: 'Site Web',
+  pub: 'Pub (LSA)',
+}
+
+export const OPPORTUNITY_TYPE_COLORS: Record<OpportunityType, string> = {
+  site_web: 'bg-blue-100 text-blue-800',
+  pub: 'bg-amber-100 text-amber-800',
+}
+
+// Commission rate for pub opportunities (10%)
+export const PUB_COMMISSION_RATE = 0.10
+
 // ── Opportunity Status ──
 export const OPPORTUNITY_STATUS = {
   SITE_A_ENVOYER: 'site_a_envoyer',

@@ -12,7 +12,7 @@ import {
   type OpportunityFilters,
 } from '../services/opportunity-service'
 import type { Opportunity } from '@/types'
-import type { OpportunityStatus } from '@/types/enums'
+import type { OpportunityStatus, OpportunityType } from '@/types/enums'
 import { STALE_TIME_LIST, STALE_TIME_DASHBOARD } from '@/lib/constants'
 import { toast } from 'sonner'
 
@@ -33,10 +33,10 @@ export function useOpportunity(id: string | undefined) {
   })
 }
 
-export function useOpportunitiesKanban(commercialId?: string) {
+export function useOpportunitiesKanban(commercialId?: string, opportunityType?: OpportunityType) {
   return useQuery({
-    queryKey: ['opportunities', 'kanban', commercialId],
-    queryFn: () => getOpportunitiesForKanban(commercialId),
+    queryKey: ['opportunities', 'kanban', commercialId, opportunityType],
+    queryFn: () => getOpportunitiesForKanban(commercialId, opportunityType),
     staleTime: STALE_TIME_LIST,
   })
 }
@@ -126,10 +126,10 @@ export function useUpdateOpportunityStatus() {
   })
 }
 
-export function usePipelineStats(commercialId?: string) {
+export function usePipelineStats(commercialId?: string, opportunityType?: OpportunityType) {
   return useQuery({
-    queryKey: ['pipeline', 'stats', commercialId],
-    queryFn: () => getPipelineStats(commercialId),
+    queryKey: ['pipeline', 'stats', commercialId, opportunityType],
+    queryFn: () => getPipelineStats(commercialId, opportunityType),
     staleTime: STALE_TIME_DASHBOARD,
   })
 }

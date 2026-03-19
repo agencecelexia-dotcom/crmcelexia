@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase/client'
 import type { Opportunity, PipelineStats } from '@/types'
-import type { OpportunityStatus } from '@/types/enums'
+import type { OpportunityStatus, OpportunityType } from '@/types/enums'
 import { DEFAULT_PAGE_SIZE, N8N_SITE_DEPLOY_WEBHOOK, N8N_SITE_DESTROY_WEBHOOK } from '@/lib/constants'
 
 /**
@@ -54,6 +54,7 @@ export interface OpportunityFilters {
   status?: OpportunityStatus[]
   commercial_id?: string
   client_id?: string
+  opportunity_type?: OpportunityType
   min_price?: number
   max_price?: number
 }
@@ -87,6 +88,10 @@ export async function getOpportunities({
 
   if (filters.client_id) {
     query = query.eq('client_id', filters.client_id)
+  }
+
+  if (filters.opportunity_type) {
+    query = query.eq('opportunity_type', filters.opportunity_type)
   }
 
   if (filters.min_price !== undefined) {
@@ -126,7 +131,7 @@ export async function getOpportunity(id: string): Promise<Opportunity> {
   return data as unknown as Opportunity
 }
 
-export async function getOpportunitiesForKanban(commercialId?: string): Promise<Opportunity[]> {
+export async function getOpportunitiesForKanban(commercialId?: string, opportunityType?: OpportunityType): Promise<Opportunity[]> {
   let query = supabase
     .from('opportunities')
     .select(OPP_SELECT)
@@ -134,6 +139,10 @@ export async function getOpportunitiesForKanban(commercialId?: string): Promise<
 
   if (commercialId) {
     query = query.eq('commercial_id', commercialId)
+  }
+
+  if (opportunityType) {
+    query = query.eq('opportunity_type', opportunityType)
   }
 
   query = query.order('updated_at', { ascending: false })
@@ -175,22 +184,27 @@ export async function createOpportunity(params: {
   commercial_id: string
   name: string
   project_price: number
+  opportunity_type?: OpportunityType
   expected_close_date?: string | null
   notes?: string | null
 }): Promise<Opportunity> {
+  const oppType = params.opportunity_type || 'site_web'
   const { data, error } = await supabase
     .from('opportunities')
     .insert({
       ...params,
+      opportunity_type: oppType,
       status: 'site_a_envoyer',
       amount_collected: 0,
+      revenue_generated: 0,
     })
     .select()
     .single()
 
   if (error) throw error
 
-  if (data.prospect_id) {
+  // Only trigger site deployment for site_web opportunities
+  if (oppType === 'site_web' && data.prospect_id) {
     triggerSiteDeployment(data.prospect_id)
   }
 
@@ -229,18 +243,20 @@ export async function updateOpportunityStatus(
 
   if (error) throw error
 
-  if (newStatus === 'site_a_envoyer' && data.prospect_id) {
-    triggerSiteDeployment(data.prospect_id)
-  }
-
-  if (newStatus === 'perdu' && data.prospect_id) {
-    triggerSiteDestruction(data.prospect_id)
+  // Only trigger site webhooks for site_web opportunities
+  if (data.opportunity_type === 'site_web' || !data.opportunity_type) {
+    if (newStatus === 'site_a_envoyer' && data.prospect_id) {
+      triggerSiteDeployment(data.prospect_id)
+    }
+    if (newStatus === 'perdu' && data.prospect_id) {
+      triggerSiteDestruction(data.prospect_id)
+    }
   }
 
   return data as unknown as Opportunity
 }
 
-export async function getPipelineStats(commercialId?: string): Promise<PipelineStats> {
+export async function getPipelineStats(commercialId?: string, opportunityType?: OpportunityType): Promise<PipelineStats> {
   let query = supabase
     .from('opportunities')
     .select('status, project_price, amount_collected')
@@ -248,6 +264,10 @@ export async function getPipelineStats(commercialId?: string): Promise<PipelineS
 
   if (commercialId) {
     query = query.eq('commercial_id', commercialId)
+  }
+
+  if (opportunityType) {
+    query = query.eq('opportunity_type', opportunityType)
   }
 
   const { data, error } = await query

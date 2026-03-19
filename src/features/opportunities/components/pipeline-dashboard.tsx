@@ -3,7 +3,7 @@ import { usePipelineStats } from '../hooks/use-opportunities'
 import { StatCard } from '@/components/shared/stat-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/format'
-import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STAGE_HEX, type OpportunityStatus } from '@/types/enums'
+import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STAGE_HEX, type OpportunityStatus, type OpportunityType } from '@/types/enums'
 import { DollarSign, Trophy, Clock, TrendingUp } from 'lucide-react'
 import {
   BarChart,
@@ -16,10 +16,14 @@ import {
   Cell,
 } from 'recharts'
 
-export function PipelineDashboard() {
+interface PipelineDashboardProps {
+  opportunityType?: OpportunityType
+}
+
+export function PipelineDashboard({ opportunityType }: PipelineDashboardProps) {
   const { profile, isFounder } = useAuth()
   const commercialId = isFounder ? undefined : profile?.id
-  const { data: pipeline } = usePipelineStats(commercialId)
+  const { data: pipeline } = usePipelineStats(commercialId, opportunityType)
 
   if (!pipeline) return null
 

@@ -61,11 +61,13 @@ import {
   FileText,
   TrendingUp,
   CheckCircle2,
+  Megaphone,
 } from 'lucide-react'
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
+import type { OpportunityType } from '@/types/enums'
 import { useUndo } from '@/hooks/use-undo'
 import { supabase } from '@/lib/supabase/client'
 import { N8N_SITE_DESTROY_WEBHOOK } from '@/lib/constants'
@@ -123,6 +125,8 @@ export function ProspectDetailPage() {
   const [pendingOppSiteEnvoye, setPendingOppSiteEnvoye] = useState(false)
   const [oppSiteUrl, setOppSiteUrl] = useState('')
   const [oppDateEnvoiSite, setOppDateEnvoiSite] = useState('')
+  // ── Booking type choice (site_web vs pub) ──
+  const [bookingTypeChoiceOpen, setBookingTypeChoiceOpen] = useState(false)
   // ── Keyboard navigation: Arrow Up/Down to switch prospects ──
   const { data: prospectListData } = useProspects({ page: 1, pageSize: 200, sortBy: 'created_at', sortDesc: true })
   const prospectIds = useMemo(() => (prospectListData?.data ?? []).map((p) => p.id), [prospectListData])
@@ -415,9 +419,13 @@ export function ProspectDetailPage() {
     }
   }
 
-  async function openCalcom() {
-    if (!calcomLink || !prospect) return
-    const bookingUrl = buildCalcomUrl(calcomLink, prospect)
+  const CALCOM_SITE_WEB = 'https://cal.com/agence-celexia-1qyn93/presentation-site-web-agence-celexia?overlayCalendar=true'
+  const CALCOM_PUB = 'https://cal.com/agence-celexia-1qyn93/apport-d-affaires?overlayCalendar=true'
+
+  async function openCalcom(bookingType?: OpportunityType) {
+    if (!prospect) return
+    const link = bookingType === 'pub' ? CALCOM_PUB : (calcomLink || CALCOM_SITE_WEB)
+    const bookingUrl = buildCalcomUrl(link, prospect)
     if (bookingUrl) {
       window.open(bookingUrl, '_blank', 'noopener,noreferrer')
 
@@ -471,13 +479,9 @@ export function ProspectDetailPage() {
       setRappelerDialogOpen(true)
     }
 
-    // "RDV pris" → Cal.com if configured, otherwise manual RDV form
+    // "RDV pris" → show booking type choice (site_web vs pub)
     if (result === 'reached_rdv') {
-      if (calcomLink) {
-        openCalcom()
-      } else {
-        setRdvFormOpen(true)
-      }
+      setBookingTypeChoiceOpen(true)
     }
   }
 
@@ -747,15 +751,14 @@ export function ProspectDetailPage() {
                   </span>
                 )}
               </div>
-              {calcomLink ? (
-                <Button variant="ghost" size="sm" onClick={openCalcom}>
-                  <CalendarDays className="mr-1 h-4 w-4" /> Réserver (Cal.com)
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" onClick={() => openCalcom('site_web')}>
+                  <Globe className="mr-1 h-4 w-4" /> RDV Site
                 </Button>
-              ) : (
-                <Button variant="ghost" size="sm" onClick={() => setRdvFormOpen(true)}>
-                  <CalendarDays className="mr-1 h-4 w-4" /> Planifier
+                <Button variant="ghost" size="sm" onClick={() => openCalcom('pub')}>
+                  <Megaphone className="mr-1 h-4 w-4" /> RDV Pub
                 </Button>
-              )}
+              </div>
             </CardHeader>
             <CardContent>
               <RdvListForProspect prospectId={prospect.id} />
@@ -886,17 +889,14 @@ export function ProspectDetailPage() {
                         </Button>
                       </>
                     )}
-                    {calcomLink ? (
-                      <Button variant="outline" className="w-full" size="sm" onClick={openCalcom}>
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        Réserver un RDV (Cal.com)
-                      </Button>
-                    ) : (
-                      <Button variant="outline" className="w-full" size="sm" onClick={() => setRdvFormOpen(true)}>
-                        <CalendarDays className="mr-2 h-4 w-4" />
-                        Planifier un RDV
-                      </Button>
-                    )}
+                    <Button variant="outline" className="w-full" size="sm" onClick={() => openCalcom('site_web')}>
+                      <Globe className="mr-2 h-4 w-4" />
+                      RDV Site Web
+                    </Button>
+                    <Button variant="outline" className="w-full" size="sm" onClick={() => openCalcom('pub')}>
+                      <Megaphone className="mr-2 h-4 w-4" />
+                      RDV Pub (LSA)
+                    </Button>
                     <Button variant="outline" className="w-full" size="sm" onClick={() => setReminderFormOpen(true)}>
                       <Clock className="mr-2 h-4 w-4" />
                       Planifier un rappel
@@ -1587,6 +1587,40 @@ export function ProspectDetailPage() {
               Confirmer
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Booking type choice dialog (Site Web vs Pub) */}
+      <Dialog open={bookingTypeChoiceOpen} onOpenChange={setBookingTypeChoiceOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Type de RDV</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Pour quel service souhaitez-vous booker ce RDV ?</p>
+          <div className="grid grid-cols-2 gap-3 py-4">
+            <Button
+              variant="outline"
+              className="h-24 flex-col gap-2 border-2 hover:border-blue-400 hover:bg-blue-50"
+              onClick={() => {
+                setBookingTypeChoiceOpen(false)
+                openCalcom('site_web')
+              }}
+            >
+              <Globe className="h-6 w-6 text-blue-600" />
+              <span className="text-sm font-medium">Site Web</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-24 flex-col gap-2 border-2 hover:border-amber-400 hover:bg-amber-50"
+              onClick={() => {
+                setBookingTypeChoiceOpen(false)
+                openCalcom('pub')
+              }}
+            >
+              <Megaphone className="h-6 w-6 text-amber-600" />
+              <span className="text-sm font-medium">Pub (LSA)</span>
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
