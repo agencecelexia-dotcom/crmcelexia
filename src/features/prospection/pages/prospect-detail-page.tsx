@@ -179,7 +179,7 @@ export function ProspectDetailPage() {
           queryClient.invalidateQueries({ queryKey: ['prospect', id] })
           queryClient.invalidateQueries({ queryKey: ['rdv'] })
           setWaitingForCalcom(false)
-          toast.success('Nouveau RDV détecté depuis Cal.com !')
+          toast.success('Nouveau RDV ajouté au calendrier !')
         },
       )
       .on(
@@ -443,7 +443,7 @@ export function ProspectDetailPage() {
         }
       }
 
-      toast.info('Réservez un créneau sur Cal.com — le RDV apparaîtra ici automatiquement')
+      toast.info('Le RDV apparaîtra automatiquement dans le calendrier')
       startCalcomPolling()
     }
   }
@@ -747,7 +747,7 @@ export function ProspectDetailPage() {
                 {waitingForCalcom && (
                   <span className="flex items-center gap-1 text-xs text-blue-600 animate-pulse">
                     <CalendarDays className="h-3 w-3" />
-                    En attente Cal.com...
+                    Sync en cours...
                   </span>
                 )}
               </div>
