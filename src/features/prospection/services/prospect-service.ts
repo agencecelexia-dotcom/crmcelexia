@@ -37,7 +37,14 @@ export async function getProspects({
   }
 
   if (filters.profession && filters.profession.length > 0) {
-    query = query.in('profession', filters.profession)
+    // Use ilike for case-insensitive matching
+    if (filters.profession.length === 1) {
+      query = query.ilike('profession', filters.profession[0])
+    } else {
+      // Multiple professions: OR of ilike conditions
+      const orConditions = filters.profession.map(p => `profession.ilike.${p}`).join(',')
+      query = query.or(orConditions)
+    }
   }
 
   if (filters.city && filters.city.length > 0) {

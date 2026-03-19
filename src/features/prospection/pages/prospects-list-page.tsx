@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useProspects, useDeleteProspects, useTeamMembers } from '../hooks/use-prospects'
+import { useProspects, useDeleteProspects, useTeamMembers, useProfessions } from '../hooks/use-prospects'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { useDebounce } from '@/hooks/use-debounce'
 import { DEBOUNCE_MS } from '@/lib/constants'
@@ -103,15 +103,15 @@ export function ProspectsListPage() {
 
   const deleteProspects = useDeleteProspects()
   const { data: teamMembers } = useTeamMembers()
+  const { data: professions = [] } = useProfessions()
 
   const debouncedCity = useDebounce(cityFilter, DEBOUNCE_MS)
-  const debouncedProfession = useDebounce(professionFilter, DEBOUNCE_MS)
 
   const filters: ProspectFilters = {
     search: debouncedSearch || undefined,
     status: statusFilter !== 'all' ? [statusFilter] : undefined,
     city: debouncedCity ? [debouncedCity] : undefined,
-    profession: debouncedProfession ? [debouncedProfession] : undefined,
+    profession: professionFilter ? [professionFilter] : undefined,
     commercial_id: commercialFilter !== 'all' ? commercialFilter : undefined,
     never_called: neverCalled || undefined,
     has_overdue_reminder: hasOverdue || undefined,
@@ -166,7 +166,7 @@ export function ProspectsListPage() {
   // Clear selection when page/filters change
   useEffect(() => {
     setSelectedIds(new Set())
-  }, [page, debouncedSearch, statusFilter, commercialFilter, debouncedCity, debouncedProfession, neverCalled, hasOverdue])
+  }, [page, debouncedSearch, statusFilter, commercialFilter, debouncedCity, professionFilter, neverCalled, hasOverdue])
 
   // Selection helpers
   const allOnPageSelected = prospects.length > 0 && prospects.every((p) => selectedIds.has(p.id))
@@ -409,12 +409,17 @@ export function ProspectsListPage() {
                     onChange={(e) => { setCityFilter(e.target.value); setPage(1) }}
                     className="w-[140px] h-8 text-sm"
                   />
-                  <Input
-                    placeholder="Métier..."
-                    value={professionFilter}
-                    onChange={(e) => { setProfessionFilter(e.target.value); setPage(1) }}
-                    className="w-[140px] h-8 text-sm"
-                  />
+                  <Select value={professionFilter || 'all'} onValueChange={(v) => { setProfessionFilter(v === 'all' ? '' : v); setPage(1) }}>
+                    <SelectTrigger className="w-[160px] h-8 text-sm">
+                      <SelectValue placeholder="Métier..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous les métiers</SelectItem>
+                      {professions.map((p) => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                     <input
                       type="checkbox"
