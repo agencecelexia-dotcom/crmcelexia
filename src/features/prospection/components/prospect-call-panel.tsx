@@ -42,11 +42,16 @@ import {
   FileText,
   Send,
   Globe,
+  Megaphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
-import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
+import { buildCalcomUrl } from '@/hooks/use-calcom'
 import { useUndo } from '@/hooks/use-undo'
+import type { OpportunityType } from '@/types/enums'
+
+const CALCOM_SITE_WEB = 'https://cal.com/agence-celexia-1qyn93/presentation-site-web-agence-celexia?overlayCalendar=true'
+const CALCOM_PUB = 'https://cal.com/agence-celexia-1qyn93/apport-d-affaires?overlayCalendar=true'
 
 interface ProspectCallPanelProps {
   prospect: Prospect
@@ -73,7 +78,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
   const { data: calls } = useCallsForProspect(prospect.id)
   const { data: reminders } = useRemindersForProspect(prospect.id)
   const { data: rdvs } = useRdvForProspect(prospect.id)
-  const { data: calcomLink } = useCalcomLink()
+  const [bookingTypeChoice, setBookingTypeChoice] = useState(false)
 
   const [prospectNotes, setProspectNotes] = useState(prospect.notes ?? '')
   const [notesChanged, setNotesChanged] = useState(false)
@@ -161,17 +166,9 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
         },
       })
 
-      // "RDV pris" → open Cal.com to book, webhook creates the RDV automatically
+      // "RDV pris" → show booking type choice (site_web vs pub)
       if (result === 'reached_rdv') {
-        if (calcomLink) {
-          const bookingUrl = buildCalcomUrl(calcomLink, prospect)
-          if (bookingUrl) {
-            window.open(bookingUrl, '_blank', 'noopener,noreferrer')
-            toast.info('Réservez un créneau sur Cal.com — le RDV sera créé automatiquement')
-          }
-        } else {
-          toast.warning('Cal.com non configuré — pensez à créer le RDV manuellement depuis la fiche prospect')
-        }
+        setBookingTypeChoice(true)
       }
 
       onCallLogged?.()
@@ -702,21 +699,71 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
             </div>
           )}
 
-          {/* Cal.com direct booking — always available when configured */}
-          {calcomLink && (
+          {/* Booking buttons: Site Web / Pub */}
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               onClick={() => {
-                const bookingUrl = buildCalcomUrl(calcomLink, prospect)
+                const bookingUrl = buildCalcomUrl(CALCOM_SITE_WEB, prospect)
                 if (bookingUrl) {
                   window.open(bookingUrl, '_blank', 'noopener,noreferrer')
-                  toast.info('Réservez un créneau — le RDV sera créé automatiquement')
+                  toast.info('Le RDV apparaîtra automatiquement dans le calendrier')
                 }
               }}
-              className="mt-3 flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-sm font-medium text-primary transition-colors"
+              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-blue-300 bg-blue-50 hover:bg-blue-100 text-sm font-medium text-blue-700 transition-colors"
             >
-              <CalendarPlus className="h-4 w-4" />
-              Réserver un créneau (Cal.com)
+              <Globe className="h-4 w-4" />
+              RDV Site
             </button>
+            <button
+              onClick={() => {
+                const bookingUrl = buildCalcomUrl(CALCOM_PUB, prospect)
+                if (bookingUrl) {
+                  window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+                  toast.info('Le RDV apparaîtra automatiquement dans le calendrier')
+                }
+              }}
+              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-sm font-medium text-amber-700 transition-colors"
+            >
+              <Megaphone className="h-4 w-4" />
+              RDV Pub
+            </button>
+          </div>
+
+          {/* Booking type choice dialog after "RDV pris" */}
+          {bookingTypeChoice && (
+            <div className="mt-3 p-3 rounded-lg border-2 border-primary/30 bg-primary/5 space-y-2">
+              <p className="text-sm font-medium text-center">Quel type de RDV ?</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    setBookingTypeChoice(false)
+                    const bookingUrl = buildCalcomUrl(CALCOM_SITE_WEB, prospect)
+                    if (bookingUrl) {
+                      window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+                      toast.info('Le RDV apparaîtra automatiquement dans le calendrier')
+                    }
+                  }}
+                  className="flex flex-col items-center gap-1 px-3 py-3 rounded-lg border-2 border-blue-300 bg-blue-50 hover:bg-blue-100 text-sm font-medium text-blue-700 transition-colors"
+                >
+                  <Globe className="h-5 w-5" />
+                  Site Web
+                </button>
+                <button
+                  onClick={() => {
+                    setBookingTypeChoice(false)
+                    const bookingUrl = buildCalcomUrl(CALCOM_PUB, prospect)
+                    if (bookingUrl) {
+                      window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+                      toast.info('Le RDV apparaîtra automatiquement dans le calendrier')
+                    }
+                  }}
+                  className="flex flex-col items-center gap-1 px-3 py-3 rounded-lg border-2 border-amber-300 bg-amber-50 hover:bg-amber-100 text-sm font-medium text-amber-700 transition-colors"
+                >
+                  <Megaphone className="h-5 w-5" />
+                  Pub (LSA)
+                </button>
+              </div>
+            </div>
           )}
         </div>
 
