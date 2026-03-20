@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Opportunity } from '@/types'
 import {
-  OPPORTUNITY_STATUS_LABELS,
   OPPORTUNITY_STATUS_COLORS,
   OPPORTUNITY_PUB_STAGES,
   OPPORTUNITY_PIPELINE_STAGES,
