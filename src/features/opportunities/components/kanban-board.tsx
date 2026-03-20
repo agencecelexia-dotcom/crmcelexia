@@ -2,8 +2,9 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Opportunity } from '@/types'
 import type { OpportunityStatus, OpportunityType } from '@/types/enums'
-import { OPPORTUNITY_PIPELINE_STAGES, OPPORTUNITY_PUB_STAGES, LOSS_REASON_LABELS, type LossReason } from '@/types/enums'
-import { useOpportunitiesKanban, useUpdateOpportunityStatus } from '../hooks/use-opportunities'
+import { OPPORTUNITY_PIPELINE_STAGES, OPPORTUNITY_PUB_STAGES, LOSS_REASON_LABELS, PUB_COMMISSION_RATE, type LossReason } from '@/types/enums'
+import { formatCurrency } from '@/lib/format'
+import { useOpportunitiesKanban, useUpdateOpportunityStatus, useUpdateOpportunity } from '../hooks/use-opportunities'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { KanbanColumn } from './kanban-column'
 import { KanbanTerminalStrip } from './kanban-terminal-strip'
@@ -16,6 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -36,6 +38,7 @@ export function KanbanBoard({ opportunityType }: KanbanBoardProps) {
   const commercialId = isFounder ? undefined : profile?.id
   const { data: opportunities, isLoading } = useOpportunitiesKanban(commercialId, opportunityType)
   const statusMutation = useUpdateOpportunityStatus()
+  const updateMutation = useUpdateOpportunity()
 
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverStatus, setDragOverStatus] = useState<OpportunityStatus | null>(null)
@@ -67,6 +70,11 @@ export function KanbanBoard({ opportunityType }: KanbanBoardProps) {
   const [lossReason, setLossReason] = useState<string>('')
   const [lossNotes, setLossNotes] = useState('')
 
+  // Pub stats dialog state (required before moving to R2 or Close)
+  const [pendingPubStats, setPendingPubStats] = useState<{ oppId: string; targetStatus: OpportunityStatus } | null>(null)
+  const [pubBudget, setPubBudget] = useState('')
+  const [pubEstimatedRevenue, setPubEstimatedRevenue] = useState('')
+
   const grouped = useMemo(() => {
     const map: Record<string, Opportunity[]> = {}
     for (const stage of OPPORTUNITY_PIPELINE_STAGES) {
@@ -95,10 +103,23 @@ export function KanbanBoard({ opportunityType }: KanbanBoardProps) {
       return
     }
 
+    // For Pub: require stats before moving to R2 or Close
+    if (opportunityType === 'pub' && (targetStatus === 'en_attente_retour' || targetStatus === 'close')) {
+      const opp = opportunities?.find(o => o.id === draggingId)
+      if (opp && (!opp.budget_pub || !opp.estimated_monthly_revenue)) {
+        setPubBudget(String(opp.budget_pub || ''))
+        setPubEstimatedRevenue(String(opp.estimated_monthly_revenue || ''))
+        setPendingPubStats({ oppId: draggingId, targetStatus })
+        setDraggingId(null)
+        setDragOverStatus(null)
+        return
+      }
+    }
+
     statusMutation.mutate({ id: draggingId, status: targetStatus })
     setDraggingId(null)
     setDragOverStatus(null)
-  }, [draggingId, opportunities, statusMutation])
+  }, [draggingId, opportunities, statusMutation, opportunityType])
 
   const confirmLoss = () => {
     if (!pendingLoss || !lossReason) return
@@ -110,6 +131,24 @@ export function KanbanBoard({ opportunityType }: KanbanBoardProps) {
     setPendingLoss(null)
     setLossReason('')
     setLossNotes('')
+  }
+
+  const confirmPubStats = async () => {
+    if (!pendingPubStats) return
+    const budget = parseFloat(pubBudget) || 0
+    const revenue = parseFloat(pubEstimatedRevenue) || 0
+    if (!budget || !revenue) return
+    try {
+      await updateMutation.mutateAsync({
+        id: pendingPubStats.oppId,
+        updates: { budget_pub: budget, estimated_monthly_revenue: revenue },
+      })
+      statusMutation.mutate({ id: pendingPubStats.oppId, status: pendingPubStats.targetStatus })
+    } finally {
+      setPendingPubStats(null)
+      setPubBudget('')
+      setPubEstimatedRevenue('')
+    }
   }
 
   const handleCardClick = useCallback((opp: Opportunity) => {
@@ -163,6 +202,41 @@ export function KanbanBoard({ opportunityType }: KanbanBoardProps) {
           lostValue={lostValue}
         />
       </div>
+
+      {/* Pub stats dialog — required before R2 / Close */}
+      <Dialog open={!!pendingPubStats} onOpenChange={(open) => { if (!open) { setPendingPubStats(null); setPubBudget(''); setPubEstimatedRevenue('') } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Stats Pub (LSA) — obligatoire</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Budget pub mensuel du client (EUR) *</Label>
+              <Input type="number" placeholder="Ex: 1500" value={pubBudget} onChange={(e) => setPubBudget(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>CA estimé / mois pour le client (EUR) *</Label>
+              <Input type="number" placeholder="Ex: 8000" value={pubEstimatedRevenue} onChange={(e) => setPubEstimatedRevenue(e.target.value)} />
+            </div>
+            {pubEstimatedRevenue && parseFloat(pubEstimatedRevenue) > 0 && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-amber-800">Notre commission (10%)</span>
+                  <span className="font-bold text-amber-700">{formatCurrency(parseFloat(pubEstimatedRevenue) * PUB_COMMISSION_RATE)} / mois</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setPendingPubStats(null); setPubBudget(''); setPubEstimatedRevenue('') }}>
+              Annuler
+            </Button>
+            <Button onClick={confirmPubStats} disabled={!pubBudget || !pubEstimatedRevenue || parseFloat(pubBudget) <= 0 || parseFloat(pubEstimatedRevenue) <= 0}>
+              Confirmer et basculer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Loss reason dialog */}
       <Dialog open={!!pendingLoss} onOpenChange={(open) => { if (!open) { setPendingLoss(null); setLossReason(''); setLossNotes('') } }}>
