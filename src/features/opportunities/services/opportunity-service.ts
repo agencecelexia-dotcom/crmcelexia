@@ -194,9 +194,11 @@ export async function createOpportunity(params: {
     .insert({
       ...params,
       opportunity_type: oppType,
-      status: 'site_a_envoyer',
+      status: oppType === 'pub' ? 'rdv' : 'site_a_envoyer',
       amount_collected: 0,
       revenue_generated: 0,
+      budget_pub: 0,
+      estimated_monthly_revenue: 0,
     })
     .select()
     .single()

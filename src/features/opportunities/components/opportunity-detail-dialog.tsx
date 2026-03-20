@@ -3,7 +3,11 @@ import type { Opportunity } from '@/types'
 import {
   OPPORTUNITY_STATUS_LABELS,
   OPPORTUNITY_STATUS_COLORS,
+  OPPORTUNITY_PUB_STAGES,
+  OPPORTUNITY_PIPELINE_STAGES,
   LOSS_REASON_LABELS,
+  getOpportunityLabel,
+  PUB_COMMISSION_RATE,
   type OpportunityStatus,
   type LossReason,
 } from '@/types/enums'
@@ -48,6 +52,8 @@ export function OpportunityDetailDialog({ opportunity, open, onOpenChange }: Opp
   const [editCollected, setEditCollected] = useState('')
   const [editNotes, setEditNotes] = useState('')
   const [editCloseDate, setEditCloseDate] = useState('')
+  const [editBudgetPub, setEditBudgetPub] = useState('')
+  const [editEstimatedRevenue, setEditEstimatedRevenue] = useState('')
 
   const [pendingLoss, setPendingLoss] = useState(false)
   const [lossReason, setLossReason] = useState<string>('')
@@ -63,11 +69,15 @@ export function OpportunityDetailDialog({ opportunity, open, onOpenChange }: Opp
 
   const pending = opportunity.project_price - opportunity.amount_collected
 
+  const isPub = opportunity?.opportunity_type === 'pub'
+
   function startEditing() {
     setEditPrice(String(opportunity!.project_price))
     setEditCollected(String(opportunity!.amount_collected))
     setEditNotes(opportunity!.notes ?? '')
     setEditCloseDate(opportunity!.expected_close_date?.split('T')[0] ?? '')
+    setEditBudgetPub(String(opportunity!.budget_pub || 0))
+    setEditEstimatedRevenue(String(opportunity!.estimated_monthly_revenue || 0))
     setEditing(true)
   }
 
@@ -80,6 +90,10 @@ export function OpportunityDetailDialog({ opportunity, open, onOpenChange }: Opp
           amount_collected: parseFloat(editCollected) || 0,
           notes: editNotes.trim() || null,
           expected_close_date: editCloseDate || null,
+          ...(isPub ? {
+            budget_pub: parseFloat(editBudgetPub) || 0,
+            estimated_monthly_revenue: parseFloat(editEstimatedRevenue) || 0,
+          } : {}),
         },
       })
       setEditing(false)
@@ -148,14 +162,14 @@ export function OpportunityDetailDialog({ opportunity, open, onOpenChange }: Opp
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.entries(OPPORTUNITY_STATUS_LABELS) as [OpportunityStatus, string][]).map(([val, label]) => (
-                    <SelectItem key={val} value={val}>{label}</SelectItem>
+                  {(isPub ? [...OPPORTUNITY_PUB_STAGES, 'perdu' as OpportunityStatus] : [...OPPORTUNITY_PIPELINE_STAGES, 'perdu' as OpportunityStatus]).map((val) => (
+                    <SelectItem key={val} value={val}>{getOpportunityLabel(val, opportunity.opportunity_type)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             ) : (
               <StatusBadge
-                label={OPPORTUNITY_STATUS_LABELS[opportunity.status]}
+                label={getOpportunityLabel(opportunity.status, opportunity.opportunity_type)}
                 colorClass={OPPORTUNITY_STATUS_COLORS[opportunity.status]}
               />
             )}
@@ -192,6 +206,46 @@ export function OpportunityDetailDialog({ opportunity, open, onOpenChange }: Opp
               <div className="flex items-center justify-between text-sm">
                 <span className="text-orange-600">Reste</span>
                 <span className="font-semibold text-orange-600">{formatCurrency(pending)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Pub stats */}
+          {isPub && editing && (
+            <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+              <p className="text-sm font-semibold text-amber-800">Stats Pub (LSA)</p>
+              <div className="space-y-1">
+                <Label>Budget pub mensuel du client (EUR)</Label>
+                <Input type="number" value={editBudgetPub} onChange={(e) => setEditBudgetPub(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>CA estimé / mois pour le client (EUR)</Label>
+                <Input type="number" value={editEstimatedRevenue} onChange={(e) => setEditEstimatedRevenue(e.target.value)} />
+              </div>
+              <div className="flex items-center justify-between text-sm pt-1 border-t border-amber-200">
+                <span className="font-medium text-amber-800">Notre commission (10%)</span>
+                <span className="font-bold text-amber-700">
+                  {formatCurrency((parseFloat(editEstimatedRevenue) || 0) * PUB_COMMISSION_RATE)} / mois
+                </span>
+              </div>
+            </div>
+          )}
+          {isPub && !editing && (opportunity.budget_pub > 0 || opportunity.estimated_monthly_revenue > 0) && (
+            <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+              <p className="text-sm font-semibold text-amber-800">Stats Pub (LSA)</p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Budget pub / mois</span>
+                <span className="font-semibold">{formatCurrency(opportunity.budget_pub)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">CA estimé / mois</span>
+                <span className="font-semibold">{formatCurrency(opportunity.estimated_monthly_revenue)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm pt-1 border-t border-amber-200">
+                <span className="font-medium text-amber-800">Notre commission (10%)</span>
+                <span className="font-bold text-amber-700">
+                  {formatCurrency(opportunity.estimated_monthly_revenue * PUB_COMMISSION_RATE)} / mois
+                </span>
               </div>
             </div>
           )}

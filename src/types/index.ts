@@ -281,6 +281,8 @@ export interface Opportunity {
   project_price: number
   amount_collected: number
   revenue_generated: number
+  budget_pub: number
+  estimated_monthly_revenue: number
   expected_close_date: string | null
   loss_reason: LossReason | null
   loss_notes: string | null

@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Opportunity } from '@/types'
 import type { OpportunityStatus, OpportunityType } from '@/types/enums'
-import { OPPORTUNITY_PIPELINE_STAGES, LOSS_REASON_LABELS, type LossReason } from '@/types/enums'
+import { OPPORTUNITY_PIPELINE_STAGES, OPPORTUNITY_PUB_STAGES, LOSS_REASON_LABELS, type LossReason } from '@/types/enums'
 import { useOpportunitiesKanban, useUpdateOpportunityStatus } from '../hooks/use-opportunities'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { KanbanColumn } from './kanban-column'
@@ -135,7 +135,7 @@ export function KanbanBoard({ opportunityType }: KanbanBoardProps) {
     <>
       {/* Columns + terminal strip on the right */}
       <div className="flex gap-3 overflow-x-auto pb-2 items-start">
-        {OPPORTUNITY_PIPELINE_STAGES.map(stage => (
+        {(opportunityType === 'pub' ? OPPORTUNITY_PUB_STAGES : OPPORTUNITY_PIPELINE_STAGES).map(stage => (
           <KanbanColumn
             key={stage}
             status={stage}

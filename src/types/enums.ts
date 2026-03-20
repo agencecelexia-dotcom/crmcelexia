@@ -379,13 +379,20 @@ export const OPPORTUNITY_STATUS_LABELS: Record<OpportunityStatus, string> = {
 }
 
 export const OPPORTUNITY_PUB_LABELS: Record<OpportunityStatus, string> = {
-  site_a_envoyer: 'Qualification',
-  site_envoye: 'Proposition envoyée',
+  site_a_envoyer: 'RDV',
+  site_envoye: 'RDV',
   rdv: 'RDV',
-  en_attente_retour: 'En attente de retour',
+  en_attente_retour: 'En attente (R2)',
   close: 'Close',
   perdu: 'Perdu',
 }
+
+// Pipeline stages for Pub (LSA) — simplified: RDV → En attente R2 → Close
+export const OPPORTUNITY_PUB_STAGES: OpportunityStatus[] = [
+  'rdv',
+  'en_attente_retour',
+  'close',
+]
 
 export function getOpportunityLabel(status: OpportunityStatus, type?: OpportunityType): string {
   if (type === 'pub') return OPPORTUNITY_PUB_LABELS[status]
