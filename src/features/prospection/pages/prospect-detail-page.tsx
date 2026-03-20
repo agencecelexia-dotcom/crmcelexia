@@ -20,12 +20,17 @@ import {
   LOSS_REASON_LABELS,
   LOSS_REASON_COLORS,
   OPPORTUNITY_PIPELINE_STAGES,
-  OPPORTUNITY_STATUS_LABELS,
+  OPPORTUNITY_PUB_STAGES,
+  OPPORTUNITY_TYPE_LABELS,
+  OPPORTUNITY_TYPE_COLORS,
+  PUB_COMMISSION_RATE,
+  getOpportunityLabel,
   contextFromOppStatus,
   type CallResult,
   type ProspectStatus,
   type LossReason,
   type OpportunityStatus,
+  type OpportunityType,
 } from '@/types/enums'
 import { useLogCall } from '../hooks/use-calls'
 import { CallLogger } from '../components/call-logger'
@@ -36,8 +41,8 @@ import { ReminderList } from '../components/reminder-list'
 import { RdvForm } from '@/features/rendez-vous/components/rdv-form'
 import { RdvListForProspect } from '@/features/rendez-vous/components/rdv-list-for-prospect'
 import { LeadScoring } from '@/features/opportunities/components/lead-scoring'
-import { useOpportunityForProspect, useUpdateOpportunityStatus } from '@/features/opportunities/hooks/use-opportunities'
-import { formatDate } from '@/lib/format'
+import { useOpportunitiesAllForProspect, useUpdateOpportunityStatus, useUpdateOpportunity } from '@/features/opportunities/hooks/use-opportunities'
+import { formatDate, formatCurrency } from '@/lib/format'
 import {
   ArrowLeft,
   Phone,
@@ -67,7 +72,6 @@ import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useCalcomLink, buildCalcomUrl } from '@/hooks/use-calcom'
-import type { OpportunityType } from '@/types/enums'
 import { useUndo } from '@/hooks/use-undo'
 import { supabase } from '@/lib/supabase/client'
 import { N8N_SITE_DESTROY_WEBHOOK } from '@/lib/constants'
@@ -116,15 +120,25 @@ export function ProspectDetailPage() {
   const logCallMutation = useLogCall()
   const createReminder = useCreateReminder()
   const { setUndoAction } = useUndo()
-  // ── Opportunity liée à ce prospect ──
-  const { data: linkedOpportunity } = useOpportunityForProspect(id)
+  // ── Opportunités liées à ce prospect (site_web + pub) ──
+  const { data: allOpportunities = [] } = useOpportunitiesAllForProspect(id)
   const updateOppStatus = useUpdateOpportunityStatus()
+  const updateOpp = useUpdateOpportunity()
+  const linkedOpportunity = allOpportunities[0] ?? null // backward compat for existing logic
+  const siteWebOpp = allOpportunities.find(o => o.opportunity_type === 'site_web') ?? null
+  const pubOpp = allOpportunities.find(o => o.opportunity_type === 'pub') ?? null
   const [pendingOppLoss, setPendingOppLoss] = useState<boolean>(false)
+  const [oppLossOppId, setOppLossOppId] = useState<string>('')
   const [oppLossReason, setOppLossReason] = useState<string>('')
   const [oppLossNotes, setOppLossNotes] = useState('')
   const [pendingOppSiteEnvoye, setPendingOppSiteEnvoye] = useState(false)
+  const [pendingOppSiteEnvoyeOppId, setPendingOppSiteEnvoyeOppId] = useState<string>('')
   const [oppSiteUrl, setOppSiteUrl] = useState('')
   const [oppDateEnvoiSite, setOppDateEnvoiSite] = useState('')
+  // ── Pub stats dialog (budget/CA required before R2/Close) ──
+  const [pendingPubStats, setPendingPubStats] = useState<{ oppId: string; targetStatus: OpportunityStatus } | null>(null)
+  const [pubBudget, setPubBudget] = useState('')
+  const [pubEstimatedRevenue, setPubEstimatedRevenue] = useState('')
   // ── Booking type choice (site_web vs pub) ──
   const [bookingTypeChoiceOpen, setBookingTypeChoiceOpen] = useState(false)
   // ── Keyboard navigation: Arrow Up/Down to switch prospects ──
@@ -938,74 +952,104 @@ export function ProspectDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Pipeline de vente — affiché uniquement si une opportunité est liée */}
-          {linkedOpportunity && (
-            <Card className="border-blue-200 bg-blue-50/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-blue-600" />
-                  Pipeline de vente
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {/* Étapes actives */}
-                <div className="space-y-1">
-                  {OPPORTUNITY_PIPELINE_STAGES.map((stage) => {
-                    const isCurrent = linkedOpportunity.status === stage
-                    return (
-                      <button
-                        key={stage}
-                        disabled={updateOppStatus.isPending || updateProspect.isPending}
-                        onClick={() => {
-                          if (isCurrent) return
-                          if (stage === 'site_envoye') {
-                            setOppSiteUrl(prospect.website ?? '')
-                            setOppDateEnvoiSite(new Date().toISOString().split('T')[0])
-                            setPendingOppSiteEnvoye(true)
-                            return
-                          }
-                          updateOppStatus.mutate({ id: linkedOpportunity.id, status: stage })
-                        }}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                          isCurrent
-                            ? 'bg-blue-600 text-white border-blue-600 cursor-default'
-                            : 'bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-700'
-                        } disabled:opacity-50`}
-                      >
-                        {isCurrent && <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
-                        <span>{OPPORTUNITY_STATUS_LABELS[stage]}</span>
-                      </button>
-                    )
-                  })}
-                </div>
+          {/* Pipelines de vente — une card par type d'opportunité liée */}
+          {[siteWebOpp, pubOpp].filter(Boolean).map((opp) => {
+            const oppType = opp!.opportunity_type as 'site_web' | 'pub'
+            const stages = oppType === 'pub' ? OPPORTUNITY_PUB_STAGES : OPPORTUNITY_PIPELINE_STAGES
+            const borderColor = oppType === 'pub' ? 'border-amber-200 bg-amber-50/30' : 'border-blue-200 bg-blue-50/30'
+            const accentColor = oppType === 'pub' ? 'bg-amber-600' : 'bg-blue-600'
+            const iconColor = oppType === 'pub' ? 'text-amber-600' : 'text-blue-600'
+            const hoverBorder = oppType === 'pub' ? 'hover:border-amber-300 hover:bg-amber-50' : 'hover:border-blue-300 hover:bg-blue-50'
+            return (
+              <Card key={opp!.id} className={borderColor}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {oppType === 'pub' ? <Megaphone className={`h-4 w-4 ${iconColor}`} /> : <TrendingUp className={`h-4 w-4 ${iconColor}`} />}
+                    Pipeline {OPPORTUNITY_TYPE_LABELS[oppType]}
+                    <Badge className={`text-[10px] ${OPPORTUNITY_TYPE_COLORS[oppType]}`}>
+                      {OPPORTUNITY_TYPE_LABELS[oppType]}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="space-y-1">
+                    {stages.map((stage) => {
+                      const isCurrent = opp!.status === stage
+                      return (
+                        <button
+                          key={stage}
+                          disabled={updateOppStatus.isPending || updateProspect.isPending || updateOpp.isPending}
+                          onClick={() => {
+                            if (isCurrent) return
+                            // Site envoyé: require URL + date
+                            if (stage === 'site_envoye' && oppType === 'site_web') {
+                              setOppSiteUrl(prospect.website ?? '')
+                              setOppDateEnvoiSite(new Date().toISOString().split('T')[0])
+                              setPendingOppSiteEnvoyeOppId(opp!.id)
+                              setPendingOppSiteEnvoye(true)
+                              return
+                            }
+                            // Pub: require budget/CA before R2 or Close
+                            if (oppType === 'pub' && (stage === 'en_attente_retour' || stage === 'close')) {
+                              if (!opp!.budget_pub || !opp!.estimated_monthly_revenue) {
+                                setPubBudget(String(opp!.budget_pub || ''))
+                                setPubEstimatedRevenue(String(opp!.estimated_monthly_revenue || ''))
+                                setPendingPubStats({ oppId: opp!.id, targetStatus: stage })
+                                return
+                              }
+                            }
+                            updateOppStatus.mutate({ id: opp!.id, status: stage })
+                          }}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                            isCurrent
+                              ? `${accentColor} text-white border-transparent cursor-default`
+                              : `bg-white border-gray-200 ${hoverBorder} text-gray-700`
+                          } disabled:opacity-50`}
+                        >
+                          {isCurrent && <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />}
+                          <span>{getOpportunityLabel(stage, oppType)}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
 
-                {/* Séparateur + statut terminal */}
-                <Separator />
-                <div className="grid grid-cols-1 gap-1">
-                  {(() => {
-                    const isCurrent = linkedOpportunity.status === 'perdu'
-                    return (
-                      <button
-                        disabled={updateOppStatus.isPending}
-                        onClick={() => {
-                          if (isCurrent) return
-                          setPendingOppLoss(true)
-                        }}
-                        className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                          isCurrent
-                            ? 'bg-red-600 text-white border-red-600 cursor-default'
-                            : 'bg-white border-red-200 text-red-600 hover:bg-red-50'
-                        } disabled:opacity-50`}
-                      >
-                        {isCurrent && <CheckCircle2 className="h-3 w-3 shrink-0" />}
-                        {OPPORTUNITY_STATUS_LABELS['perdu']}
-                      </button>
-                    )
-                  })()}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                  {/* Pub: show budget/commission info if available */}
+                  {oppType === 'pub' && opp!.budget_pub && opp!.estimated_monthly_revenue && (
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 p-2 text-xs space-y-0.5">
+                      <div className="flex justify-between"><span className="text-amber-700">Budget pub</span><span className="font-medium">{formatCurrency(opp!.budget_pub)}/mois</span></div>
+                      <div className="flex justify-between"><span className="text-amber-700">CA estimé</span><span className="font-medium">{formatCurrency(opp!.estimated_monthly_revenue)}/mois</span></div>
+                      <div className="flex justify-between"><span className="text-amber-700">Commission (10%)</span><span className="font-bold text-amber-800">{formatCurrency(opp!.estimated_monthly_revenue * PUB_COMMISSION_RATE)}/mois</span></div>
+                    </div>
+                  )}
+
+                  <Separator />
+                  <div className="grid grid-cols-1 gap-1">
+                    {(() => {
+                      const isCurrent = opp!.status === 'perdu'
+                      return (
+                        <button
+                          disabled={updateOppStatus.isPending}
+                          onClick={() => {
+                            if (isCurrent) return
+                            setOppLossOppId(opp!.id)
+                            setPendingOppLoss(true)
+                          }}
+                          className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                            isCurrent
+                              ? 'bg-red-600 text-white border-red-600 cursor-default'
+                              : 'bg-white border-red-200 text-red-600 hover:bg-red-50'
+                          } disabled:opacity-50`}
+                        >
+                          {isCurrent && <CheckCircle2 className="h-3 w-3 shrink-0" />}
+                          {getOpportunityLabel('perdu', oppType)}
+                        </button>
+                      )
+                    })()}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
 
           {/* Dialog raison de perte opportunité depuis fiche prospect */}
           <Dialog open={pendingOppLoss} onOpenChange={(open) => { if (!open) { setPendingOppLoss(false); setOppLossReason(''); setOppLossNotes('') } }}>
@@ -1043,18 +1087,19 @@ export function ProspectDetailPage() {
                 </Button>
                 <Button
                   variant="destructive"
-                  disabled={!oppLossReason || updateOppStatus.isPending}
+                  disabled={!oppLossReason || !oppLossOppId || updateOppStatus.isPending}
                   onClick={() => {
-                    if (!linkedOpportunity || !oppLossReason) return
+                    if (!oppLossOppId || !oppLossReason) return
                     updateOppStatus.mutate({
-                      id: linkedOpportunity.id,
+                      id: oppLossOppId,
                       status: 'perdu',
                       extra: { loss_reason: oppLossReason, loss_notes: oppLossNotes || undefined },
                     })
                     setPendingOppLoss(false)
+                    setOppLossOppId('')
                     setOppLossReason('')
                     setOppLossNotes('')
-                  }}
+                  }
                 >
                   Confirmer la perte
                 </Button>
@@ -1253,7 +1298,7 @@ export function ProspectDetailPage() {
               <p className="font-medium">{prospect.company_name}</p>
               {linkedOpportunity && ['site_envoye', 'rdv', 'en_attente_retour'].includes(linkedOpportunity.status) && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Pipeline : {OPPORTUNITY_STATUS_LABELS[linkedOpportunity.status as OpportunityStatus] ?? linkedOpportunity.status} — le statut sera conservé
+                  Pipeline : {getOpportunityLabel(linkedOpportunity.status as OpportunityStatus, linkedOpportunity.opportunity_type as 'site_web' | 'pub')} — le statut sera conservé
                 </p>
               )}
             </div>
@@ -1563,9 +1608,9 @@ export function ProspectDetailPage() {
               type="button"
               disabled={!oppDateEnvoiSite || !oppSiteUrl.trim() || updateOppStatus.isPending || updateProspect.isPending}
               onClick={async () => {
-                if (!oppDateEnvoiSite || !oppSiteUrl.trim() || !linkedOpportunity) return
+                if (!oppDateEnvoiSite || !oppSiteUrl.trim() || !pendingOppSiteEnvoyeOppId) return
                 try {
-                  updateOppStatus.mutate({ id: linkedOpportunity.id, status: 'site_envoye' })
+                  updateOppStatus.mutate({ id: pendingOppSiteEnvoyeOppId, status: 'site_envoye' })
                   await updateProspect.mutateAsync({
                     id: prospect.id,
                     updates: {
@@ -1585,6 +1630,61 @@ export function ProspectDetailPage() {
             >
               {(updateOppStatus.isPending || updateProspect.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pub stats dialog — budget/CA required before R2/Close */}
+      <Dialog open={!!pendingPubStats} onOpenChange={(open) => { if (!open) { setPendingPubStats(null); setPubBudget(''); setPubEstimatedRevenue('') } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Stats Pub (LSA) — obligatoire</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Budget pub mensuel du client (EUR) *</Label>
+              <Input type="number" placeholder="Ex: 1500" value={pubBudget} onChange={(e) => setPubBudget(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>CA estimé / mois pour le client (EUR) *</Label>
+              <Input type="number" placeholder="Ex: 8000" value={pubEstimatedRevenue} onChange={(e) => setPubEstimatedRevenue(e.target.value)} />
+            </div>
+            {pubEstimatedRevenue && parseFloat(pubEstimatedRevenue) > 0 && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-amber-800">Notre commission (10%)</span>
+                  <span className="font-bold text-amber-700">{formatCurrency(parseFloat(pubEstimatedRevenue) * PUB_COMMISSION_RATE)} / mois</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setPendingPubStats(null); setPubBudget(''); setPubEstimatedRevenue('') }}>
+              Annuler
+            </Button>
+            <Button
+              disabled={!pubBudget || !pubEstimatedRevenue || parseFloat(pubBudget) <= 0 || parseFloat(pubEstimatedRevenue) <= 0 || updateOpp.isPending}
+              onClick={async () => {
+                if (!pendingPubStats) return
+                const budget = parseFloat(pubBudget) || 0
+                const revenue = parseFloat(pubEstimatedRevenue) || 0
+                if (!budget || !revenue) return
+                try {
+                  await updateOpp.mutateAsync({
+                    id: pendingPubStats.oppId,
+                    updates: { budget_pub: budget, estimated_monthly_revenue: revenue },
+                  })
+                  updateOppStatus.mutate({ id: pendingPubStats.oppId, status: pendingPubStats.targetStatus })
+                } finally {
+                  setPendingPubStats(null)
+                  setPubBudget('')
+                  setPubEstimatedRevenue('')
+                }
+              }}
+            >
+              {updateOpp.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmer et basculer
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -5,6 +5,7 @@ import {
   getOpportunitiesForKanban,
   getOpportunitiesForClient,
   getOpportunityForProspect,
+  getOpportunitiesAllForProspect,
   createOpportunity,
   updateOpportunity,
   updateOpportunityStatus,
@@ -45,6 +46,15 @@ export function useOpportunityForProspect(prospectId: string | undefined) {
   return useQuery({
     queryKey: ['opportunities', 'prospect', prospectId],
     queryFn: () => getOpportunityForProspect(prospectId!),
+    enabled: !!prospectId,
+    staleTime: STALE_TIME_LIST,
+  })
+}
+
+export function useOpportunitiesAllForProspect(prospectId: string | undefined) {
+  return useQuery({
+    queryKey: ['opportunities', 'prospect', 'all', prospectId],
+    queryFn: () => getOpportunitiesAllForProspect(prospectId!),
     enabled: !!prospectId,
     staleTime: STALE_TIME_LIST,
   })

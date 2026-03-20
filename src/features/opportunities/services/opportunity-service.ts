@@ -166,6 +166,18 @@ export async function getOpportunityForProspect(prospectId: string): Promise<Opp
   return data as unknown as Opportunity | null
 }
 
+export async function getOpportunitiesAllForProspect(prospectId: string): Promise<Opportunity[]> {
+  const { data, error } = await supabase
+    .from('opportunities')
+    .select(OPP_SELECT)
+    .eq('prospect_id', prospectId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return (data ?? []) as unknown as Opportunity[]
+}
+
 export async function getOpportunitiesForClient(clientId: string): Promise<Opportunity[]> {
   const { data, error } = await supabase
     .from('opportunities')
