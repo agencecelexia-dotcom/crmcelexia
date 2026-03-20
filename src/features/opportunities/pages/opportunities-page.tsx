@@ -6,6 +6,7 @@ import {
   OPPORTUNITY_STATUS_LABELS,
   OPPORTUNITY_STATUS_COLORS,
   OPPORTUNITY_TYPE_LABELS,
+  getOpportunityLabel,
   type OpportunityStatus,
   type OpportunityType,
 } from '@/types/enums'
@@ -128,8 +129,8 @@ export function OpportunitiesPage({ opportunityType }: OpportunitiesPageProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les statuts</SelectItem>
-                {Object.entries(OPPORTUNITY_STATUS_LABELS).map(([val, label]) => (
-                  <SelectItem key={val} value={val}>{label}</SelectItem>
+                {Object.keys(OPPORTUNITY_STATUS_LABELS).map((val) => (
+                  <SelectItem key={val} value={val}>{getOpportunityLabel(val as OpportunityStatus, opportunityType)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -172,7 +173,7 @@ export function OpportunitiesPage({ opportunityType }: OpportunitiesPageProps) {
                         <TableCell>{opp.prospect?.company_name ?? '—'}</TableCell>
                         <TableCell>
                           <StatusBadge
-                            label={OPPORTUNITY_STATUS_LABELS[opp.status]}
+                            label={getOpportunityLabel(opp.status, opportunityType)}
                             colorClass={OPPORTUNITY_STATUS_COLORS[opp.status]}
                           />
                         </TableCell>

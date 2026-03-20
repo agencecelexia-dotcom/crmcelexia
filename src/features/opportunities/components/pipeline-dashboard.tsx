@@ -3,7 +3,7 @@ import { usePipelineStats } from '../hooks/use-opportunities'
 import { StatCard } from '@/components/shared/stat-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/format'
-import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STAGE_HEX, type OpportunityStatus, type OpportunityType } from '@/types/enums'
+import { getOpportunityLabel, OPPORTUNITY_STAGE_HEX, type OpportunityStatus, type OpportunityType } from '@/types/enums'
 import { DollarSign, Trophy, Clock, TrendingUp } from 'lucide-react'
 import {
   BarChart,
@@ -28,7 +28,7 @@ export function PipelineDashboard({ opportunityType }: PipelineDashboardProps) {
   if (!pipeline) return null
 
   const chartData = pipeline.by_stage.map(s => ({
-    name: OPPORTUNITY_STATUS_LABELS[s.stage as OpportunityStatus] ?? s.stage,
+    name: getOpportunityLabel(s.stage as OpportunityStatus, opportunityType),
     total_price: s.total_price,
     count: s.count,
     fill: OPPORTUNITY_STAGE_HEX[s.stage as OpportunityStatus] ?? '#6B7280',

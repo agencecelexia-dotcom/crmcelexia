@@ -142,6 +142,7 @@ export function KanbanBoard({ opportunityType }: KanbanBoardProps) {
             opportunities={grouped[stage] ?? []}
             isDragOver={dragOverStatus === stage}
             draggingId={draggingId}
+            opportunityType={opportunityType}
             onDragOverColumn={() => setDragOverStatus(stage)}
             onDragLeaveColumn={() => setDragOverStatus(prev => prev === stage ? null : prev)}
             onDrop={() => handleDrop(stage)}

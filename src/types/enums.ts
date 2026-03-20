@@ -378,6 +378,20 @@ export const OPPORTUNITY_STATUS_LABELS: Record<OpportunityStatus, string> = {
   perdu: 'Perdu',
 }
 
+export const OPPORTUNITY_PUB_LABELS: Record<OpportunityStatus, string> = {
+  site_a_envoyer: 'Qualification',
+  site_envoye: 'Proposition envoyée',
+  rdv: 'RDV',
+  en_attente_retour: 'En attente de retour',
+  close: 'Close',
+  perdu: 'Perdu',
+}
+
+export function getOpportunityLabel(status: OpportunityStatus, type?: OpportunityType): string {
+  if (type === 'pub') return OPPORTUNITY_PUB_LABELS[status]
+  return OPPORTUNITY_STATUS_LABELS[status]
+}
+
 export const OPPORTUNITY_STATUS_COLORS: Record<OpportunityStatus, string> = {
   site_a_envoyer: 'bg-blue-100 text-blue-800',
   site_envoye: 'bg-cyan-100 text-cyan-800',

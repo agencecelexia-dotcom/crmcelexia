@@ -1,6 +1,6 @@
 import type { Opportunity } from '@/types'
-import type { OpportunityStatus } from '@/types/enums'
-import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STAGE_HEX } from '@/types/enums'
+import type { OpportunityStatus, OpportunityType } from '@/types/enums'
+import { getOpportunityLabel, OPPORTUNITY_STAGE_HEX } from '@/types/enums'
 import { formatCurrency } from '@/lib/format'
 import { KanbanCard } from './kanban-card'
 import { cn } from '@/lib/utils'
@@ -10,6 +10,7 @@ interface KanbanColumnProps {
   opportunities: Opportunity[]
   isDragOver: boolean
   draggingId: string | null
+  opportunityType?: OpportunityType
   onDragOverColumn: () => void
   onDragLeaveColumn: () => void
   onDrop: () => void
@@ -23,6 +24,7 @@ export function KanbanColumn({
   opportunities,
   isDragOver,
   draggingId,
+  opportunityType,
   onDragOverColumn,
   onDragLeaveColumn,
   onDrop,
@@ -60,7 +62,7 @@ export function KanbanColumn({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-            <h3 className="text-sm font-semibold">{OPPORTUNITY_STATUS_LABELS[status]}</h3>
+            <h3 className="text-sm font-semibold">{getOpportunityLabel(status, opportunityType)}</h3>
             <span className="text-xs bg-muted rounded-full px-2 py-0.5 font-medium text-muted-foreground">
               {opportunities.length}
             </span>
