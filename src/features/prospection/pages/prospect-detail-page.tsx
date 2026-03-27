@@ -1237,7 +1237,6 @@ export function ProspectDetailPage() {
         open={conversionDialogOpen}
         onOpenChange={setConversionDialogOpen}
         onConversionDone={(clientId) => navigate(`/clients/${clientId}`)}
-        onOpenContract={() => setContractDialogOpen(true)}
       />
       {/* Manual RDV form — only used when Cal.com is NOT configured */}
       {!calcomLink && (
