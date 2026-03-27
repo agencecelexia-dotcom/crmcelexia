@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase/client'
 import type { Opportunity, PipelineStats } from '@/types'
 import type { OpportunityStatus, OpportunityType } from '@/types/enums'
-import { DEFAULT_PAGE_SIZE, N8N_SITE_DEPLOY_WEBHOOK, N8N_SITE_DESTROY_WEBHOOK } from '@/lib/constants'
+import { DEFAULT_PAGE_SIZE, N8N_SITE_DEPLOY_WEBHOOK, N8N_SITE_DESTROY_WEBHOOK, N8N_SALE_NOTIFICATION_WEBHOOK } from '@/lib/constants'
 
 /**
  * Trigger n8n site deployment workflow when opportunity status becomes site_a_envoyer.
@@ -44,6 +44,33 @@ async function triggerSiteDestruction(prospectId: string) {
     }).catch((err: unknown) => console.error('[n8n] Site destroy webhook failed:', err))
   } catch (err) {
     console.error('[n8n] Failed to fetch prospect for site destroy:', err)
+  }
+}
+
+/**
+ * Trigger n8n sale notification email when opportunity is closed (won).
+ * Sends email to the assigned commercial. Fire-and-forget.
+ */
+async function triggerSaleNotification(opportunityId: string, prospectId: string, commercialId: string) {
+  try {
+    const [{ data: prospect }, { data: commercial }] = await Promise.all([
+      supabase.from('prospects').select('company_name, contact_name, contact_firstname, phone').eq('id', prospectId).single(),
+      supabase.from('profiles').select('full_name, email').eq('id', commercialId).single(),
+    ])
+    if (!prospect || !commercial) return
+    fetch(N8N_SALE_NOTIFICATION_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        opportunityId,
+        prospect: { id: prospectId, ...prospect },
+        commercial: { id: commercialId, ...commercial },
+        signedAt: new Date().toISOString(),
+        crmLink: `https://crmcelexia-celexias-projects.vercel.app/prospects/${prospectId}`,
+      }),
+    }).catch((err: unknown) => console.error('[n8n] Sale notification webhook failed:', err))
+  } catch (err) {
+    console.error('[n8n] Failed to trigger sale notification:', err)
   }
 }
 
@@ -253,6 +280,11 @@ export async function updateOpportunityStatus(
     if (newStatus === 'perdu' && data.prospect_id) {
       triggerSiteDestruction(data.prospect_id)
     }
+  }
+
+  // Sale notification email when opportunity is closed (won)
+  if (newStatus === 'close' && data.prospect_id) {
+    triggerSaleNotification(id, data.prospect_id, data.commercial_id)
   }
 
   return data as unknown as Opportunity

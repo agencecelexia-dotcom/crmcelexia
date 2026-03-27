@@ -9,3 +9,6 @@ export const N8N_SITE_DEPLOY_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webho
 
 // n8n webhook for automatic site destruction (when perdu)
 export const N8N_SITE_DESTROY_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/crm-site-destroy'
+
+// n8n webhook for sale notification email to commercial
+export const N8N_SALE_NOTIFICATION_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/crm-sale-notification'
