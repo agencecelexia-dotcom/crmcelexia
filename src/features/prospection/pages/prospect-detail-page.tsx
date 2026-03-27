@@ -86,6 +86,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { LeadScore } from '@/types'
+import { GenerateContractDialog } from '@/features/contracts/components/generate-contract-dialog'
 
 export function ProspectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -101,6 +102,7 @@ export function ProspectDetailPage() {
   const [editData, setEditData] = useState<Record<string, string>>({})
   const [callLoggerOpen, setCallLoggerOpen] = useState(false)
   const [reminderFormOpen, setReminderFormOpen] = useState(false)
+  const [contractDialogOpen, setContractDialogOpen] = useState(false)
   const [rdvFormOpen, setRdvFormOpen] = useState(false)
   const [rappelerDialogOpen, setRappelerDialogOpen] = useState(false)
   const [rappelerDate, setRappelerDate] = useState('')
@@ -897,6 +899,10 @@ export function ProspectDetailPage() {
                       <Megaphone className="mr-2 h-4 w-4" />
                       RDV Pub (LSA)
                     </Button>
+                    <Button variant="outline" className="w-full border-violet-300 text-violet-700 hover:bg-violet-50" size="sm" onClick={() => setContractDialogOpen(true)}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Générer contrat
+                    </Button>
                     <Button variant="outline" className="w-full" size="sm" onClick={() => setReminderFormOpen(true)}>
                       <Clock className="mr-2 h-4 w-4" />
                       Planifier un rappel
@@ -1225,6 +1231,11 @@ export function ProspectDetailPage() {
         prospect={prospect}
         open={reminderFormOpen}
         onOpenChange={setReminderFormOpen}
+      />
+      <GenerateContractDialog
+        prospect={prospect}
+        open={contractDialogOpen}
+        onOpenChange={setContractDialogOpen}
       />
       {/* Manual RDV form — only used when Cal.com is NOT configured */}
       {!calcomLink && (
