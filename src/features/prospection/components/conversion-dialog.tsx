@@ -1,4 +1,4 @@
-import { useState, type MutableRefObject } from 'react'
+import { useState } from 'react'
 import type { Prospect, Opportunity } from '@/types'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -24,7 +24,6 @@ interface Props {
   onOpenChange: (open: boolean) => void
   onConversionDone: (clientId: string) => void
   onOpenContract: () => void
-  contractCallbackRef: MutableRefObject<((blob: Blob, fileName: string) => void) | null>
 }
 
 const LOGO_URL = 'https://crmcelexia.vercel.app/logocelexia.png'
@@ -222,24 +221,24 @@ function blobToBase64(blob: Blob): Promise<string> {
     const reader = new FileReader()
     reader.onloadend = () => {
       const result = reader.result as string
-      resolve(result.split(',')[1]) // strip "data:...;base64,"
+      resolve(result.split(',')[1])
     }
     reader.onerror = reject
     reader.readAsDataURL(blob)
   })
 }
 
-interface Attachment {
+interface WebhookAttachment {
   base64: string
   fileName: string
-  mimeType?: string
+  mimeType: string
 }
 
 async function sendDraftViaWebhook(
   to: string,
   subject: string,
   html: string,
-  attachments?: Attachment[],
+  attachments?: WebhookAttachment[],
 ) {
   const payload: Record<string, unknown> = { to, subject, html }
   if (attachments && attachments.length > 0) {
@@ -253,27 +252,15 @@ async function sendDraftViaWebhook(
   if (!res.ok) throw new Error(`Webhook error: ${res.status}`)
 }
 
-async function fetchIbanPdfBase64(): Promise<string | null> {
-  try {
-    const res = await fetch(IBAN_PDF_PATH)
-    if (!res.ok) return null
-    const blob = await res.blob()
-    return blobToBase64(blob)
-  } catch {
-    return null
-  }
-}
-
 export function ConversionDialog({
-  prospect, linkedOpportunity, open, onOpenChange, onConversionDone, onOpenContract, contractCallbackRef,
+  prospect, linkedOpportunity, open, onOpenChange, onConversionDone, onOpenContract,
 }: Props) {
   const [step, setStep] = useState<Step>('choose_type')
   const [projectType, setProjectType] = useState<'site_web' | 'pub' | null>(null)
   const [budgetPub, setBudgetPub] = useState('')
   const [converting, setConverting] = useState(false)
-  const [draftStatus, setDraftStatus] = useState<'idle' | 'waiting_contract' | 'sending' | 'sent' | 'error'>('idle')
+  const [draftStatus, setDraftStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [clientId, setClientId] = useState<string | null>(null)
-  const [pendingEmail, setPendingEmail] = useState<{ subject: string; html: string } | null>(null)
 
   const convertProspect = useConvertProspect()
   const queryClient = useQueryClient()
@@ -285,7 +272,6 @@ export function ConversionDialog({
     setConverting(false)
     setDraftStatus('idle')
     setClientId(null)
-    setPendingEmail(null)
   }
 
   function handleOpenChange(o: boolean) {
@@ -317,40 +303,37 @@ export function ConversionDialog({
 
       toast.success('Prospect converti en client !')
 
-      // 3. Prepare email — capture values NOW to avoid stale closure
-      const email = buildHtmlEmail(prospect, type, budget || 0)
-      const recipientEmail = prospect.contact_email
-      setPendingEmail(email)
+      // 3. Create email draft immediately (with IBAN for pub)
+      if (prospect.contact_email) {
+        setDraftStatus('sending')
+        try {
+          const email = buildHtmlEmail(prospect, type, budget || 0)
+          const pjList: WebhookAttachment[] = []
 
-      // 4. Open contract dialog — register callback with captured values
-      if (recipientEmail) {
-        setDraftStatus('waiting_contract')
-        console.log('[ConversionDialog] Registering contract callback for:', recipientEmail)
-        contractCallbackRef.current = async (blob: Blob, fileName: string) => {
-          console.log('[ConversionDialog] Contract callback fired, blob size:', blob.size)
-          setDraftStatus('sending')
-          try {
-            const contractBase64 = await blobToBase64(blob)
-            console.log('[ConversionDialog] Contract base64 length:', contractBase64.length)
-            const pjList: Attachment[] = [
-              { base64: contractBase64, fileName, mimeType: 'application/pdf' },
-            ]
-            if (type === 'pub') {
-              const ibanBase64 = await fetchIbanPdfBase64()
-              if (ibanBase64) {
+          // Attach IBAN PDF for pub projects
+          if (type === 'pub') {
+            try {
+              const ibanRes = await fetch(IBAN_PDF_PATH)
+              if (ibanRes.ok) {
+                const ibanBlob = await ibanRes.blob()
+                const ibanBase64 = await blobToBase64(ibanBlob)
                 pjList.push({ base64: ibanBase64, fileName: 'IBAN Celexia.pdf', mimeType: 'application/pdf' })
               }
+            } catch {
+              // IBAN fetch failed — send without it
             }
-            console.log('[ConversionDialog] Sending webhook, PJ count:', pjList.length, 'total base64 size:', pjList.reduce((s, p) => s + p.base64.length, 0))
-            await sendDraftViaWebhook(recipientEmail, email.subject, email.html, pjList)
-            setDraftStatus('sent')
-            toast.success('Brouillon Gmail créé avec les PJ !')
-          } catch (err) {
-            console.error('[ConversionDialog] Draft creation failed:', err)
-            setDraftStatus('error')
           }
+
+          await sendDraftViaWebhook(prospect.contact_email, email.subject, email.html, pjList)
+          setDraftStatus('sent')
+          toast.success('Brouillon Gmail créé !')
+        } catch (err) {
+          console.error('[ConversionDialog] Draft failed:', err)
+          setDraftStatus('error')
         }
       }
+
+      // 4. Open contract dialog
       onOpenContract()
 
       // 5. Move to email step
@@ -378,18 +361,6 @@ export function ConversionDialog({
       return
     }
     handleConvert('pub', budget)
-  }
-
-  async function handleSendWithoutAttachment() {
-    if (!pendingEmail || !prospect.contact_email) return
-    setDraftStatus('sending')
-    try {
-      await sendDraftViaWebhook(prospect.contact_email, pendingEmail.subject, pendingEmail.html)
-      setDraftStatus('sent')
-      toast.success('Brouillon Gmail créé (sans PJ)')
-    } catch {
-      setDraftStatus('error')
-    }
   }
 
   function handleFinish() {
@@ -483,7 +454,7 @@ export function ConversionDialog({
                 className="bg-emerald-600 hover:bg-emerald-700"
               >
                 {converting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}
-                {converting ? 'Conversion...' : 'Convertir et générer contrat'}
+                {converting ? 'Conversion...' : 'Convertir'}
               </Button>
             </DialogFooter>
           </>
@@ -499,35 +470,34 @@ export function ConversionDialog({
               </DialogTitle>
             </DialogHeader>
 
-            {/* Draft status */}
-            {draftStatus === 'waiting_contract' && (
-              <div className="flex items-center gap-3 p-4 bg-violet-50 rounded-lg border border-violet-200">
-                <Loader2 className="h-5 w-5 text-violet-600 animate-spin shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-violet-900">En attente du contrat...</p>
-                  <p className="text-xs text-violet-600">Générez le contrat — il sera automatiquement attaché au brouillon Gmail</p>
-                </div>
-              </div>
-            )}
-
             {draftStatus === 'sending' && (
               <div className="flex items-center gap-3 p-4 bg-violet-50 rounded-lg border border-violet-200">
                 <Loader2 className="h-5 w-5 text-violet-600 animate-spin shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-violet-900">Création du brouillon en cours...</p>
-                  <p className="text-xs text-violet-600">Contrat en PJ + email personnalisé</p>
+                  <p className="text-sm font-medium text-violet-900">Création du brouillon...</p>
                 </div>
               </div>
             )}
 
             {draftStatus === 'sent' && (
-              <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-emerald-900">Brouillon créé avec le contrat en PJ !</p>
-                  <p className="text-xs text-emerald-600">
-                    Ouvrez Gmail et envoyez à <strong>{prospect.contact_email}</strong>
-                  </p>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-emerald-900">Brouillon Gmail créé !</p>
+                    <p className="text-xs text-emerald-600">
+                      Destinataire : <strong>{prospect.contact_email}</strong>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                  <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-900">Glissez le contrat en PJ</p>
+                    <p className="text-xs text-amber-600">
+                      Le contrat vient d'être téléchargé — ajoutez-le au brouillon avant d'envoyer
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -535,7 +505,7 @@ export function ConversionDialog({
             {draftStatus === 'error' && (
               <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg border border-red-200">
                 <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
-                <div className="flex-1">
+                <div>
                   <p className="text-sm font-medium text-red-900">Erreur lors de la création du brouillon</p>
                   <p className="text-xs text-red-600">Vérifiez la connexion N8N / Gmail</p>
                 </div>
@@ -547,7 +517,6 @@ export function ConversionDialog({
                 <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-amber-900">Pas d'email pour ce prospect</p>
-                  <p className="text-xs text-amber-600">Ajoutez un email au prospect pour envoyer automatiquement</p>
                 </div>
               </div>
             )}
@@ -566,14 +535,14 @@ export function ConversionDialog({
                   <p>Bonjour {prospect.contact_firstname || prospect.contact_name}...</p>
                   {projectType === 'pub' ? (
                     <ol className="list-decimal list-inside space-y-1">
-                      <li>Signer le contrat <span className="text-emerald-600">(en PJ)</span></li>
-                      <li>Verser {parseFloat(budgetPub.replace(/\s/g, '').replace(',', '.')) || 0} € de budget pub <span className="text-emerald-600">(IBAN en PJ)</span></li>
-                      <li>Partager Google My Business <span className="text-violet-600">(+ mini-tuto inclus)</span></li>
+                      <li>Signer le contrat <span className="text-emerald-600">(à glisser en PJ)</span></li>
+                      <li>Verser le budget pub <span className="text-emerald-600">(IBAN en PJ)</span></li>
+                      <li>Partager Google My Business <span className="text-violet-600">(+ mini-tuto)</span></li>
                       <li>Envoyer assurance décennale</li>
                     </ol>
                   ) : (
                     <ol className="list-decimal list-inside space-y-1">
-                      <li>Signer le contrat <span className="text-emerald-600">(en PJ)</span></li>
+                      <li>Signer le contrat <span className="text-emerald-600">(à glisser en PJ)</span></li>
                       <li>Envoyer assurance décennale</li>
                     </ol>
                   )}
@@ -583,11 +552,6 @@ export function ConversionDialog({
             </div>
 
             <DialogFooter className="mt-4 gap-2">
-              {draftStatus === 'waiting_contract' && (
-                <Button variant="outline" size="sm" onClick={handleSendWithoutAttachment}>
-                  Créer le brouillon sans PJ
-                </Button>
-              )}
               {draftStatus === 'sent' && (
                 <Button
                   variant="outline"

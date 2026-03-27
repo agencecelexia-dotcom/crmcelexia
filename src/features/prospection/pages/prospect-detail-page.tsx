@@ -130,7 +130,6 @@ export function ProspectDetailPage() {
   const [bookingTypeChoiceOpen, setBookingTypeChoiceOpen] = useState(false)
   // ── Conversion dialog (type + budget + email) ──
   const [conversionDialogOpen, setConversionDialogOpen] = useState(false)
-  const contractCallbackRef = useRef<((blob: Blob, fileName: string) => void) | null>(null)
   // ── Keyboard navigation: Arrow Up/Down to switch prospects ──
   const { data: prospectListData } = useProspects({ page: 1, pageSize: 200, sortBy: 'created_at', sortDesc: true })
   const prospectIds = useMemo(() => (prospectListData?.data ?? []).map((p) => p.id), [prospectListData])
@@ -1231,20 +1230,14 @@ export function ProspectDetailPage() {
         prospect={prospect}
         open={contractDialogOpen}
         onOpenChange={setContractDialogOpen}
-        onContractGenerated={(blob, fileName) => {
-          console.log('[ContractGenerated] blob size:', blob.size, 'fileName:', fileName, 'callbackExists:', !!contractCallbackRef.current)
-          contractCallbackRef.current?.(blob, fileName)
-          contractCallbackRef.current = null
-        }}
       />
       <ConversionDialog
         prospect={prospect}
         linkedOpportunity={linkedOpportunity ?? undefined}
         open={conversionDialogOpen}
-        onOpenChange={(o) => { setConversionDialogOpen(o); if (!o) contractCallbackRef.current = null }}
+        onOpenChange={setConversionDialogOpen}
         onConversionDone={(clientId) => navigate(`/clients/${clientId}`)}
         onOpenContract={() => setContractDialogOpen(true)}
-        contractCallbackRef={contractCallbackRef}
       />
       {/* Manual RDV form — only used when Cal.com is NOT configured */}
       {!calcomLink && (
