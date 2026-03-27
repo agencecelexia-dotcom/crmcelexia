@@ -27,8 +27,8 @@ interface Props {
   contractCallbackRef: MutableRefObject<((blob: Blob, fileName: string) => void) | null>
 }
 
-const IBAN = 'FR76 XXXX XXXX XXXX XXXX XXXX XXX' // TODO: remplacer par le vrai IBAN Celexia
 const LOGO_URL = 'https://crmcelexia.vercel.app/logocelexia.png'
+const IBAN_PDF_PATH = '/iban-celexia.pdf'
 
 function buildHtmlEmail(prospect: Prospect, type: 'site_web' | 'pub', budgetPub: number) {
   const prenom = prospect.contact_firstname || prospect.contact_name || ''
@@ -65,10 +65,7 @@ function buildHtmlEmail(prospect: Prospect, type: 'site_web' | 'pub', budgetPub:
                 <td style="padding-left:12px;">
                   <strong style="color:#1a1a2e;font-size:15px;">Verser votre budget publicitaire</strong>
                   <p style="margin:4px 0 0;color:#555;font-size:13px;">Montant : <strong>${budgetStr}\u00a0\u20ac</strong></p>
-                  <div style="margin:8px 0 0;padding:10px 14px;background:#f3f0ff;border-radius:8px;border-left:3px solid #7C3AED;">
-                    <span style="font-size:12px;color:#7C3AED;font-weight:600;letter-spacing:0.3px;">IBAN</span><br/>
-                    <span style="font-size:14px;color:#1a1a2e;font-family:monospace;font-weight:600;">${IBAN}</span>
-                  </div>
+                  <p style="margin:4px 0 0;color:#555;font-size:13px;">Vous trouverez notre IBAN en pièce jointe de cet email.</p>
                 </td>
               </tr>
             </table>
@@ -232,16 +229,21 @@ function blobToBase64(blob: Blob): Promise<string> {
   })
 }
 
+interface Attachment {
+  base64: string
+  fileName: string
+  mimeType?: string
+}
+
 async function sendDraftViaWebhook(
   to: string,
   subject: string,
   html: string,
-  attachment?: { base64: string; fileName: string },
+  attachments?: Attachment[],
 ) {
   const payload: Record<string, unknown> = { to, subject, html }
-  if (attachment) {
-    payload.attachment = attachment.base64
-    payload.attachmentName = attachment.fileName
+  if (attachments && attachments.length > 0) {
+    payload.attachments = attachments
   }
   const res = await fetch(N8N_EMAIL_DRAFT_WEBHOOK, {
     method: 'POST',
@@ -250,6 +252,17 @@ async function sendDraftViaWebhook(
   })
   if (!res.ok) throw new Error(`Webhook error: ${res.status}`)
   return res.json()
+}
+
+async function fetchIbanPdfBase64(): Promise<string | null> {
+  try {
+    const res = await fetch(IBAN_PDF_PATH)
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return blobToBase64(blob)
+  } catch {
+    return null
+  }
 }
 
 export function ConversionDialog({
@@ -286,19 +299,29 @@ export function ConversionDialog({
     if (!pendingEmail || !prospect.contact_email) return
     setDraftStatus('sending')
     try {
-      const base64 = await blobToBase64(blob)
+      const contractBase64 = await blobToBase64(blob)
+      const pjList: Attachment[] = [
+        { base64: contractBase64, fileName, mimeType: 'application/pdf' },
+      ]
+      // Attach IBAN PDF for pub projects
+      if (projectType === 'pub') {
+        const ibanBase64 = await fetchIbanPdfBase64()
+        if (ibanBase64) {
+          pjList.push({ base64: ibanBase64, fileName: 'IBAN Celexia.pdf', mimeType: 'application/pdf' })
+        }
+      }
       await sendDraftViaWebhook(
         prospect.contact_email,
         pendingEmail.subject,
         pendingEmail.html,
-        { base64, fileName },
+        pjList,
       )
       setDraftStatus('sent')
-      toast.success('Brouillon Gmail créé avec le contrat en PJ !')
+      toast.success('Brouillon Gmail créé avec les PJ !')
     } catch {
       setDraftStatus('error')
     }
-  }, [pendingEmail, prospect.contact_email])
+  }, [pendingEmail, prospect.contact_email, projectType])
 
   async function handleConvert(type: 'site_web' | 'pub', budget?: number) {
     setConverting(true)
@@ -549,7 +572,7 @@ export function ConversionDialog({
                   {projectType === 'pub' ? (
                     <ol className="list-decimal list-inside space-y-1">
                       <li>Signer le contrat <span className="text-emerald-600">(en PJ)</span></li>
-                      <li>Verser {parseFloat(budgetPub.replace(/\s/g, '').replace(',', '.')) || 0} € de budget pub</li>
+                      <li>Verser {parseFloat(budgetPub.replace(/\s/g, '').replace(',', '.')) || 0} € de budget pub <span className="text-emerald-600">(IBAN en PJ)</span></li>
                       <li>Partager Google My Business <span className="text-violet-600">(+ mini-tuto inclus)</span></li>
                       <li>Envoyer assurance décennale</li>
                     </ol>

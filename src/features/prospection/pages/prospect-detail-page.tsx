@@ -1238,7 +1238,7 @@ export function ProspectDetailPage() {
       />
       <ConversionDialog
         prospect={prospect}
-        linkedOpportunity={linkedOpportunity}
+        linkedOpportunity={linkedOpportunity ?? undefined}
         open={conversionDialogOpen}
         onOpenChange={(o) => { setConversionDialogOpen(o); if (!o) contractCallbackRef.current = null }}
         onConversionDone={(clientId) => navigate(`/clients/${clientId}`)}
