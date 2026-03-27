@@ -3,7 +3,7 @@
  * Uses pdf-lib for clean PDF output with fillable signature fields.
  */
 
-import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from 'pdf-lib'
+import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage, PDFImage } from 'pdf-lib'
 import type { CompanySearchResult } from './company-search-service'
 
 export interface ContractData {
@@ -167,6 +167,16 @@ function drawItalic(state: DrawState, text: string, centered = false) {
 export async function generateContract(data: ContractData): Promise<Blob> {
   const doc = await PDFDocument.create()
   const font = await doc.embedFont(StandardFonts.Helvetica)
+
+  // Load Celexia signature image
+  let signatureImage: PDFImage | null = null
+  try {
+    const sigRes = await fetch('/signature-celexia.png')
+    const sigBytes = await sigRes.arrayBuffer()
+    signatureImage = await doc.embedPng(new Uint8Array(sigBytes))
+  } catch (err) {
+    console.error('Failed to load signature image:', err)
+  }
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold)
   const fontItalic = await doc.embedFont(StandardFonts.HelveticaOblique)
 
@@ -320,8 +330,19 @@ export async function generateContract(data: ContractData): Promise<Blob> {
 
   // Row 3: Signatures
   const r3top = tableTop - rowH * 2
-  state.page.drawText(`Signé le ${dateStr}`, { x: tableLeft + cellPad, y: r3top - 14, size: 8, font: fontItalic, color: black })
-  state.page.drawText('Thomas Aubigeon', { x: tableLeft + cellPad, y: r3top - 28, size: 9, font: fontBold, color: black })
+  // Celexia signature image
+  if (signatureImage) {
+    const sigW = 100
+    const sigH = (signatureImage.height / signatureImage.width) * sigW
+    state.page.drawImage(signatureImage, {
+      x: tableLeft + cellPad,
+      y: r3top - rowH + 4,
+      width: sigW,
+      height: Math.min(sigH, rowH - 8),
+    })
+  }
+  state.page.drawText(`Signé le ${dateStr}`, { x: tableLeft + cellPad + 110, y: r3top - 16, size: 8, font: fontItalic, color: black })
+  state.page.drawText('Thomas Aubigeon', { x: tableLeft + cellPad + 110, y: r3top - 28, size: 9, font: fontBold, color: black })
 
   // Client signature fillable field — fits inside the right cell of row 3
   const form = doc.getForm()
