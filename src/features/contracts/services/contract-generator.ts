@@ -286,71 +286,68 @@ export async function generateContract(data: ContractData): Promise<Blob> {
   drawItalic(state, 'Les signatures apposées ci-dessous valent consentement plein et entier des Parties aux termes du présent accord, conformément à l\'article 1367 du Code civil.', true)
   state.y -= 30
 
-  // Signature table
+  // Signature table — 4 rows, 2 columns
   const tableTop = state.y
   const tableLeft = MARGIN_LEFT
   const tableRight = PAGE_WIDTH - MARGIN_RIGHT
   const colMid = PAGE_WIDTH / 2
-  const tableHeight = 180
-  const rowHeight = 36
-
-  // Draw table borders
+  const rowH = 40
+  const tableHeight = rowH * 4
   const borderColor = rgb(0, 0, 0)
+
   // Outer border
   state.page.drawRectangle({ x: tableLeft, y: tableTop - tableHeight, width: tableRight - tableLeft, height: tableHeight, borderColor, borderWidth: 1 })
   // Vertical middle line
   state.page.drawLine({ start: { x: colMid, y: tableTop }, end: { x: colMid, y: tableTop - tableHeight }, color: borderColor, thickness: 1 })
-  // Horizontal lines
-  for (let i = 1; i < 5; i++) {
-    const lineY = tableTop - rowHeight * i
+  // 3 horizontal lines (between 4 rows)
+  for (let i = 1; i < 4; i++) {
+    const lineY = tableTop - rowH * i
     state.page.drawLine({ start: { x: tableLeft, y: lineY }, end: { x: tableRight, y: lineY }, color: borderColor, thickness: 1 })
   }
 
-  // Row 1: Headers
-  const r1y = tableTop - 12
-  state.page.drawText('Agence Celexia', { x: tableLeft + 30, y: r1y - 12, size: 10, font: fontBold, color: rgb(0, 0, 0) })
-  state.page.drawText(data.client_enseigne, { x: colMid + 20, y: r1y - 12, size: 10, font: fontBold, color: rgb(0, 0, 0) })
+  const cellPad = 15
+  const black = rgb(0, 0, 0)
 
-  // Row 2: Names + Titles
-  const r2y = tableTop - rowHeight - 8
-  state.page.drawText('Thomas Aubigeon — Président', { x: tableLeft + 15, y: r2y - 12, size: 9, font: font, color: rgb(0, 0, 0) })
-  state.page.drawText(`${data.client_prenom} ${data.client_nom} — ${data.client_titre}`, { x: colMid + 15, y: r2y - 12, size: 9, font: font, color: rgb(0, 0, 0) })
+  // Row 1: Company names (centered vertically)
+  const r1y = tableTop - rowH / 2 - 4
+  state.page.drawText('Agence Celexia', { x: tableLeft + cellPad, y: r1y, size: 10, font: fontBold, color: black })
+  state.page.drawText(data.client_enseigne, { x: colMid + cellPad, y: r1y, size: 10, font: fontBold, color: black })
 
-  // Row 3: Signature area (left = pre-signed by Celexia, right = fillable)
-  const r3y = tableTop - rowHeight * 2 - 8
-  state.page.drawText(`Signé le ${dateStr}`, { x: tableLeft + 15, y: r3y - 12, size: 8, font: fontItalic, color: rgb(0, 0, 0) })
-  state.page.drawText('Thomas Aubigeon', { x: tableLeft + 15, y: r3y - 26, size: 9, font: fontBold, color: rgb(0, 0, 0) })
+  // Row 2: Names + titles
+  const r2y = tableTop - rowH - rowH / 2 - 4
+  state.page.drawText('Thomas Aubigeon — Président', { x: tableLeft + cellPad, y: r2y, size: 9, font, color: black })
+  state.page.drawText(`${data.client_prenom} ${data.client_nom} — ${data.client_titre}`, { x: colMid + cellPad, y: r2y, size: 9, font, color: black })
 
-  // Right side: fillable signature field for client
-  state.page.drawText('Signature :', { x: colMid + 15, y: r3y - 12, size: 8, font: fontItalic, color: rgb(0.4, 0.4, 0.4) })
+  // Row 3: Signatures
+  const r3top = tableTop - rowH * 2
+  state.page.drawText(`Signé le ${dateStr}`, { x: tableLeft + cellPad, y: r3top - 14, size: 8, font: fontItalic, color: black })
+  state.page.drawText('Thomas Aubigeon', { x: tableLeft + cellPad, y: r3top - 28, size: 9, font: fontBold, color: black })
 
-  // Row 4: Date fields
-  const r4y = tableTop - rowHeight * 3 - 8
-  state.page.drawText(`Date : ${dateStr}`, { x: tableLeft + 15, y: r4y - 12, size: 9, font: font, color: rgb(0, 0, 0) })
-  state.page.drawText('Date : ', { x: colMid + 15, y: r4y - 12, size: 9, font: font, color: rgb(0, 0, 0) })
-
-  // Add fillable form fields for client
+  // Client signature fillable field — fits inside the right cell of row 3
   const form = doc.getForm()
-
-  // Client signature text field
   const sigField = form.createTextField('client_signature')
   sigField.setText('')
   sigField.addToPage(state.page, {
-    x: colMid + 70,
-    y: tableTop - rowHeight * 3 - 20,
-    width: (tableRight - colMid) - 90,
-    height: 50,
+    x: colMid + 2,
+    y: r3top - rowH + 2,
+    width: (tableRight - colMid) - 4,
+    height: rowH - 4,
     borderWidth: 0,
   })
 
-  // Client date text field
+  // Row 4: Dates
+  const r4top = tableTop - rowH * 3
+  state.page.drawText(`Date : ${dateStr}`, { x: tableLeft + cellPad, y: r4top - rowH / 2 - 4, size: 9, font, color: black })
+  state.page.drawText('Date :', { x: colMid + cellPad, y: r4top - rowH / 2 - 4, size: 9, font, color: black })
+
+  // Client date fillable field
   const dateField = form.createTextField('client_date')
   dateField.setText('')
   dateField.addToPage(state.page, {
     x: colMid + 55,
-    y: r4y - 24,
-    width: 150,
-    height: 18,
+    y: r4top - rowH + 6,
+    width: 140,
+    height: rowH - 12,
     borderWidth: 0,
   })
 
