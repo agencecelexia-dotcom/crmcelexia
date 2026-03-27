@@ -115,7 +115,7 @@ export function GenerateContractDialog({ prospect, open, onOpenChange }: Props) 
         client_titre: titre,
       }
       const blob = await generateContract(data)
-      const fileName = `Contrat Celexia — ${enseigne}.docx`
+      const fileName = `Contrat Celexia — ${enseigne}.pdf`
       saveAs(blob, fileName)
       toast.success('Contrat généré avec succès')
       onOpenChange(false)
