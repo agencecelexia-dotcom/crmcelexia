@@ -1,6 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useProspect, useProspects, useUpdateProspect, useTeamMembers } from '../hooks/use-prospects'
-import { useConvertProspect } from '@/features/clients/hooks/use-clients'
 import { reassignPendingReminders } from '../services/prospect-service'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { Button } from '@/components/ui/button'
@@ -87,6 +86,7 @@ import {
 } from '@/components/ui/select'
 import type { LeadScore } from '@/types'
 import { GenerateContractDialog } from '@/features/contracts/components/generate-contract-dialog'
+import { ConversionDialog } from '../components/conversion-dialog'
 
 export function ProspectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -94,7 +94,6 @@ export function ProspectDetailPage() {
   const { isFounder, session } = useAuth()
   const { data: prospect, isLoading, error } = useProspect(id)
   const updateProspect = useUpdateProspect()
-  const convertProspect = useConvertProspect()
   const queryClient = useQueryClient()
   const { data: calcomLink } = useCalcomLink()
   const { data: teamMembers = [] } = useTeamMembers()
@@ -129,6 +128,9 @@ export function ProspectDetailPage() {
   const [oppDateEnvoiSite, setOppDateEnvoiSite] = useState('')
   // ── Booking type choice (site_web vs pub) ──
   const [bookingTypeChoiceOpen, setBookingTypeChoiceOpen] = useState(false)
+  // ── Conversion dialog (type + budget + email) ──
+  const [conversionDialogOpen, setConversionDialogOpen] = useState(false)
+  const contractCallbackRef = useRef<((blob: Blob, fileName: string) => void) | null>(null)
   // ── Keyboard navigation: Arrow Up/Down to switch prospects ──
   const { data: prospectListData } = useProspects({ page: 1, pageSize: 200, sortBy: 'created_at', sortDesc: true })
   const prospectIds = useMemo(() => (prospectListData?.data ?? []).map((p) => p.id), [prospectListData])
@@ -905,28 +907,21 @@ export function ProspectDetailPage() {
                     </Button>
                   </>
                 )}
-                <Button variant="outline" className="w-full border-violet-300 text-violet-700 hover:bg-violet-50" size="sm" onClick={() => setContractDialogOpen(true)}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Générer contrat
-                </Button>
+                {isFounder && (
+                  <Button variant="outline" className="w-full border-violet-300 text-violet-700 hover:bg-violet-50" size="sm" onClick={() => setContractDialogOpen(true)}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Générer contrat
+                  </Button>
+                )}
                 {prospect.status === 'rdv_pris' || prospect.status === 'site_envoye' || prospect.status === 'converti_client' ? (
                   <Button
                     variant="default"
                     className="w-full bg-emerald-600 hover:bg-emerald-700"
                     size="sm"
-                    disabled={convertProspect.isPending}
-                    onClick={async () => {
-                      try {
-                        const clientId = await convertProspect.mutateAsync(prospect.id)
-                        toast.success('Prospect converti en client !')
-                        navigate(`/clients/${clientId}`)
-                      } catch {
-                        toast.error('Erreur lors de la conversion')
-                      }
-                    }}
+                    onClick={() => setConversionDialogOpen(true)}
                   >
                     <UserCheck className="mr-2 h-4 w-4" />
-                    {convertProspect.isPending ? 'Conversion...' : 'Convertir en client'}
+                    Convertir en client
                   </Button>
                 ) : null}
                 {prospect.status !== 'perdu' && prospect.status !== 'converti_client' && (
@@ -1236,6 +1231,19 @@ export function ProspectDetailPage() {
         prospect={prospect}
         open={contractDialogOpen}
         onOpenChange={setContractDialogOpen}
+        onContractGenerated={(blob, fileName) => {
+          contractCallbackRef.current?.(blob, fileName)
+          contractCallbackRef.current = null
+        }}
+      />
+      <ConversionDialog
+        prospect={prospect}
+        linkedOpportunity={linkedOpportunity}
+        open={conversionDialogOpen}
+        onOpenChange={(o) => { setConversionDialogOpen(o); if (!o) contractCallbackRef.current = null }}
+        onConversionDone={(clientId) => navigate(`/clients/${clientId}`)}
+        onOpenContract={() => setContractDialogOpen(true)}
+        contractCallbackRef={contractCallbackRef}
       />
       {/* Manual RDV form — only used when Cal.com is NOT configured */}
       {!calcomLink && (

@@ -18,9 +18,10 @@ interface Props {
   prospect: Prospect
   open: boolean
   onOpenChange: (open: boolean) => void
+  onContractGenerated?: (blob: Blob, fileName: string) => void
 }
 
-export function GenerateContractDialog({ prospect, open, onOpenChange }: Props) {
+export function GenerateContractDialog({ prospect, open, onOpenChange, onContractGenerated }: Props) {
   const [searching, setSearching] = useState(false)
   const [results, setResults] = useState<CompanySearchResult[]>([])
   const [selectedResult, setSelectedResult] = useState<CompanySearchResult | null>(null)
@@ -119,6 +120,7 @@ export function GenerateContractDialog({ prospect, open, onOpenChange }: Props) 
       const fileName = `Contrat Celexia — ${enseigne}.pdf`
       saveAs(blob, fileName)
       toast.success('Contrat généré avec succès')
+      onContractGenerated?.(blob, fileName)
       onOpenChange(false)
     } catch (err) {
       console.error(err)

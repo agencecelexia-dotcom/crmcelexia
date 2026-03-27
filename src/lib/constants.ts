@@ -12,3 +12,6 @@ export const N8N_SITE_DESTROY_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webh
 
 // n8n webhook for sale notification email to commercial
 export const N8N_SALE_NOTIFICATION_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/crm-sale-notification'
+
+// n8n webhook for creating Gmail draft (conversion client)
+export const N8N_EMAIL_DRAFT_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/crm-email-draft'
