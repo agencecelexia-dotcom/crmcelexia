@@ -251,7 +251,6 @@ async function sendDraftViaWebhook(
     body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(`Webhook error: ${res.status}`)
-  return res.json()
 }
 
 async function fetchIbanPdfBase64(): Promise<string | null> {
