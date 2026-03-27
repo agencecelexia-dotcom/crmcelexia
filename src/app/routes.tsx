@@ -32,6 +32,7 @@ const ObjectivesPage = lazy(() => import('@/features/analytics/pages/objectives-
 const FollowupPage = lazy(() => import('@/features/clients/pages/followup-page').then(m => ({ default: m.FollowupPage })))
 const NotesPage = lazy(() => import('@/features/notes/pages/notes-page').then(m => ({ default: m.NotesPage })))
 const RemindersPage = lazy(() => import('@/features/reminders/pages/reminders-page').then(m => ({ default: m.RemindersPage })))
+const MyPipelinePage = lazy(() => import('@/features/pipeline/pages/my-pipeline-page').then(m => ({ default: m.MyPipelinePage })))
 
 function PageLoader() {
   return (
@@ -103,6 +104,11 @@ export const router = createBrowserRouter([
           {
             path: '/opportunities/pub',
             element: <LazyPage><OpportunitiesPage opportunityType="pub" /></LazyPage>,
+          },
+          // Mon Pipeline (all users)
+          {
+            path: '/mon-pipeline',
+            element: <LazyPage><MyPipelinePage /></LazyPage>,
           },
           // Notes equipe (all users)
           {
