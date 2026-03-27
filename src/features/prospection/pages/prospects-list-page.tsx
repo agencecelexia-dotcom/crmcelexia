@@ -74,85 +74,94 @@ export function ProspectsListPage() {
   const { isFounder, profile } = useAuth()
   const navigate = useNavigate()
 
-  // Persist filters in URL so they survive navigation (back button)
+  // Persist filters in URL so they survive back-navigation
   const [searchParams, setSearchParams] = useSearchParams()
-  const sp = useCallback((key: string, fallback = '') => searchParams.get(key) || fallback, [searchParams])
-  const setFilter = useCallback((key: string, value: string) => {
+
+  // Helper: read a param with fallback
+  const sp = (key: string, fallback = '') => searchParams.get(key) || fallback
+
+  // Helper: update one or more params at once (replaces history entry)
+  const updateParams = useCallback((updates: Record<string, string | null>, resetPage = true) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
-      if (!value || value === 'all' || value === 'false') next.delete(key)
-      else next.set(key, value)
-      // Reset page on filter change (except page itself)
-      if (key !== 'p') next.delete('p')
+      for (const [k, v] of Object.entries(updates)) {
+        if (v === null || v === '' || v === 'all' || v === 'false') next.delete(k)
+        else next.set(k, v)
+      }
+      if (resetPage && !('p' in updates)) next.delete('p')
       return next
     }, { replace: true })
   }, [setSearchParams])
 
   const page = Number(sp('p', '1'))
-  const setPage = useCallback((p: number) => setFilter('p', p > 1 ? String(p) : ''), [setFilter])
+  const setPage = useCallback((p: number) => updateParams({ p: p > 1 ? String(p) : null }, false), [updateParams])
 
   const [search, setSearch] = useState(sp('q'))
   const debouncedSearch = useDebounce(search, DEBOUNCE_MS)
-  useEffect(() => { setFilter('q', debouncedSearch) }, [debouncedSearch, setFilter])
+  // Sync debounced search to URL (skip initial empty → empty)
+  const searchSynced = useMemo(() => sp('q'), [searchParams])
+  useEffect(() => {
+    if (debouncedSearch !== searchSynced) {
+      updateParams({ q: debouncedSearch || null })
+    }
+  }, [debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const statusFilter = (sp('status') || 'all') as ProspectStatus | 'all'
-  const setStatusFilter = useCallback((v: ProspectStatus | 'all') => setFilter('status', v), [setFilter])
+  const setStatusFilter = useCallback((v: ProspectStatus | 'all') => updateParams({ status: v }), [updateParams])
 
   const cityFilter = sp('city')
-  const setCityFilter = useCallback((v: string) => setFilter('city', v), [setFilter])
+  const setCityFilter = useCallback((v: string) => updateParams({ city: v || null }), [updateParams])
 
   const professionFilter = sp('profession')
-  const setProfessionFilter = useCallback((v: string) => setFilter('profession', v), [setFilter])
+  const setProfessionFilter = useCallback((v: string) => updateParams({ profession: v || null }), [updateParams])
 
-  const [showAdvanced, setShowAdvanced] = useState(!!sp('adv'))
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const neverCalled = sp('nc') === 'true'
-  const setNeverCalled = useCallback((v: boolean) => setFilter('nc', String(v)), [setFilter])
+  const setNeverCalled = useCallback((v: boolean) => updateParams({ nc: v ? 'true' : null }), [updateParams])
   const hasOverdue = sp('od') === 'true'
-  const setHasOverdue = useCallback((v: boolean) => setFilter('od', String(v)), [setFilter])
+  const setHasOverdue = useCallback((v: boolean) => updateParams({ od: v ? 'true' : null }), [updateParams])
   const hasReminderToday = sp('rt') === 'true'
-  const setHasReminderToday = useCallback((v: boolean) => setFilter('rt', String(v)), [setFilter])
+  const setHasReminderToday = useCallback((v: boolean) => updateParams({ rt: v ? 'true' : null }), [updateParams])
 
   const dateFrom = sp('df')
-  const setDateFrom = useCallback((v: string) => setFilter('df', v), [setFilter])
+  const setDateFrom = useCallback((v: string) => updateParams({ df: v || null }), [updateParams])
   const dateTo = sp('dt')
-  const setDateTo = useCallback((v: string) => setFilter('dt', v), [setFilter])
+  const setDateTo = useCallback((v: string) => updateParams({ dt: v || null }), [updateParams])
   const lastCalledFrom = sp('lcf')
-  const setLastCalledFrom = useCallback((v: string) => setFilter('lcf', v), [setFilter])
+  const setLastCalledFrom = useCallback((v: string) => updateParams({ lcf: v || null }), [updateParams])
   const lastCalledTo = sp('lct')
-  const setLastCalledTo = useCallback((v: string) => setFilter('lct', v), [setFilter])
+  const setLastCalledTo = useCallback((v: string) => updateParams({ lct: v || null }), [updateParams])
 
   const [phonePrefixes, setPhonePrefixes] = useState<string[]>(sp('pp') ? sp('pp').split(',') : [])
   const [phonePrefixInput, setPhonePrefixInput] = useState('')
 
   const commercialFilter = sp('com') || 'all'
-  const setCommercialFilter = useCallback((v: string) => setFilter('com', v), [setFilter])
+  const setCommercialFilter = useCallback((v: string) => updateParams({ com: v }), [updateParams])
 
   const sortBy = sp('sb', 'created_at')
   const setSortBy = useCallback((v: string | ((prev: string) => string)) => {
     if (typeof v === 'function') {
       setSearchParams(prev => {
         const next = new URLSearchParams(prev)
-        const newVal = v(next.get('sb') || 'created_at')
-        next.set('sb', newVal)
+        next.set('sb', v(next.get('sb') || 'created_at'))
         return next
       }, { replace: true })
     } else {
-      setFilter('sb', v)
+      updateParams({ sb: v }, false)
     }
-  }, [setFilter, setSearchParams])
+  }, [updateParams, setSearchParams])
   const sortDesc = sp('sd', 'true') === 'true'
   const setSortDesc = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
     if (typeof v === 'function') {
       setSearchParams(prev => {
         const next = new URLSearchParams(prev)
-        const cur = (next.get('sd') ?? 'true') === 'true'
-        next.set('sd', String(v(cur)))
+        next.set('sd', String(v((next.get('sd') ?? 'true') === 'true')))
         return next
       }, { replace: true })
     } else {
-      setFilter('sd', String(v))
+      updateParams({ sd: String(v) }, false)
     }
-  }, [setFilter, setSearchParams])
+  }, [updateParams, setSearchParams])
 
   // Side panel state
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null)
@@ -167,12 +176,10 @@ export function ProspectsListPage() {
   const { data: teamMembers } = useTeamMembers()
   const { data: professions = [] } = useProfessions()
 
-  const debouncedCity = useDebounce(cityFilter, DEBOUNCE_MS)
-
   const filters: ProspectFilters = {
     search: debouncedSearch || undefined,
     status: statusFilter !== 'all' ? [statusFilter] : undefined,
-    city: debouncedCity ? [debouncedCity] : undefined,
+    city: cityFilter ? [cityFilter] : undefined,
     profession: professionFilter ? [professionFilter] : undefined,
     commercial_id: commercialFilter !== 'all' ? commercialFilter : undefined,
     never_called: neverCalled || undefined,
@@ -228,7 +235,7 @@ export function ProspectsListPage() {
   // Clear selection when page/filters change
   useEffect(() => {
     setSelectedIds(new Set())
-  }, [page, debouncedSearch, statusFilter, commercialFilter, debouncedCity, professionFilter, neverCalled, hasOverdue])
+  }, [page, debouncedSearch, statusFilter, commercialFilter, cityFilter, professionFilter, neverCalled, hasOverdue])
 
   // Selection helpers
   const allOnPageSelected = prospects.length > 0 && prospects.every((p) => selectedIds.has(p.id))
@@ -381,14 +388,14 @@ export function ProspectsListPage() {
                 <Input
                   placeholder="Rechercher..."
                   value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                  onChange={(e) => { setSearch(e.target.value) }}
                   className="pl-9 h-9"
                 />
               </div>
 
               <Select
                 value={statusFilter}
-                onValueChange={(v) => { setStatusFilter(v as ProspectStatus | 'all'); setPage(1) }}
+                onValueChange={(v) => { setStatusFilter(v as ProspectStatus | 'all') }}
               >
                 <SelectTrigger className="w-[180px] h-9">
                   <SelectValue placeholder="Tous les statuts" />
@@ -404,7 +411,7 @@ export function ProspectsListPage() {
               {isFounder && (
                 <Select
                   value={commercialFilter}
-                  onValueChange={(v) => { setCommercialFilter(v); setPage(1) }}
+                  onValueChange={(v) => { setCommercialFilter(v) }}
                 >
                   <SelectTrigger className="w-[180px] h-9">
                     <Users className="h-4 w-4 mr-1.5 text-muted-foreground" />
@@ -458,10 +465,10 @@ export function ProspectsListPage() {
                   <Input
                     placeholder="Ville..."
                     value={cityFilter}
-                    onChange={(e) => { setCityFilter(e.target.value); setPage(1) }}
+                    onChange={(e) => { setCityFilter(e.target.value) }}
                     className="w-[140px] h-8 text-sm"
                   />
-                  <Select value={professionFilter || 'all'} onValueChange={(v) => { setProfessionFilter(v === 'all' ? '' : v); setPage(1) }}>
+                  <Select value={professionFilter || 'all'} onValueChange={(v) => { setProfessionFilter(v === 'all' ? '' : v) }}>
                     <SelectTrigger className="w-[160px] h-8 text-sm">
                       <SelectValue placeholder="Métier..." />
                     </SelectTrigger>
@@ -476,7 +483,7 @@ export function ProspectsListPage() {
                     <input
                       type="checkbox"
                       checked={neverCalled}
-                      onChange={(e) => { setNeverCalled(e.target.checked); setPage(1) }}
+                      onChange={(e) => { setNeverCalled(e.target.checked) }}
                       className="rounded border-input"
                     />
                     Jamais appelé
@@ -485,7 +492,7 @@ export function ProspectsListPage() {
                     <input
                       type="checkbox"
                       checked={hasOverdue}
-                      onChange={(e) => { setHasOverdue(e.target.checked); setPage(1) }}
+                      onChange={(e) => { setHasOverdue(e.target.checked) }}
                       className="rounded border-input"
                     />
                     Rappels en retard
@@ -494,7 +501,7 @@ export function ProspectsListPage() {
                     <input
                       type="checkbox"
                       checked={hasReminderToday}
-                      onChange={(e) => { setHasReminderToday(e.target.checked); setPage(1) }}
+                      onChange={(e) => { setHasReminderToday(e.target.checked) }}
                       className="rounded border-input"
                     />
                     Rappels aujourd'hui
@@ -507,14 +514,14 @@ export function ProspectsListPage() {
                     <Input
                       type="date"
                       value={dateFrom}
-                      onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
+                      onChange={(e) => { setDateFrom(e.target.value) }}
                       className="w-[130px] h-7 text-xs"
                     />
                     <span className="text-xs text-muted-foreground">→</span>
                     <Input
                       type="date"
                       value={dateTo}
-                      onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
+                      onChange={(e) => { setDateTo(e.target.value) }}
                       className="w-[130px] h-7 text-xs"
                     />
                   </div>
@@ -524,14 +531,14 @@ export function ProspectsListPage() {
                     <Input
                       type="date"
                       value={lastCalledFrom}
-                      onChange={(e) => { setLastCalledFrom(e.target.value); setPage(1) }}
+                      onChange={(e) => { setLastCalledFrom(e.target.value) }}
                       className="w-[130px] h-7 text-xs"
                     />
                     <span className="text-xs text-muted-foreground">→</span>
                     <Input
                       type="date"
                       value={lastCalledTo}
-                      onChange={(e) => { setLastCalledTo(e.target.value); setPage(1) }}
+                      onChange={(e) => { setLastCalledTo(e.target.value) }}
                       className="w-[130px] h-7 text-xs"
                     />
                   </div>
@@ -548,7 +555,7 @@ export function ProspectsListPage() {
                       >
                         {prefix}
                         <button
-                          onClick={() => { setPhonePrefixes((p) => p.filter((x) => x !== prefix)); setPage(1) }}
+                          onClick={() => { setPhonePrefixes((p) => p.filter((x) => x !== prefix)) }}
                           className="hover:text-destructive"
                         >
                           ×
