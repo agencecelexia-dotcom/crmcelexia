@@ -899,16 +899,16 @@ export function ProspectDetailPage() {
                       <Megaphone className="mr-2 h-4 w-4" />
                       RDV Pub (LSA)
                     </Button>
-                    <Button variant="outline" className="w-full border-violet-300 text-violet-700 hover:bg-violet-50" size="sm" onClick={() => setContractDialogOpen(true)}>
-                      <FileText className="mr-2 h-4 w-4" />
-                      Générer contrat
-                    </Button>
                     <Button variant="outline" className="w-full" size="sm" onClick={() => setReminderFormOpen(true)}>
                       <Clock className="mr-2 h-4 w-4" />
                       Planifier un rappel
                     </Button>
                   </>
                 )}
+                <Button variant="outline" className="w-full border-violet-300 text-violet-700 hover:bg-violet-50" size="sm" onClick={() => setContractDialogOpen(true)}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Générer contrat
+                </Button>
                 {prospect.status === 'rdv_pris' || prospect.status === 'site_envoye' || prospect.status === 'converti_client' ? (
                   <Button
                     variant="default"
