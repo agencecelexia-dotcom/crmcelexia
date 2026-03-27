@@ -1,9 +1,18 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useAuth } from '@/features/auth/hooks/use-auth'
-import { usePerformanceStats, useKeyRates, useCommercialClosingRates, useLossReasonStats, useCATrend } from '../hooks/use-analytics'
+import {
+  usePerformanceStats,
+  useKeyRates,
+  useCommercialClosingRates,
+  useLossReasonStats,
+  useCATrend,
+  useCommercialPerformanceRanking,
+  useCommercialDetail,
+} from '../hooks/use-analytics'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/components/shared/stat-card'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -24,11 +33,15 @@ import {
   Calendar,
   Users,
   UserCheck,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  Trophy,
 } from 'lucide-react'
-import { formatCurrency, formatPercentage } from '@/lib/format'
+import { formatCurrency, formatPercentage, formatDate } from '@/lib/format'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie, AreaChart, Area,
+  PieChart, Pie, AreaChart, Area, Legend,
 } from 'recharts'
 import { CallHeatmap } from '../components/call-heatmap'
 import { NichePerformance } from '../components/niche-performance'
@@ -43,16 +56,141 @@ const PERIOD_LABELS: Record<Period, string> = {
   last_3_months: '3 derniers mois',
 }
 
+// ── Commercial Detail Expand Panel ──
+
+function CommercialDetailPanel({ commercialId }: { commercialId: string }) {
+  const { data: detail, isLoading } = useCommercialDetail(commercialId)
+
+  if (isLoading) {
+    return (
+      <div className="p-4 space-y-3">
+        <Skeleton className="h-20" />
+        <Skeleton className="h-48" />
+      </div>
+    )
+  }
+
+  if (!detail) {
+    return <p className="text-sm text-muted-foreground p-4">Impossible de charger les details.</p>
+  }
+
+  return (
+    <div className="p-4 bg-muted/30 space-y-4">
+      {/* KPI row */}
+      <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-7">
+        <div className="text-center p-3 bg-white rounded-lg border">
+          <p className="text-xs text-muted-foreground">Appels semaine</p>
+          <p className="text-xl font-bold">{detail.calls_week}</p>
+        </div>
+        <div className="text-center p-3 bg-white rounded-lg border">
+          <p className="text-xs text-muted-foreground">Appels mois</p>
+          <p className="text-xl font-bold">{detail.calls_month}</p>
+        </div>
+        <div className="text-center p-3 bg-white rounded-lg border">
+          <p className="text-xs text-muted-foreground">RDV semaine</p>
+          <p className="text-xl font-bold">{detail.rdv_week}</p>
+        </div>
+        <div className="text-center p-3 bg-white rounded-lg border">
+          <p className="text-xs text-muted-foreground">RDV mois</p>
+          <p className="text-xl font-bold">{detail.rdv_month}</p>
+        </div>
+        <div className="text-center p-3 bg-white rounded-lg border">
+          <p className="text-xs text-muted-foreground">Ratio appels/RDV</p>
+          <p className="text-xl font-bold">{detail.avg_calls_per_rdv || '-'}</p>
+        </div>
+        <div className="text-center p-3 bg-white rounded-lg border">
+          <p className="text-xs text-muted-foreground">Clients signes</p>
+          <p className="text-xl font-bold text-green-600">{detail.clients_signed}</p>
+        </div>
+        <div className="text-center p-3 bg-white rounded-lg border">
+          <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+            <Clock className="h-3 w-3" /> Dernier appel
+          </p>
+          <p className="text-sm font-medium mt-0.5">{detail.last_call_at ? formatDate(detail.last_call_at) : 'Aucun'}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Monthly evolution chart */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Evolution mensuelle (6 mois)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={detail.monthly_evolution} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: '11px' }} />
+                <Bar dataKey="calls" name="Appels" fill="#7C3AED" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="rdv" name="RDV" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="clients" name="Clients" fill="#10B981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Signed clients list */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">
+              Clients signes ce mois ({detail.signed_clients_list.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {detail.signed_clients_list.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Aucun client signe ce mois
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-[180px] overflow-y-auto">
+                {detail.signed_clients_list.map((client) => (
+                  <div
+                    key={client.id}
+                    className="flex items-center justify-between rounded-lg border p-2.5 bg-white"
+                  >
+                    <span className="text-sm font-medium">{client.company_name}</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {formatDate(client.converted_at)}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Performance Page ──
+
 export function PerformancePage() {
   const { profile, isFounder } = useAuth()
   const commercialId = isFounder ? undefined : profile?.id
   const [period, setPeriod] = useState<Period>('this_month')
+  const [expandedCommercialId, setExpandedCommercialId] = useState<string | null>(null)
 
   const { data: perfStats, isLoading: loadingPerf } = usePerformanceStats(commercialId)
   const { data: keyRates, isLoading: loadingRates } = useKeyRates(commercialId)
   const { data: closingRates, isLoading: loadingClosing } = useCommercialClosingRates()
   const { data: lossReasons, isLoading: loadingLoss } = useLossReasonStats(commercialId)
   const { data: caTrend } = useCATrend(commercialId)
+  const { data: ranking, isLoading: loadingRanking } = useCommercialPerformanceRanking()
+
+  const toggleExpanded = (id: string) => {
+    setExpandedCommercialId(prev => prev === id ? null : id)
+  }
 
   return (
     <div className="space-y-6">
@@ -60,7 +198,7 @@ export function PerformancePage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Performance Commerciale</h1>
           <p className="text-muted-foreground">
-            {isFounder ? 'Vue globale des performances de l\'équipe' : 'Vos indicateurs de performance'}
+            {isFounder ? 'Vue globale des performances de l\'equipe' : 'Vos indicateurs de performance'}
           </p>
         </div>
         {/* Period selector */}
@@ -87,7 +225,7 @@ export function PerformancePage() {
       ) : perfStats && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <StatCard
-            title="CA généré"
+            title="CA genere"
             value={formatCurrency(perfStats.ca_generated)}
             icon={DollarSign}
           />
@@ -100,7 +238,7 @@ export function PerformancePage() {
           <StatCard
             title="Taux de closing"
             value={formatPercentage(perfStats.closing_rate)}
-            subtitle={`${perfStats.deals_won} gagnés / ${perfStats.deals_lost} perdus`}
+            subtitle={`${perfStats.deals_won} gagnes / ${perfStats.deals_lost} perdus`}
             icon={Target}
           />
           <StatCard
@@ -109,9 +247,9 @@ export function PerformancePage() {
             icon={ShoppingCart}
           />
           <StatCard
-            title="MRR généré"
+            title="MRR genere"
             value={formatCurrency(perfStats.mrr_generated)}
-            subtitle="Mensuel récurrent"
+            subtitle="Mensuel recurrent"
             icon={Repeat}
           />
         </div>
@@ -125,7 +263,7 @@ export function PerformancePage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-primary" />
-              Taux clés du mois
+              Taux cles du mois
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -157,7 +295,7 @@ export function PerformancePage() {
                   <span className="text-sm text-muted-foreground">Taux de contact</span>
                 </div>
                 <p className="text-3xl font-bold text-teal-600">{formatPercentage(keyRates.contact_rate)}</p>
-                <p className="text-xs text-muted-foreground">décrochage / appels</p>
+                <p className="text-xs text-muted-foreground">decrochage / appels</p>
               </div>
               <div className="text-center">
                 <div className="flex items-center justify-center gap-2 mb-1">
@@ -172,13 +310,119 @@ export function PerformancePage() {
         </Card>
       )}
 
+      {/* ── Commercial Performance Ranking ── */}
+      {isFounder && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-primary" />
+              Classement des commerciaux
+              <Badge variant="secondary" className="text-xs ml-1">Ce mois</Badge>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Cliquez sur un commercial pour voir le detail
+            </p>
+          </CardHeader>
+          <CardContent>
+            {loadingRanking ? (
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12" />
+                ))}
+              </div>
+            ) : !ranking || ranking.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Aucune donnee</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8">#</TableHead>
+                      <TableHead className="w-8" />
+                      <TableHead>Nom</TableHead>
+                      <TableHead className="text-right">Appels semaine</TableHead>
+                      <TableHead className="text-right">Appels mois</TableHead>
+                      <TableHead className="text-right">RDV pris</TableHead>
+                      <TableHead className="text-right">Clients signes</TableHead>
+                      <TableHead className="text-right">Taux conv.</TableHead>
+                      <TableHead className="text-right">Ratio appels/RDV</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ranking.map((r, i) => (
+                      <Fragment key={r.id}>
+                        <TableRow
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => toggleExpanded(r.id)}
+                        >
+                          <TableCell className="font-bold text-primary">
+                            {i === 0 ? (
+                              <span className="text-yellow-500" title="1er">1</span>
+                            ) : i === 1 ? (
+                              <span className="text-gray-400" title="2e">2</span>
+                            ) : i === 2 ? (
+                              <span className="text-amber-700" title="3e">3</span>
+                            ) : (
+                              i + 1
+                            )}
+                          </TableCell>
+                          <TableCell className="w-8 px-0">
+                            {expandedCommercialId === r.id ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium">{r.full_name}</TableCell>
+                          <TableCell className="text-right tabular-nums">{r.calls_this_week}</TableCell>
+                          <TableCell className="text-right tabular-nums font-semibold">{r.calls_this_month}</TableCell>
+                          <TableCell className="text-right tabular-nums">{r.rdv_this_month}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            <span className={r.clients_signed_this_month > 0 ? 'text-green-600 font-semibold' : ''}>
+                              {r.clients_signed_this_month}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {r.rdv_this_month > 0 ? (
+                              <span className={
+                                r.conversion_rate >= 30 ? 'text-green-600 font-semibold' :
+                                r.conversion_rate >= 15 ? 'text-yellow-600' :
+                                'text-red-600'
+                              }>
+                                {formatPercentage(r.conversion_rate)}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {r.calls_per_rdv > 0 ? r.calls_per_rdv : '-'}
+                          </TableCell>
+                        </TableRow>
+                        {expandedCommercialId === r.id && (
+                          <TableRow>
+                            <TableCell colSpan={9} className="p-0">
+                              <CommercialDetailPanel commercialId={r.id} />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* CA Trend (12 months) */}
       {caTrend && caTrend.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" />
-              Évolution du CA — 12 derniers mois
+              Evolution du CA — 12 derniers mois
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -192,7 +436,7 @@ export function PerformancePage() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#9ca3af" />
-                <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" tickFormatter={v => `${(Number(v) / 1000).toFixed(0)}k€`} />
+                <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" tickFormatter={v => `${(Number(v) / 1000).toFixed(0)}k`} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '13px' }}
                   formatter={(value) => [formatCurrency(Number(value)), 'CA']}
@@ -224,7 +468,7 @@ export function PerformancePage() {
               {loadingClosing ? (
                 <Skeleton className="h-48" />
               ) : !closingRates?.length ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Aucune donnée</p>
+                <p className="text-sm text-muted-foreground py-4 text-center">Aucune donnee</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -237,7 +481,7 @@ export function PerformancePage() {
                       <TableHead className="text-right">Taux closing</TableHead>
                       <TableHead className="text-right">Appel &rarr; RDV</TableHead>
                       <TableHead className="text-right">RDV &rarr; Closing</TableHead>
-                      <TableHead className="text-right">CA généré</TableHead>
+                      <TableHead className="text-right">CA genere</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -274,7 +518,7 @@ export function PerformancePage() {
             {loadingLoss ? (
               <Skeleton className="h-48" />
             ) : !lossReasons?.length ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Aucune donnée de perte</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">Aucune donnee de perte</p>
             ) : (
               <div className="flex items-center gap-6">
                 <ResponsiveContainer width={180} height={180}>

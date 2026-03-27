@@ -514,6 +514,40 @@ export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
   resilie: 'bg-red-100 text-red-800',
 }
 
+// ── Commission Status ──
+export const COMMISSION_STATUS = {
+  A_RECEVOIR: 'a_recevoir',
+  RECU: 'recu',
+  EN_RETARD: 'en_retard',
+} as const
+
+export type CommissionStatus = (typeof COMMISSION_STATUS)[keyof typeof COMMISSION_STATUS]
+
+export const COMMISSION_STATUS_LABELS: Record<CommissionStatus, string> = {
+  a_recevoir: 'A recevoir',
+  recu: 'Recu',
+  en_retard: 'En retard',
+}
+
+export const COMMISSION_STATUS_COLORS: Record<CommissionStatus, string> = {
+  a_recevoir: 'bg-yellow-100 text-yellow-800',
+  recu: 'bg-green-100 text-green-800',
+  en_retard: 'bg-red-100 text-red-800',
+}
+
+// ── Invoice Type ──
+export const INVOICE_TYPE = {
+  COMMISSION: 'commission',
+  BUDGET_PUB: 'budget_pub',
+} as const
+
+export type InvoiceType = (typeof INVOICE_TYPE)[keyof typeof INVOICE_TYPE]
+
+export const INVOICE_TYPE_LABELS: Record<InvoiceType, string> = {
+  commission: 'Commission',
+  budget_pub: 'Budget pub',
+}
+
 // ============================================================
 // Reminder context — differenciates types of callbacks
 // ============================================================

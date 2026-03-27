@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import {
   useClient,
@@ -13,8 +13,30 @@ import {
   useCreateDevis,
   useUpdateDevis,
 } from '../hooks/use-clients'
+import { useContractsForClient, useUploadContract, useSoftDeleteContract } from '../hooks/use-contracts'
+import {
+  useCommissionsForClient,
+  useCreateCommission,
+  useUpdateCommissionStatus,
+  useBudgetPaymentsForClient,
+  useCreateBudgetPayment,
+  useInvoicesForClient,
+  useUploadInvoice,
+  useSoftDeleteInvoice,
+} from '../hooks/use-financial'
+import { getContractPublicUrl } from '../services/contract-service'
+import { getInvoicePublicUrl } from '../services/financial-service'
+import type { Commission } from '../services/financial-service'
 import type { ClientStatus, ProjectStatus, DevisStatus } from '@/types/enums'
-import { PROJECT_STATUS_LABELS, DEVIS_STATUS_LABELS, PAYMENT_STATUS_LABELS, PAYMENT_STATUS_COLORS } from '@/types/enums'
+import {
+  PROJECT_STATUS_LABELS,
+  DEVIS_STATUS_LABELS,
+  PAYMENT_STATUS_LABELS,
+  PAYMENT_STATUS_COLORS,
+  COMMISSION_STATUS_LABELS,
+  COMMISSION_STATUS_COLORS,
+  INVOICE_TYPE_LABELS,
+} from '@/types/enums'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -58,6 +80,11 @@ import {
   RefreshCcw,
   Calendar,
   Clock,
+  Upload,
+  Eye,
+  Trash2,
+  DollarSign,
+  Receipt,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useOpportunitiesForClient } from '@/features/opportunities/hooks/use-opportunities'
@@ -222,6 +249,9 @@ export function ClientDetailPage() {
           <TabsTrigger value="paiements">
             <CreditCard className="h-3.5 w-3.5 mr-1" /> Paiements
           </TabsTrigger>
+          <TabsTrigger value="finances">
+            <DollarSign className="h-3.5 w-3.5 mr-1" /> Finances
+          </TabsTrigger>
           <TabsTrigger value="suivi">
             <RefreshCcw className="h-3.5 w-3.5 mr-1" /> Suivi
           </TabsTrigger>
@@ -327,6 +357,11 @@ export function ClientDetailPage() {
         {/* Paiements tab */}
         <TabsContent value="paiements">
           <PaiementsTab clientId={client.id} />
+        </TabsContent>
+
+        {/* Finances tab */}
+        <TabsContent value="finances">
+          <FinancesTab clientId={client.id} />
         </TabsContent>
 
         {/* Suivi tab */}
@@ -722,81 +757,179 @@ function DevisTab({ clientId, projectId }: { clientId: string; projectId: string
   )
 }
 
-// Contrats tab - shows signed devis as contracts
+// Contrats tab - drag & drop PDF upload + list
 function ContratsTab({ clientId }: { clientId: string }) {
-  const { data: devisList, isLoading } = useDevisForClient(clientId)
-  const { data: project } = useProjectForClient(clientId)
+  const { profile } = useAuth()
+  const { data: contractFiles, isLoading } = useContractsForClient(clientId)
+  const uploadContract = useUploadContract()
+  const deleteContract = useSoftDeleteContract()
 
-  const contracts = useMemo(() => {
-    if (!devisList) return []
-    return devisList
-      .filter(d => d.status === 'signe')
-      .map(d => ({
-        id: d.id,
-        reference: d.reference || `CTR-${d.id.slice(0, 8)}`,
-        amount_ht: d.amount_ht,
-        amount_ttc: d.amount_ttc,
-        signed_at: d.signed_at,
-        project_name: project?.name ?? '—',
-        monthly_amount: project?.monthly_amount,
-      }))
-  }, [devisList, project])
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFiles = useCallback(async (files: FileList | null) => {
+    if (!files || !profile) return
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      if (file.type !== 'application/pdf') {
+        toast.error(`${file.name} n'est pas un PDF`)
+        continue
+      }
+      try {
+        await uploadContract.mutateAsync({
+          clientId,
+          uploadedBy: profile.id,
+          file,
+        })
+        toast.success(`${file.name} uploade`)
+      } catch {
+        // Error toast handled by hook
+      }
+    }
+  }, [clientId, profile, uploadContract])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+    handleFiles(e.dataTransfer.files)
+  }, [handleFiles])
 
   if (isLoading) return <Skeleton className="h-48" />
 
-  if (contracts.length === 0) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <FileCheck className="h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-lg font-medium">Aucun contrat</p>
-          <p className="text-sm text-muted-foreground">Les devis signés apparaîtront ici comme contrats.</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <FileCheck className="h-4 w-4 text-primary" />
-          Contrats ({contracts.length})
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Référence</TableHead>
-                <TableHead>Projet</TableHead>
-                <TableHead className="text-right">Montant HT</TableHead>
-                <TableHead className="text-right">Montant TTC</TableHead>
-                <TableHead className="text-right">Mensuel</TableHead>
-                <TableHead>Signé le</TableHead>
-                <TableHead>Statut</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {contracts.map(c => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-mono text-sm font-medium">{c.reference}</TableCell>
-                  <TableCell>{c.project_name}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(c.amount_ht)}</TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(c.amount_ttc)}</TableCell>
-                  <TableCell className="text-right">{c.monthly_amount ? formatCurrency(c.monthly_amount) : '—'}</TableCell>
-                  <TableCell>{c.signed_at ? formatDateShort(c.signed_at) : '—'}</TableCell>
-                  <TableCell>
-                    <Badge className="bg-green-100 text-green-800">Actif</Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      {/* Drag & drop zone */}
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+          isDragging
+            ? 'border-primary bg-primary/5'
+            : 'border-muted-foreground/25 hover:border-primary/50'
+        }`}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            handleFiles(e.target.files)
+            e.target.value = ''
+          }}
+        />
+        <Upload className={`h-10 w-10 mx-auto mb-3 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
+        {uploadContract.isPending ? (
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <p className="text-sm text-muted-foreground">Upload en cours...</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm font-medium">
+              Glissez-deposez vos contrats PDF ici
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              ou cliquez pour selectionner des fichiers
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Contract list */}
+      {!contractFiles || contractFiles.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FileCheck className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-medium">Aucun contrat</p>
+            <p className="text-sm text-muted-foreground">Uploadez des contrats PDF via la zone ci-dessus.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileCheck className="h-4 w-4 text-primary" />
+              Contrats ({contractFiles.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fichier</TableHead>
+                    <TableHead>Taille</TableHead>
+                    <TableHead>Upload le</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contractFiles.map(c => (
+                    <TableRow key={c.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-red-500 shrink-0" />
+                          <span className="text-sm font-medium truncate max-w-[250px]">{c.file_name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {(c.file_size / 1024).toFixed(0)} Ko
+                      </TableCell>
+                      <TableCell className="text-sm">{formatDateShort(c.created_at)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const url = getContractPublicUrl(c.file_path)
+                              window.open(url, '_blank')
+                            }}
+                          >
+                            <Eye className="h-3 w-3 mr-1" /> Voir
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            disabled={deleteContract.isPending}
+                            onClick={async () => {
+                              if (!confirm('Supprimer ce contrat ?')) return
+                              try {
+                                await deleteContract.mutateAsync(c.id)
+                                toast.success('Contrat supprime')
+                              } catch {
+                                // Error toast handled by hook
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }
 
@@ -1029,6 +1162,528 @@ function SuiviTab({ clientId, convertedAt }: { clientId: string; convertedAt: st
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// Finances tab - Commissions + Budget pub + Factures
+function FinancesTab({ clientId }: { clientId: string }) {
+  const { profile } = useAuth()
+
+  // Data
+  const { data: commissions, isLoading: loadingCommissions } = useCommissionsForClient(clientId)
+  const { data: budgetPayments, isLoading: loadingBudget } = useBudgetPaymentsForClient(clientId)
+  const { data: invoices, isLoading: loadingInvoices } = useInvoicesForClient(clientId)
+
+  // Mutations
+  const createCommission = useCreateCommission()
+  const updateCommissionStatus = useUpdateCommissionStatus()
+  const createBudgetPayment = useCreateBudgetPayment()
+  const uploadInvoice = useUploadInvoice()
+  const deleteInvoice = useSoftDeleteInvoice()
+
+  // Commission form state
+  const [showCommissionForm, setShowCommissionForm] = useState(false)
+  const [commMonth, setCommMonth] = useState('')
+  const [commRevenue, setCommRevenue] = useState('')
+  const [commNotes, setCommNotes] = useState('')
+
+  // Budget form state
+  const [showBudgetForm, setShowBudgetForm] = useState(false)
+  const [budgetAmount, setBudgetAmount] = useState('')
+  const [budgetDate, setBudgetDate] = useState('')
+  const [budgetNotes, setBudgetNotes] = useState('')
+
+  // Invoice form state
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false)
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
+  const [invoiceAmount, setInvoiceAmount] = useState('')
+  const [invoiceDate, setInvoiceDate] = useState('')
+  const [invoiceType, setInvoiceType] = useState<'commission' | 'budget_pub'>('commission')
+  const [invoiceNotes, setInvoiceNotes] = useState('')
+  const invoiceInputRef = useRef<HTMLInputElement>(null)
+
+  const isLoading = loadingCommissions || loadingBudget || loadingInvoices
+
+  // Summary calculations
+  const totalCommissionsDues = useMemo(() =>
+    (commissions ?? [])
+      .filter(c => c.status !== 'recu')
+      .reduce((sum, c) => sum + Number(c.commission_amount), 0)
+  , [commissions])
+
+  const totalBudgetRecu = useMemo(() =>
+    (budgetPayments ?? []).reduce((sum, b) => sum + Number(b.amount), 0)
+  , [budgetPayments])
+
+  const lastInvoice = useMemo(() =>
+    invoices && invoices.length > 0 ? invoices[0] : null
+  , [invoices])
+
+  if (isLoading) return <Skeleton className="h-48" />
+
+  return (
+    <div className="space-y-8">
+      {/* Summary cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-yellow-100">
+                <DollarSign className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{formatCurrency(totalCommissionsDues)}</p>
+                <p className="text-sm text-muted-foreground">Commissions dues</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-100">
+                <CreditCard className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xl font-bold">{formatCurrency(totalBudgetRecu)}</p>
+                <p className="text-sm text-muted-foreground">Total budget recu</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-100">
+                <Receipt className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium truncate max-w-[180px]">
+                  {lastInvoice ? lastInvoice.file_name : 'Aucune'}
+                </p>
+                <p className="text-sm text-muted-foreground">Derniere facture</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Section 1: Commissions mensuelles (10%) */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-primary" />
+            Commissions mensuelles (10%)
+          </CardTitle>
+          <Button size="sm" onClick={() => setShowCommissionForm(v => !v)}>
+            <Plus className="h-4 w-4 mr-1" /> Ajouter un mois
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {showCommissionForm && (
+            <div className="rounded-lg border p-4 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Mois *</Label>
+                  <Input
+                    type="month"
+                    value={commMonth}
+                    onChange={(e) => setCommMonth(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>CA genere (EUR) *</Label>
+                  <Input
+                    type="number"
+                    value={commRevenue}
+                    onChange={(e) => setCommRevenue(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Commission (10%)</Label>
+                  <p className="text-sm font-medium pt-2">
+                    {commRevenue ? formatCurrency(parseFloat(commRevenue) * 0.10) : '0,00 EUR'}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Input value={commNotes} onChange={(e) => setCommNotes(e.target.value)} placeholder="Optionnel" />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => setShowCommissionForm(false)}>Annuler</Button>
+                <Button
+                  disabled={!commMonth || !commRevenue || createCommission.isPending}
+                  onClick={async () => {
+                    try {
+                      await createCommission.mutateAsync({
+                        client_id: clientId,
+                        month: `${commMonth}-01`,
+                        revenue_generated: parseFloat(commRevenue),
+                        notes: commNotes.trim() || null,
+                      })
+                      toast.success('Commission ajoutee')
+                      setShowCommissionForm(false)
+                      setCommMonth('')
+                      setCommRevenue('')
+                      setCommNotes('')
+                    } catch {
+                      // Error toast handled by hook
+                    }
+                  }}
+                >
+                  {createCommission.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Ajouter
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!commissions || commissions.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Aucune commission enregistree</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Mois</TableHead>
+                    <TableHead className="text-right">CA genere</TableHead>
+                    <TableHead className="text-right">Commission (10%)</TableHead>
+                    <TableHead>Statut</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {commissions.map(c => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">
+                        {new Date(c.month + 'T00:00:00').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(Number(c.revenue_generated))}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(Number(c.commission_amount))}</TableCell>
+                      <TableCell>
+                        <Badge className={COMMISSION_STATUS_COLORS[c.status]}>
+                          {COMMISSION_STATUS_LABELS[c.status]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Select
+                          value={c.status}
+                          onValueChange={async (v) => {
+                            try {
+                              await updateCommissionStatus.mutateAsync({
+                                id: c.id,
+                                status: v as Commission['status'],
+                              })
+                              toast.success('Statut mis a jour')
+                            } catch {
+                              // Error handled by hook
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-[140px] h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="a_recevoir">A recevoir</SelectItem>
+                            <SelectItem value="recu">Recu</SelectItem>
+                            <SelectItem value="en_retard">En retard</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Section 2: Budget publicitaire */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-primary" />
+            Budget publicitaire
+            {budgetPayments && budgetPayments.length > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                Total : {formatCurrency(totalBudgetRecu)}
+              </Badge>
+            )}
+          </CardTitle>
+          <Button size="sm" onClick={() => setShowBudgetForm(v => !v)}>
+            <Plus className="h-4 w-4 mr-1" /> Ajouter un versement
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {showBudgetForm && (
+            <div className="rounded-lg border p-4 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Montant (EUR) *</Label>
+                  <Input
+                    type="number"
+                    value={budgetAmount}
+                    onChange={(e) => setBudgetAmount(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Date versement *</Label>
+                  <Input
+                    type="date"
+                    value={budgetDate}
+                    onChange={(e) => setBudgetDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Commentaire</Label>
+                <Input value={budgetNotes} onChange={(e) => setBudgetNotes(e.target.value)} placeholder="Optionnel" />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => setShowBudgetForm(false)}>Annuler</Button>
+                <Button
+                  disabled={!budgetAmount || !budgetDate || createBudgetPayment.isPending}
+                  onClick={async () => {
+                    try {
+                      await createBudgetPayment.mutateAsync({
+                        client_id: clientId,
+                        amount: parseFloat(budgetAmount),
+                        payment_date: budgetDate,
+                        notes: budgetNotes.trim() || null,
+                      })
+                      toast.success('Versement ajoute')
+                      setShowBudgetForm(false)
+                      setBudgetAmount('')
+                      setBudgetDate('')
+                      setBudgetNotes('')
+                    } catch {
+                      // Error handled by hook
+                    }
+                  }}
+                >
+                  {createBudgetPayment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Ajouter
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!budgetPayments || budgetPayments.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Aucun versement enregistre</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Montant</TableHead>
+                    <TableHead>Commentaire</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {budgetPayments.map(b => (
+                    <TableRow key={b.id}>
+                      <TableCell>{formatDateShort(b.payment_date)}</TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(Number(b.amount))}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{b.notes || '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Section 3: Factures */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Receipt className="h-4 w-4 text-primary" />
+            Factures ({invoices?.length ?? 0})
+          </CardTitle>
+          <Button size="sm" onClick={() => setShowInvoiceForm(v => !v)}>
+            <Plus className="h-4 w-4 mr-1" /> Ajouter une facture
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {showInvoiceForm && (
+            <div className="rounded-lg border p-4 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Fichier PDF *</Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => invoiceInputRef.current?.click()}
+                    >
+                      <Upload className="h-3 w-3 mr-1" /> Choisir un fichier
+                    </Button>
+                    <span className="text-sm text-muted-foreground truncate max-w-[200px]">
+                      {invoiceFile ? invoiceFile.name : 'Aucun fichier'}
+                    </span>
+                    <input
+                      ref={invoiceInputRef}
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) setInvoiceFile(f)
+                        e.target.value = ''
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Type *</Label>
+                  <Select
+                    value={invoiceType}
+                    onValueChange={(v) => setInvoiceType(v as 'commission' | 'budget_pub')}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="commission">Commission</SelectItem>
+                      <SelectItem value="budget_pub">Budget pub</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Montant (EUR) *</Label>
+                  <Input
+                    type="number"
+                    value={invoiceAmount}
+                    onChange={(e) => setInvoiceAmount(e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Date facture *</Label>
+                  <Input
+                    type="date"
+                    value={invoiceDate}
+                    onChange={(e) => setInvoiceDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Input value={invoiceNotes} onChange={(e) => setInvoiceNotes(e.target.value)} placeholder="Optionnel" />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => { setShowInvoiceForm(false); setInvoiceFile(null) }}>Annuler</Button>
+                <Button
+                  disabled={!invoiceFile || !invoiceAmount || !invoiceDate || uploadInvoice.isPending}
+                  onClick={async () => {
+                    if (!profile || !invoiceFile) return
+                    try {
+                      await uploadInvoice.mutateAsync({
+                        clientId,
+                        uploadedBy: profile.id,
+                        file: invoiceFile,
+                        amount: parseFloat(invoiceAmount),
+                        invoiceDate: invoiceDate,
+                        type: invoiceType,
+                        notes: invoiceNotes.trim() || null,
+                      })
+                      toast.success('Facture ajoutee')
+                      setShowInvoiceForm(false)
+                      setInvoiceFile(null)
+                      setInvoiceAmount('')
+                      setInvoiceDate('')
+                      setInvoiceNotes('')
+                    } catch {
+                      // Error handled by hook
+                    }
+                  }}
+                >
+                  {uploadInvoice.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Ajouter
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!invoices || invoices.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Aucune facture</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fichier</TableHead>
+                    <TableHead className="text-right">Montant</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoices.map(inv => (
+                    <TableRow key={inv.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-red-500 shrink-0" />
+                          <span className="text-sm font-medium truncate max-w-[200px]">{inv.file_name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">{formatCurrency(Number(inv.amount))}</TableCell>
+                      <TableCell>{formatDateShort(inv.invoice_date)}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {INVOICE_TYPE_LABELS[inv.type as keyof typeof INVOICE_TYPE_LABELS]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const url = getInvoicePublicUrl(inv.file_path)
+                              window.open(url, '_blank')
+                            }}
+                          >
+                            <Eye className="h-3 w-3 mr-1" /> Voir
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            disabled={deleteInvoice.isPending}
+                            onClick={async () => {
+                              if (!confirm('Supprimer cette facture ?')) return
+                              try {
+                                await deleteInvoice.mutateAsync(inv.id)
+                                toast.success('Facture supprimee')
+                              } catch {
+                                // Error handled by hook
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>

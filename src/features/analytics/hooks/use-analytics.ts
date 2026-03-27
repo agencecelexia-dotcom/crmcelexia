@@ -11,6 +11,8 @@ import {
   saveObjectives,
   getDashboardComparisons,
   getDSOStats,
+  getCommercialPerformanceRanking,
+  getCommercialDetail,
 } from '../services/analytics-service'
 import type { ObjectiveValues } from '../services/analytics-service'
 import { STALE_TIME_DASHBOARD } from '@/lib/constants'
@@ -103,6 +105,23 @@ export function useDSOStats() {
   return useQuery({
     queryKey: ['analytics', 'dso'],
     queryFn: () => getDSOStats(),
+    staleTime: STALE_TIME_DASHBOARD,
+  })
+}
+
+export function useCommercialPerformanceRanking() {
+  return useQuery({
+    queryKey: ['analytics', 'commercial-performance-ranking'],
+    queryFn: () => getCommercialPerformanceRanking(),
+    staleTime: STALE_TIME_DASHBOARD,
+  })
+}
+
+export function useCommercialDetail(commercialId: string | null) {
+  return useQuery({
+    queryKey: ['analytics', 'commercial-detail', commercialId],
+    queryFn: () => getCommercialDetail(commercialId!),
+    enabled: !!commercialId,
     staleTime: STALE_TIME_DASHBOARD,
   })
 }

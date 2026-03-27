@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase/client'
 import type { PerformanceStats, KeyRates } from '@/types'
+import { startOfWeek } from 'date-fns'
 
 export async function getPerformanceStats(commercialId?: string): Promise<PerformanceStats> {
   const now = new Date()
@@ -678,4 +679,181 @@ export async function getDSOStats(): Promise<DSOStats> {
   })
 
   return { dso, total_outstanding: totalOutstanding, overdue_count: overdue.length }
+}
+
+// ── Commercial Performance Ranking ──
+
+export interface CommercialPerformanceRow {
+  id: string
+  full_name: string
+  calls_this_week: number
+  calls_this_month: number
+  rdv_this_month: number
+  clients_signed_this_month: number
+  conversion_rate: number  // RDV -> Client %
+  calls_per_rdv: number    // ratio appels / RDV
+  last_call_at: string | null
+}
+
+export interface CommercialDetailData {
+  id: string
+  full_name: string
+  calls_week: number
+  calls_month: number
+  rdv_week: number
+  rdv_month: number
+  avg_calls_per_rdv: number
+  clients_signed: number
+  signed_clients_list: { id: string; company_name: string; converted_at: string }[]
+  monthly_evolution: { month: string; calls: number; rdv: number; clients: number }[]
+  last_call_at: string | null
+}
+
+export async function getCommercialPerformanceRanking(): Promise<CommercialPerformanceRow[]> {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 }).toISOString()
+
+  const [profilesRes, callsRes, rdvsRes, conversionsRes] = await Promise.all([
+    supabase.from('profiles').select('id, full_name').eq('is_active', true).in('role', ['commercial', 'co_fondateur', 'fondateur']),
+    supabase.from('calls').select('commercial_id, called_at').gte('called_at', monthStart).lt('called_at', monthEnd),
+    supabase.from('rendez_vous').select('commercial_id').is('deleted_at', null).gte('scheduled_at', monthStart).lt('scheduled_at', monthEnd),
+    supabase.from('prospects').select('commercial_id').eq('status', 'converti_client').gte('converted_at', monthStart).lt('converted_at', monthEnd),
+  ])
+
+  const profiles = (profilesRes.data ?? []) as { id: string; full_name: string }[]
+  const calls = (callsRes.data ?? []) as { commercial_id: string; called_at: string }[]
+  const rdvs = (rdvsRes.data ?? []) as { commercial_id: string }[]
+  const conversions = (conversionsRes.data ?? []) as { commercial_id: string }[]
+
+  return profiles.map(p => {
+    const pCalls = calls.filter(c => c.commercial_id === p.id)
+    const callsThisWeek = pCalls.filter(c => c.called_at >= weekStart).length
+    const callsThisMonth = pCalls.length
+    const rdvThisMonth = rdvs.filter(r => r.commercial_id === p.id).length
+    const clientsSigned = conversions.filter(c => c.commercial_id === p.id).length
+    const conversionRate = rdvThisMonth > 0 ? Math.round((clientsSigned / rdvThisMonth) * 1000) / 10 : 0
+    const callsPerRdv = rdvThisMonth > 0 ? Math.round((callsThisMonth / rdvThisMonth) * 10) / 10 : 0
+
+    // Find last call
+    const lastCall = pCalls.length > 0
+      ? pCalls.reduce((latest, c) => c.called_at > latest ? c.called_at : latest, pCalls[0].called_at)
+      : null
+
+    return {
+      id: p.id,
+      full_name: p.full_name,
+      calls_this_week: callsThisWeek,
+      calls_this_month: callsThisMonth,
+      rdv_this_month: rdvThisMonth,
+      clients_signed_this_month: clientsSigned,
+      conversion_rate: conversionRate,
+      calls_per_rdv: callsPerRdv,
+      last_call_at: lastCall,
+    }
+  }).sort((a, b) => b.calls_this_month - a.calls_this_month)
+}
+
+export async function getCommercialDetail(commercialId: string): Promise<CommercialDetailData> {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 }).toISOString()
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString()
+
+  const [profileRes, callsMonthRes, callsAllRes, rdvsMonthRes, rdvsWeekRes, conversionsRes, clientsRes] = await Promise.all([
+    supabase.from('profiles').select('id, full_name').eq('id', commercialId).single(),
+    supabase.from('calls').select('called_at').eq('commercial_id', commercialId).gte('called_at', monthStart).lt('called_at', monthEnd),
+    supabase.from('calls').select('called_at').eq('commercial_id', commercialId).gte('called_at', sixMonthsAgo),
+    supabase.from('rendez_vous').select('id, scheduled_at').eq('commercial_id', commercialId).is('deleted_at', null).gte('scheduled_at', monthStart).lt('scheduled_at', monthEnd),
+    supabase.from('rendez_vous').select('id').eq('commercial_id', commercialId).is('deleted_at', null).gte('scheduled_at', weekStart),
+    supabase.from('prospects').select('id, company_name, converted_at').eq('commercial_id', commercialId).eq('status', 'converti_client').gte('converted_at', monthStart).lt('converted_at', monthEnd),
+    supabase.from('prospects').select('id, company_name, converted_at').eq('commercial_id', commercialId).eq('status', 'converti_client').gte('converted_at', sixMonthsAgo),
+  ])
+
+  const profile = profileRes.data as { id: string; full_name: string } | null
+  const callsMonth = (callsMonthRes.data ?? []) as { called_at: string }[]
+  const allCalls = (callsAllRes.data ?? []) as { called_at: string }[]
+  const rdvsMonth = (rdvsMonthRes.data ?? []) as { id: string; scheduled_at: string }[]
+  const rdvsWeek = (rdvsWeekRes.data ?? []) as { id: string }[]
+  const conversionsMonth = (conversionsRes.data ?? []) as { id: string; company_name: string; converted_at: string }[]
+  const allConversions = (clientsRes.data ?? []) as { id: string; company_name: string; converted_at: string }[]
+
+  // Calls this week (filter from month data)
+  const callsWeek = callsMonth.filter(c => c.called_at >= weekStart).length
+
+  // RDV counts
+  const rdvWeek = rdvsWeek.length
+  const rdvMonth = rdvsMonth.length
+
+  // Avg calls per RDV
+  const avgCallsPerRdv = rdvMonth > 0 ? Math.round((callsMonth.length / rdvMonth) * 10) / 10 : 0
+
+  // Last call
+  const lastCallAt = callsMonth.length > 0
+    ? callsMonth.reduce((latest, c) => c.called_at > latest ? c.called_at : latest, callsMonth[0].called_at)
+    : allCalls.length > 0
+      ? allCalls.reduce((latest, c) => c.called_at > latest ? c.called_at : latest, allCalls[0].called_at)
+      : null
+
+  // Also fetch RDVs for last 6 months for monthly evolution
+  const { data: allRdvsData } = await supabase
+    .from('rendez_vous')
+    .select('scheduled_at')
+    .eq('commercial_id', commercialId)
+    .is('deleted_at', null)
+    .gte('scheduled_at', sixMonthsAgo)
+
+  const allRdvs = (allRdvsData ?? []) as { scheduled_at: string }[]
+
+  // Monthly evolution (last 6 months)
+  const monthNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aout', 'Sep', 'Oct', 'Nov', 'Dec']
+  const monthlyEvolution: { month: string; calls: number; rdv: number; clients: number }[] = []
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const mStart = new Date(d.getFullYear(), d.getMonth(), 1)
+    const mEnd = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+
+    const mCalls = allCalls.filter(c => {
+      const dt = new Date(c.called_at)
+      return dt >= mStart && dt < mEnd
+    }).length
+
+    const mRdvs = allRdvs.filter(r => {
+      const dt = new Date(r.scheduled_at)
+      return dt >= mStart && dt < mEnd
+    }).length
+
+    const mClients = allConversions.filter(c => {
+      const dt = new Date(c.converted_at)
+      return dt >= mStart && dt < mEnd
+    }).length
+
+    monthlyEvolution.push({
+      month: monthNames[d.getMonth()],
+      calls: mCalls,
+      rdv: mRdvs,
+      clients: mClients,
+    })
+  }
+
+  return {
+    id: commercialId,
+    full_name: profile?.full_name ?? 'Inconnu',
+    calls_week: callsWeek,
+    calls_month: callsMonth.length,
+    rdv_week: rdvWeek,
+    rdv_month: rdvMonth,
+    avg_calls_per_rdv: avgCallsPerRdv,
+    clients_signed: conversionsMonth.length,
+    signed_clients_list: conversionsMonth.map(c => ({
+      id: c.id,
+      company_name: c.company_name,
+      converted_at: c.converted_at,
+    })),
+    monthly_evolution: monthlyEvolution,
+    last_call_at: lastCallAt,
+  }
 }
