@@ -8,6 +8,7 @@ import { useCreateReminder } from '../hooks/use-reminders'
 import { useRdvForProspect } from '@/features/rendez-vous/hooks/use-rdv'
 import { useCallsForProspect } from '../hooks/use-calls'
 import { useRemindersForProspect, useCompleteReminder } from '../hooks/use-reminders'
+import { createOpportunity } from '@/features/opportunities/services/opportunity-service'
 import type { Prospect } from '@/types'
 import type { CallResult, ProspectStatus } from '@/types/enums'
 import {
@@ -138,6 +139,40 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
       toast.info('Le RDV apparaîtra automatiquement dans le calendrier')
       startCalcomPolling()
     }
+  }
+
+  /** Auto-create a pub opportunity for this prospect if none exists, then open Cal.com */
+  async function handlePubRdv() {
+    if (!profile) return
+    try {
+      // Check if a pub opportunity already exists for this prospect
+      const { data: existingOpp } = await supabase
+        .from('opportunities')
+        .select('id')
+        .eq('prospect_id', prospect.id)
+        .eq('opportunity_type', 'pub')
+        .is('deleted_at', null)
+        .limit(1)
+        .maybeSingle()
+
+      if (!existingOpp) {
+        await createOpportunity({
+          prospect_id: prospect.id,
+          commercial_id: prospect.commercial_id || profile.id,
+          name: `Pub — ${prospect.company_name}`,
+          project_price: 0,
+          opportunity_type: 'pub',
+        })
+        queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+        queryClient.invalidateQueries({ queryKey: ['pipeline'] })
+        queryClient.invalidateQueries({ queryKey: ['prospects'] })
+        toast.success('Opportunité Pub créée automatiquement')
+      }
+    } catch (err) {
+      console.error('Auto-create pub opportunity failed:', err)
+      // Non-blocking: continue to open Cal.com even if opportunity creation fails
+    }
+    openCalcomAndPoll(CALCOM_PUB)
   }
 
   const [prospectNotes, setProspectNotes] = useState(prospect.notes ?? '')
@@ -769,7 +804,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
               RDV Site
             </button>
             <button
-              onClick={() => openCalcomAndPoll(CALCOM_PUB)}
+              onClick={() => handlePubRdv()}
               className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-sm font-medium text-amber-700 transition-colors"
             >
               <Megaphone className="h-4 w-4" />
@@ -790,7 +825,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
                   Site Web
                 </button>
                 <button
-                  onClick={() => { setBookingTypeChoice(false); openCalcomAndPoll(CALCOM_PUB) }}
+                  onClick={() => { setBookingTypeChoice(false); handlePubRdv() }}
                   className="flex flex-col items-center gap-1 px-3 py-3 rounded-lg border-2 border-amber-300 bg-amber-50 hover:bg-amber-100 text-sm font-medium text-amber-700 transition-colors"
                 >
                   <Megaphone className="h-5 w-5" />

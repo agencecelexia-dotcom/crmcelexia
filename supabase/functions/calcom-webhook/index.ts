@@ -668,6 +668,48 @@ async function handleBookingCreated(
     .eq('id', prospectId)
     .in('status', ['nouveau', 'appele_sans_reponse', 'messagerie', 'site_en_attente', 'site_envoye', 'a_rappeler', 'negatif'])
 
+  // Auto-create pub opportunity if booking type is pub and no pub opportunity exists yet
+  if (bookingType === 'pub') {
+    const { data: existingPubOpp } = await supabase
+      .from('opportunities')
+      .select('id')
+      .eq('prospect_id', prospectId)
+      .eq('opportunity_type', 'pub')
+      .is('deleted_at', null)
+      .limit(1)
+      .maybeSingle()
+
+    if (!existingPubOpp) {
+      const { data: prospectData } = await supabase
+        .from('prospects')
+        .select('company_name')
+        .eq('id', prospectId)
+        .single()
+
+      const oppName = `Pub — ${prospectData?.company_name || 'Prospect'}`
+      const { error: oppErr } = await supabase
+        .from('opportunities')
+        .insert({
+          prospect_id: prospectId,
+          commercial_id: commercialId,
+          name: oppName,
+          status: 'rdv',
+          opportunity_type: 'pub',
+          project_price: 0,
+          amount_collected: 0,
+          revenue_generated: 0,
+          budget_pub: 0,
+          estimated_monthly_revenue: 0,
+        })
+
+      if (oppErr) {
+        console.error(`[calcom-webhook] Failed to auto-create pub opportunity:`, oppErr)
+      } else {
+        console.log(`[calcom-webhook] Auto-created pub opportunity for prospect: ${prospectId}`)
+      }
+    }
+  }
+
   console.log(`[calcom-webhook] RDV created: ${rdv.id} for prospect: ${prospectId}`)
 
   await logWebhookEvent(supabase, {
