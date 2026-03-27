@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useProspects, useDeleteProspects, useTeamMembers, useProfessions } from '../hooks/use-prospects'
+import { useProspects, useDeleteProspects, useTeamMembers, useProfessions, useAssignProspects } from '../hooks/use-prospects'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { useDebounce } from '@/hooks/use-debounce'
 import { DEBOUNCE_MS } from '@/lib/constants'
@@ -63,6 +63,7 @@ import {
   Calendar,
 } from 'lucide-react'
 import { exportToCsv } from '@/lib/export-csv'
+import { toast } from 'sonner'
 import { ProspectGenerationModal } from '../components/prospect-generation-modal'
 
 
@@ -102,6 +103,7 @@ export function ProspectsListPage() {
   const [showAssignModal, setShowAssignModal] = useState(false)
 
   const deleteProspects = useDeleteProspects()
+  const reassignProspect = useAssignProspects()
   const { data: teamMembers } = useTeamMembers()
   const { data: professions = [] } = useProfessions()
 
@@ -722,8 +724,38 @@ export function ProspectsListPage() {
                         <TableCell className="text-sm">{prospect.profession ?? '—'}</TableCell>
                         <TableCell className="text-sm">{prospect.city ?? '—'}</TableCell>
                         {isFounder && (
-                          <TableCell className="text-sm">
-                            {prospect.commercial?.full_name ?? '—'}
+                          <TableCell className="text-sm" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  className="flex items-center gap-1 text-left hover:underline hover:text-primary transition-colors"
+                                  title="Réassigner"
+                                >
+                                  <span className="truncate max-w-[120px]">{prospect.commercial?.full_name ?? '—'}</span>
+                                  <Users className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="w-48">
+                                {teamMembers
+                                  ?.filter((m) => m.id !== prospect.commercial_id)
+                                  .map((member) => (
+                                    <DropdownMenuItem
+                                      key={member.id}
+                                      onClick={() => {
+                                        reassignProspect.mutate(
+                                          { ids: [prospect.id], commercialId: member.id },
+                                          {
+                                            onSuccess: () => toast.success(`${prospect.company_name} reassigne a ${member.full_name}`),
+                                            onError: () => toast.error('Erreur lors de la reassignation'),
+                                          },
+                                        )
+                                      }}
+                                    >
+                                      {member.full_name}
+                                    </DropdownMenuItem>
+                                  ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         )}
                         <TableCell className="text-right">{prospect.call_count}</TableCell>
