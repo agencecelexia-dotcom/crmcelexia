@@ -1232,6 +1232,7 @@ export function ProspectDetailPage() {
         open={contractDialogOpen}
         onOpenChange={setContractDialogOpen}
         onContractGenerated={(blob, fileName) => {
+          console.log('[ContractGenerated] blob size:', blob.size, 'fileName:', fileName, 'callbackExists:', !!contractCallbackRef.current)
           contractCallbackRef.current?.(blob, fileName)
           contractCallbackRef.current = null
         }}

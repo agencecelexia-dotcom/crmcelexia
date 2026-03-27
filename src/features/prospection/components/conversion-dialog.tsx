@@ -326,10 +326,13 @@ export function ConversionDialog({
       // 4. Open contract dialog — register callback with captured values
       if (recipientEmail) {
         setDraftStatus('waiting_contract')
+        console.log('[ConversionDialog] Registering contract callback for:', recipientEmail)
         contractCallbackRef.current = async (blob: Blob, fileName: string) => {
+          console.log('[ConversionDialog] Contract callback fired, blob size:', blob.size)
           setDraftStatus('sending')
           try {
             const contractBase64 = await blobToBase64(blob)
+            console.log('[ConversionDialog] Contract base64 length:', contractBase64.length)
             const pjList: Attachment[] = [
               { base64: contractBase64, fileName, mimeType: 'application/pdf' },
             ]
@@ -339,10 +342,12 @@ export function ConversionDialog({
                 pjList.push({ base64: ibanBase64, fileName: 'IBAN Celexia.pdf', mimeType: 'application/pdf' })
               }
             }
+            console.log('[ConversionDialog] Sending webhook, PJ count:', pjList.length, 'total base64 size:', pjList.reduce((s, p) => s + p.base64.length, 0))
             await sendDraftViaWebhook(recipientEmail, email.subject, email.html, pjList)
             setDraftStatus('sent')
             toast.success('Brouillon Gmail créé avec les PJ !')
-          } catch {
+          } catch (err) {
+            console.error('[ConversionDialog] Draft creation failed:', err)
             setDraftStatus('error')
           }
         }
