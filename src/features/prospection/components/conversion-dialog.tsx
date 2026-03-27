@@ -223,12 +223,15 @@ export function ConversionDialog({ prospect, linkedOpportunity, open, onOpenChan
     const budget = parseFloat(budgetPub.replace(/\s/g, '').replace(',', '.')) || 0
     setProcessing(true)
 
+    let stepReached = ''
     try {
       // 1. Convert prospect to client
+      stepReached = 'conversion'
       const newClientId = await convertProspect.mutateAsync(prospect.id)
       setClientId(newClientId)
 
       // 2. Update opportunity with type + budget
+      stepReached = 'opportunity'
       if (linkedOpportunity) {
         await updateOpportunity(linkedOpportunity.id, {
           opportunity_type: type,
@@ -237,6 +240,7 @@ export function ConversionDialog({ prospect, linkedOpportunity, open, onOpenChan
       }
 
       // 3. Generate contract PDF
+      stepReached = 'contrat'
       const contractData: ContractData = {
         client_civilite: civilite, client_prenom: prenom, client_nom: nom,
         client_forme_juridique: formeJuridique, client_enseigne: enseigne,
@@ -248,9 +252,11 @@ export function ConversionDialog({ prospect, linkedOpportunity, open, onOpenChan
       const fileName = `Contrat Celexia — ${enseigne}.pdf`
 
       // 4. Download the contract locally
+      stepReached = 'download'
       saveAs(pdfBlob, fileName)
 
       // 5. Build email + attachments
+      stepReached = 'email'
       const email = buildHtmlEmail(prospect, type, budget)
       const contractBase64 = await blobToBase64(pdfBlob)
       const attachments = [
@@ -269,6 +275,7 @@ export function ConversionDialog({ prospect, linkedOpportunity, open, onOpenChan
       }
 
       // 7. Create Gmail draft with contract + IBAN attached
+      stepReached = 'webhook'
       if (prospect.contact_email) {
         await sendDraftViaWebhook(prospect.contact_email, email.subject, email.html, attachments)
       }
@@ -282,8 +289,17 @@ export function ConversionDialog({ prospect, linkedOpportunity, open, onOpenChan
       toast.success('Client créé, contrat généré, brouillon Gmail prêt !')
       setStep('done')
     } catch (err) {
-      console.error('[ConversionDialog]', err)
-      toast.error('Erreur lors du processus')
+      console.error(`[ConversionDialog] Failed at step "${stepReached}":`, err)
+
+      // If conversion succeeded, still show done screen (partial success)
+      if (stepReached !== 'conversion') {
+        queryClient.invalidateQueries({ queryKey: ['prospects'] })
+        queryClient.invalidateQueries({ queryKey: ['prospect'] })
+        toast.error(`Client créé mais erreur à l'étape "${stepReached}" — vérifiez la console (F12)`)
+        setStep('done')
+      } else {
+        toast.error('Erreur lors de la conversion')
+      }
     } finally {
       setProcessing(false)
     }
