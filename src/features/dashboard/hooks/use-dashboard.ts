@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   getDashboardStats,
   getCommercialRanking,
+  getCommercialExtraStats,
 } from '../services/dashboard-service'
 import { STALE_TIME_DASHBOARD } from '@/lib/constants'
 
@@ -62,4 +63,15 @@ export function useRemindersCount(commercialId: string | undefined) {
 export function useWeeklyCallStats(commercialId?: string) {
   const { data, ...rest } = useDashboardStats(commercialId)
   return { data: data?.weekly_calls, ...rest }
+}
+
+// Extra commercial stats: RDV booked (created_at), calls/month, signed clients
+export function useCommercialExtraStats(commercialId: string | undefined) {
+  return useQuery({
+    queryKey: ['dashboard', 'commercial-extra', commercialId],
+    queryFn: () => getCommercialExtraStats(commercialId!),
+    enabled: !!commercialId,
+    staleTime: STALE_TIME_DASHBOARD,
+    retry: 1,
+  })
 }

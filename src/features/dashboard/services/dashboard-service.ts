@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
+import { startOfWeek } from 'date-fns'
 
 export interface FunnelStats {
   total_prospects: number
@@ -142,4 +143,66 @@ export async function getCommercialRanking(): Promise<CommercialRanking[]> {
     rdv_count: rdvCounts[p.id] ?? 0,
     conversion_count: convCounts[p.id] ?? 0,
   })).sort((a, b) => b.calls_count - a.calls_count)
+}
+
+// ── Commercial-specific stats for the enhanced dashboard ──
+
+export interface CommercialExtraStats {
+  rdv_booked_month: number
+  rdv_booked_week: number
+  calls_month: number
+  signed_clients_month: number
+}
+
+/**
+ * Fetch additional KPI data for a commercial:
+ * - RDV booked (created_at based) this month and this week
+ * - Total calls this month
+ * - Signed clients (converti_client) this month
+ */
+export async function getCommercialExtraStats(commercialId: string): Promise<CommercialExtraStats> {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 }).toISOString()
+
+  const [rdvMonthRes, rdvWeekRes, callsMonthRes, signedRes] = await Promise.all([
+    // RDV booked this month (created_at = booking date, not scheduled_at)
+    supabase
+      .from('rendez_vous')
+      .select('id')
+      .eq('commercial_id', commercialId)
+      .is('deleted_at', null)
+      .gte('created_at', monthStart)
+      .lt('created_at', monthEnd),
+    // RDV booked this week (created_at based)
+    supabase
+      .from('rendez_vous')
+      .select('id')
+      .eq('commercial_id', commercialId)
+      .is('deleted_at', null)
+      .gte('created_at', weekStart),
+    // Calls this month
+    supabase
+      .from('calls')
+      .select('id')
+      .eq('commercial_id', commercialId)
+      .gte('called_at', monthStart)
+      .lt('called_at', monthEnd),
+    // Signed clients this month
+    supabase
+      .from('prospects')
+      .select('id')
+      .eq('commercial_id', commercialId)
+      .eq('status', 'converti_client')
+      .gte('converted_at', monthStart)
+      .lt('converted_at', monthEnd),
+  ])
+
+  return {
+    rdv_booked_month: rdvMonthRes.data?.length ?? 0,
+    rdv_booked_week: rdvWeekRes.data?.length ?? 0,
+    calls_month: callsMonthRes.data?.length ?? 0,
+    signed_clients_month: signedRes.data?.length ?? 0,
+  }
 }

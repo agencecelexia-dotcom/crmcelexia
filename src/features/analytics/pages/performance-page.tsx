@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import {
   usePerformanceStats,
@@ -310,110 +310,164 @@ export function PerformancePage() {
         </Card>
       )}
 
-      {/* ── Commercial Performance Ranking ── */}
+      {/* ── Commercial Performance Cards ── */}
       {isFounder && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-primary" />
-              Classement des commerciaux
-              <Badge variant="secondary" className="text-xs ml-1">Ce mois</Badge>
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Cliquez sur un commercial pour voir le detail
-            </p>
-          </CardHeader>
-          <CardContent>
-            {loadingRanking ? (
-              <div className="space-y-2">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-12" />
-                ))}
-              </div>
-            ) : !ranking || ranking.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Aucune donnee</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-8">#</TableHead>
-                      <TableHead className="w-8" />
-                      <TableHead>Nom</TableHead>
-                      <TableHead className="text-right">Appels semaine</TableHead>
-                      <TableHead className="text-right">Appels mois</TableHead>
-                      <TableHead className="text-right">RDV pris</TableHead>
-                      <TableHead className="text-right">Clients signes</TableHead>
-                      <TableHead className="text-right">Taux conv.</TableHead>
-                      <TableHead className="text-right">Ratio appels/RDV</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {ranking.map((r, i) => (
-                      <Fragment key={r.id}>
-                        <TableRow
-                          className="cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => toggleExpanded(r.id)}
-                        >
-                          <TableCell className="font-bold text-primary">
-                            {i === 0 ? (
-                              <span className="text-yellow-500" title="1er">1</span>
-                            ) : i === 1 ? (
-                              <span className="text-gray-400" title="2e">2</span>
-                            ) : i === 2 ? (
-                              <span className="text-amber-700" title="3e">3</span>
-                            ) : (
-                              i + 1
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">Classement des commerciaux</h2>
+            <Badge variant="secondary" className="text-xs ml-1">Ce mois</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground -mt-2">
+            Cliquez sur un commercial pour voir le detail complet
+          </p>
+
+          {loadingRanking ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-48 rounded-xl" />
+              ))}
+            </div>
+          ) : !ranking || ranking.length === 0 ? (
+            <Card>
+              <CardContent className="py-8">
+                <p className="text-sm text-muted-foreground text-center">Aucune donnee</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {ranking.map((r, i) => {
+                  const isExpanded = expandedCommercialId === r.id
+                  const initials = r.full_name
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2)
+                  const rankColors = [
+                    'from-yellow-400 to-yellow-600',
+                    'from-gray-300 to-gray-500',
+                    'from-amber-500 to-amber-700',
+                  ]
+
+                  return (
+                    <Card
+                      key={r.id}
+                      className={`cursor-pointer transition-all hover:shadow-lg overflow-hidden ${
+                        isExpanded ? 'ring-2 ring-primary' : 'hover:ring-1 hover:ring-primary/30'
+                      }`}
+                      onClick={() => toggleExpanded(r.id)}
+                    >
+                      {/* Purple gradient header */}
+                      <div className="bg-gradient-to-r from-violet-500 to-purple-600 p-4">
+                        <div className="flex items-center gap-3">
+                          {/* Avatar / initials */}
+                          <div className="relative">
+                            <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-lg backdrop-blur-sm">
+                              {initials}
+                            </div>
+                            {i < 3 && (
+                              <div className={`absolute -top-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br ${rankColors[i]} flex items-center justify-center text-[10px] font-bold text-white shadow-sm`}>
+                                {i + 1}
+                              </div>
                             )}
-                          </TableCell>
-                          <TableCell className="w-8 px-0">
-                            {expandedCommercialId === r.id ? (
-                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-semibold text-lg truncate">{r.full_name}</p>
+                            <p className="text-white/70 text-xs">
+                              {r.calls_per_rdv > 0 ? `${r.calls_per_rdv} appels/RDV` : 'Pas encore de RDV'}
+                            </p>
+                          </div>
+                          <div className="text-white/60">
+                            {isExpanded ? (
+                              <ChevronDown className="h-5 w-5" />
                             ) : (
-                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              <ChevronRight className="h-5 w-5" />
                             )}
-                          </TableCell>
-                          <TableCell className="font-medium">{r.full_name}</TableCell>
-                          <TableCell className="text-right tabular-nums">{r.calls_this_week}</TableCell>
-                          <TableCell className="text-right tabular-nums font-semibold">{r.calls_this_month}</TableCell>
-                          <TableCell className="text-right tabular-nums">{r.rdv_this_month}</TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            <span className={r.clients_signed_this_month > 0 ? 'text-green-600 font-semibold' : ''}>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 4 mini stats */}
+                      <CardContent className="p-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="text-center p-2 bg-muted/40 rounded-lg">
+                            <div className="flex items-center justify-center gap-1 mb-0.5">
+                              <Phone className="h-3 w-3 text-blue-500" />
+                              <span className="text-[11px] text-muted-foreground">Appels</span>
+                            </div>
+                            <p className="text-xl font-bold tabular-nums">{r.calls_this_month}</p>
+                            <p className="text-[10px] text-muted-foreground">{r.calls_this_week} cette sem.</p>
+                          </div>
+                          <div className="text-center p-2 bg-muted/40 rounded-lg">
+                            <div className="flex items-center justify-center gap-1 mb-0.5">
+                              <Calendar className="h-3 w-3 text-purple-500" />
+                              <span className="text-[11px] text-muted-foreground">RDV</span>
+                            </div>
+                            <p className="text-xl font-bold tabular-nums">{r.rdv_this_month}</p>
+                          </div>
+                          <div className="text-center p-2 bg-muted/40 rounded-lg">
+                            <div className="flex items-center justify-center gap-1 mb-0.5">
+                              <UserCheck className="h-3 w-3 text-green-500" />
+                              <span className="text-[11px] text-muted-foreground">Signes</span>
+                            </div>
+                            <p className={`text-xl font-bold tabular-nums ${r.clients_signed_this_month > 0 ? 'text-green-600' : ''}`}>
                               {r.clients_signed_this_month}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {r.rdv_this_month > 0 ? (
-                              <span className={
-                                r.conversion_rate >= 30 ? 'text-green-600 font-semibold' :
+                            </p>
+                          </div>
+                          <div className="text-center p-2 bg-muted/40 rounded-lg">
+                            <div className="flex items-center justify-center gap-1 mb-0.5">
+                              <Target className="h-3 w-3 text-orange-500" />
+                              <span className="text-[11px] text-muted-foreground">Ratio</span>
+                            </div>
+                            <p className="text-xl font-bold tabular-nums">
+                              {r.calls_per_rdv > 0 ? r.calls_per_rdv : '-'}
+                            </p>
+                          </div>
+                        </div>
+                        {/* Conversion rate bar */}
+                        {r.rdv_this_month > 0 && (
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="text-muted-foreground">Taux de conversion</span>
+                              <span className={`font-semibold ${
+                                r.conversion_rate >= 30 ? 'text-green-600' :
                                 r.conversion_rate >= 15 ? 'text-yellow-600' :
                                 'text-red-600'
-                              }>
+                              }`}>
                                 {formatPercentage(r.conversion_rate)}
                               </span>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {r.calls_per_rdv > 0 ? r.calls_per_rdv : '-'}
-                          </TableCell>
-                        </TableRow>
-                        {expandedCommercialId === r.id && (
-                          <TableRow>
-                            <TableCell colSpan={9} className="p-0">
-                              <CommercialDetailPanel commercialId={r.id} />
-                            </TableCell>
-                          </TableRow>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div
+                                className={`h-1.5 rounded-full transition-all ${
+                                  r.conversion_rate >= 30 ? 'bg-green-500' :
+                                  r.conversion_rate >= 15 ? 'bg-yellow-500' :
+                                  'bg-red-500'
+                                }`}
+                                style={{ width: `${Math.min(r.conversion_rate, 100)}%` }}
+                              />
+                            </div>
+                          </div>
                         )}
-                      </Fragment>
-                    ))}
-                  </TableBody>
-                </Table>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              {/* Expanded detail panel below the cards */}
+              {expandedCommercialId && (
+                <Card className="mt-2">
+                  <CardContent className="p-0">
+                    <CommercialDetailPanel commercialId={expandedCommercialId} />
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {/* CA Trend (12 months) */}

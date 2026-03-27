@@ -5,9 +5,9 @@ import {
   useCallsThisWeek,
   useRdvThisWeek,
   useRdvShowUpRate,
-  useRemindersCount,
   useCommercialRanking,
   useWeeklyCallStats,
+  useCommercialExtraStats,
 } from '../hooks/use-dashboard'
 import { useMyReminders } from '@/features/prospection/hooks/use-reminders'
 import { useMyUpcomingRdv } from '@/features/rendez-vous/hooks/use-rdv'
@@ -26,7 +26,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useNavigate } from 'react-router-dom'
-import { Phone, CalendarDays, Clock, AlertTriangle, TrendingUp, Users, Target, BarChart3, DollarSign, UserCheck } from 'lucide-react'
+import { Phone, CalendarDays, CalendarCheck, Clock, AlertTriangle, TrendingUp, Users, Target, BarChart3, DollarSign, UserCheck, Percent } from 'lucide-react'
 import { PROSPECT_STATUS_LABELS, PROSPECT_STATUS_COLORS, RDV_TYPE_LABELS } from '@/types/enums'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { formatDate, formatCurrency } from '@/lib/format'
@@ -74,18 +74,28 @@ export function DashboardPage() {
 
 function CommercialDashboard({ commercialId }: { commercialId: string | undefined }) {
   const navigate = useNavigate()
-  const { data: callsToday, isLoading: loadingCalls } = useCallsToday(commercialId)
-  const { data: callsWeek } = useCallsThisWeek(commercialId)
-  const { data: rdvWeek } = useRdvThisWeek(commercialId)
-  const { data: reminders } = useRemindersCount(commercialId)
+  const { data: callsWeek, isLoading: loadingCalls } = useCallsThisWeek(commercialId)
   const { data: funnel } = useFunnelStats(commercialId)
   const { data: upcomingRdv } = useMyUpcomingRdv(commercialId)
   const { data: todayReminders } = useMyReminders(commercialId, { todayOnly: true })
   const { data: overdueReminders } = useMyReminders(commercialId, { overdueOnly: true })
   const { data: weeklyStats } = useWeeklyCallStats(commercialId)
-  const { data: perfStats } = usePerformanceStats(commercialId)
-  const { data: comparisons } = useDashboardComparisons(commercialId)
-  const { data: keyRates } = useKeyRates(commercialId)
+  const { data: extraStats } = useCommercialExtraStats(commercialId)
+
+  const rdvBookedMonth = extraStats?.rdv_booked_month ?? 0
+  const rdvBookedWeek = extraStats?.rdv_booked_week ?? 0
+  const callsMonth = extraStats?.calls_month ?? 0
+  const signedClientsMonth = extraStats?.signed_clients_month ?? 0
+
+  // Ratio: appels ce mois / RDV bookes ce mois
+  const ratioCallsRdv = rdvBookedMonth > 0
+    ? Math.round(callsMonth / rdvBookedMonth)
+    : 0
+
+  // Taux de conversion: RDV -> Client signe (ce mois)
+  const conversionRate = rdvBookedMonth > 0
+    ? Math.round((signedClientsMonth / rdvBookedMonth) * 1000) / 10
+    : 0
 
   const funnelPieData = funnel ? [
     { name: 'Nouveau', value: funnel.nouveau, color: FUNNEL_COLORS.nouveau },
@@ -99,40 +109,43 @@ function CommercialDashboard({ commercialId }: { commercialId: string | undefine
 
   return (
     <>
-      {/* KPI cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      {/* KPI cards — 6 cold-caller stats */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <StatCard
-          title="CA ce mois"
-          value={perfStats ? formatCurrency(perfStats.ca_this_month) : '...'}
-          icon={DollarSign}
-          trend={comparisons?.ca_delta != null ? { value: comparisons.ca_delta, label: 'vs mois préc.' } : undefined}
-          className="border-primary/30 bg-primary/5"
-        />
-        <StatCard
-          title="Appels aujourd'hui"
-          value={loadingCalls ? '...' : callsToday ?? 0}
-          subtitle={`${callsWeek ?? 0} cette semaine`}
+          title="Appels cette semaine"
+          value={loadingCalls ? '...' : callsWeek ?? 0}
+          subtitle={`${callsMonth} ce mois`}
           icon={Phone}
-          trend={comparisons?.calls_delta != null ? { value: comparisons.calls_delta, label: 'vs mois préc.' } : undefined}
         />
         <StatCard
-          title="Rappels du jour"
-          value={reminders?.today ?? 0}
-          subtitle={reminders?.overdue ? `${reminders.overdue} en retard` : 'Aucun en retard'}
-          icon={Clock}
-          className={reminders?.overdue ? 'border-orange-300 bg-orange-50/30' : undefined}
+          title="RDV bookes ce mois"
+          value={rdvBookedMonth}
+          icon={CalendarCheck}
+          className="border-emerald-400 bg-emerald-50/40 ring-1 ring-emerald-200"
         />
         <StatCard
-          title="RDV cette semaine"
-          value={rdvWeek ?? 0}
+          title="RDV bookes cette semaine"
+          value={rdvBookedWeek}
           icon={CalendarDays}
-          trend={comparisons?.rdv_delta != null ? { value: comparisons.rdv_delta, label: 'vs mois préc.' } : undefined}
         />
         <StatCard
-          title="Taux de contact"
-          value={keyRates ? `${keyRates.contact_rate}%` : '...'}
-          subtitle={keyRates ? `${keyRates.call_to_rdv_rate}% → RDV` : ''}
+          title="Ratio appels / RDV"
+          value={rdvBookedMonth > 0 ? `${ratioCallsRdv} appels/RDV` : '-'}
+          subtitle={rdvBookedMonth > 0 ? `${callsMonth} appels pour ${rdvBookedMonth} RDV` : 'Aucun RDV ce mois'}
+          icon={BarChart3}
+        />
+        <StatCard
+          title="Clients signes"
+          value={signedClientsMonth}
+          subtitle="Ce mois"
           icon={UserCheck}
+          className={signedClientsMonth > 0 ? 'border-green-300 bg-green-50/30' : undefined}
+        />
+        <StatCard
+          title="Taux de conversion"
+          value={rdvBookedMonth > 0 ? `${conversionRate}%` : '-'}
+          subtitle="RDV → Client signe"
+          icon={Percent}
         />
       </div>
 
