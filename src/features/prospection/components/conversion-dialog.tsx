@@ -1,4 +1,4 @@
-import { useState, useCallback, type MutableRefObject } from 'react'
+import { useState, type MutableRefObject } from 'react'
 import type { Prospect, Opportunity } from '@/types'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -294,35 +294,6 @@ export function ConversionDialog({
     onOpenChange(o)
   }
 
-  // Called by GenerateContractDialog when PDF is generated
-  const handleContractGenerated = useCallback(async (blob: Blob, fileName: string) => {
-    if (!pendingEmail || !prospect.contact_email) return
-    setDraftStatus('sending')
-    try {
-      const contractBase64 = await blobToBase64(blob)
-      const pjList: Attachment[] = [
-        { base64: contractBase64, fileName, mimeType: 'application/pdf' },
-      ]
-      // Attach IBAN PDF for pub projects
-      if (projectType === 'pub') {
-        const ibanBase64 = await fetchIbanPdfBase64()
-        if (ibanBase64) {
-          pjList.push({ base64: ibanBase64, fileName: 'IBAN Celexia.pdf', mimeType: 'application/pdf' })
-        }
-      }
-      await sendDraftViaWebhook(
-        prospect.contact_email,
-        pendingEmail.subject,
-        pendingEmail.html,
-        pjList,
-      )
-      setDraftStatus('sent')
-      toast.success('Brouillon Gmail créé avec les PJ !')
-    } catch {
-      setDraftStatus('error')
-    }
-  }, [pendingEmail, prospect.contact_email, projectType])
-
   async function handleConvert(type: 'site_web' | 'pub', budget?: number) {
     setConverting(true)
     try {
@@ -347,14 +318,34 @@ export function ConversionDialog({
 
       toast.success('Prospect converti en client !')
 
-      // 3. Prepare email (will be sent once contract is generated)
+      // 3. Prepare email — capture values NOW to avoid stale closure
       const email = buildHtmlEmail(prospect, type, budget || 0)
+      const recipientEmail = prospect.contact_email
       setPendingEmail(email)
 
-      // 4. Open contract dialog — draft will be created when contract is generated
-      if (prospect.contact_email) {
+      // 4. Open contract dialog — register callback with captured values
+      if (recipientEmail) {
         setDraftStatus('waiting_contract')
-        contractCallbackRef.current = handleContractGenerated
+        contractCallbackRef.current = async (blob: Blob, fileName: string) => {
+          setDraftStatus('sending')
+          try {
+            const contractBase64 = await blobToBase64(blob)
+            const pjList: Attachment[] = [
+              { base64: contractBase64, fileName, mimeType: 'application/pdf' },
+            ]
+            if (type === 'pub') {
+              const ibanBase64 = await fetchIbanPdfBase64()
+              if (ibanBase64) {
+                pjList.push({ base64: ibanBase64, fileName: 'IBAN Celexia.pdf', mimeType: 'application/pdf' })
+              }
+            }
+            await sendDraftViaWebhook(recipientEmail, email.subject, email.html, pjList)
+            setDraftStatus('sent')
+            toast.success('Brouillon Gmail créé avec les PJ !')
+          } catch {
+            setDraftStatus('error')
+          }
+        }
       }
       onOpenContract()
 
