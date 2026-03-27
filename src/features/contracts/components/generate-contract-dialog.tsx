@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+// @ts-expect-error no types for file-saver
 import { saveAs } from 'file-saver'
 import type { Prospect } from '@/types'
 import { autoSearchCompany, type CompanySearchResult } from '../services/company-search-service'

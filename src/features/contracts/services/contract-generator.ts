@@ -360,5 +360,5 @@ export async function generateContract(data: ContractData): Promise<Blob> {
 
   // Serialize
   const pdfBytes = await doc.save()
-  return new Blob([pdfBytes], { type: 'application/pdf' })
+  return new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' })
 }
