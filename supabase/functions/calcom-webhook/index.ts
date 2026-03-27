@@ -580,9 +580,21 @@ async function handleBookingCreated(
     }
   }
 
-  // --- Find the commercial (organizer) by email ---
+  // --- Find the commercial: PRIORITY = prospect's assigned commercial ---
   let commercialId: string | null = null
-  if (organizer?.email) {
+
+  // 1. Use the prospect's commercial_id (the cold caller who prospected)
+  const { data: prospectForCommercial } = await supabase
+    .from('prospects')
+    .select('commercial_id')
+    .eq('id', prospectId)
+    .single()
+  if (prospectForCommercial?.commercial_id) {
+    commercialId = prospectForCommercial.commercial_id
+  }
+
+  // 2. Fallback: organizer email (Cal.com account owner)
+  if (!commercialId && organizer?.email) {
     const { data } = await supabase
       .from('profiles')
       .select('id')
@@ -592,24 +604,15 @@ async function handleBookingCreated(
     if (data) commercialId = data.id
   }
 
-  // Fallback: pick the prospect's commercial_id or first founder
+  // 3. Last resort: first founder
   if (!commercialId) {
-    const { data: prospect } = await supabase
-      .from('prospects')
-      .select('commercial_id')
-      .eq('id', prospectId)
-      .single()
-    if (prospect?.commercial_id) {
-      commercialId = prospect.commercial_id
-    } else {
-      const { data: founder } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'fondateur')
-        .limit(1)
-        .maybeSingle()
-      if (founder) commercialId = founder.id
-    }
+    const { data: founder } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('role', 'fondateur')
+      .limit(1)
+      .maybeSingle()
+    if (founder) commercialId = founder.id
   }
 
   if (!commercialId) {
