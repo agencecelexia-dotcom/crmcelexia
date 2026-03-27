@@ -3,7 +3,7 @@
  * Uses docx library to create a Word document.
  */
 
-import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, HeadingLevel } from 'docx'
+import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx'
 import type { CompanySearchResult } from './company-search-service'
 
 export interface ContractData {
