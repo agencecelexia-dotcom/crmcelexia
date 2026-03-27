@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useProspects, useDeleteProspects, useTeamMembers, useProfessions, useAssignProspects } from '../hooks/use-prospects'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { useDebounce } from '@/hooks/use-debounce'
@@ -74,25 +74,85 @@ export function ProspectsListPage() {
   const { isFounder, profile } = useAuth()
   const navigate = useNavigate()
 
-  const [page, setPage] = useState(1)
-  const [search, setSearch] = useState('')
+  // Persist filters in URL so they survive navigation (back button)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const sp = useCallback((key: string, fallback = '') => searchParams.get(key) || fallback, [searchParams])
+  const setFilter = useCallback((key: string, value: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (!value || value === 'all' || value === 'false') next.delete(key)
+      else next.set(key, value)
+      // Reset page on filter change (except page itself)
+      if (key !== 'p') next.delete('p')
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
+
+  const page = Number(sp('p', '1'))
+  const setPage = useCallback((p: number) => setFilter('p', p > 1 ? String(p) : ''), [setFilter])
+
+  const [search, setSearch] = useState(sp('q'))
   const debouncedSearch = useDebounce(search, DEBOUNCE_MS)
-  const [statusFilter, setStatusFilter] = useState<ProspectStatus | 'all'>('all')
-  const [cityFilter, setCityFilter] = useState('')
-  const [professionFilter, setProfessionFilter] = useState('')
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [neverCalled, setNeverCalled] = useState(false)
-  const [hasOverdue, setHasOverdue] = useState(false)
-  const [hasReminderToday, setHasReminderToday] = useState(false)
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [lastCalledFrom, setLastCalledFrom] = useState('')
-  const [lastCalledTo, setLastCalledTo] = useState('')
-  const [phonePrefixes, setPhonePrefixes] = useState<string[]>([])
+  useEffect(() => { setFilter('q', debouncedSearch) }, [debouncedSearch, setFilter])
+
+  const statusFilter = (sp('status') || 'all') as ProspectStatus | 'all'
+  const setStatusFilter = useCallback((v: ProspectStatus | 'all') => setFilter('status', v), [setFilter])
+
+  const cityFilter = sp('city')
+  const setCityFilter = useCallback((v: string) => setFilter('city', v), [setFilter])
+
+  const professionFilter = sp('profession')
+  const setProfessionFilter = useCallback((v: string) => setFilter('profession', v), [setFilter])
+
+  const [showAdvanced, setShowAdvanced] = useState(!!sp('adv'))
+  const neverCalled = sp('nc') === 'true'
+  const setNeverCalled = useCallback((v: boolean) => setFilter('nc', String(v)), [setFilter])
+  const hasOverdue = sp('od') === 'true'
+  const setHasOverdue = useCallback((v: boolean) => setFilter('od', String(v)), [setFilter])
+  const hasReminderToday = sp('rt') === 'true'
+  const setHasReminderToday = useCallback((v: boolean) => setFilter('rt', String(v)), [setFilter])
+
+  const dateFrom = sp('df')
+  const setDateFrom = useCallback((v: string) => setFilter('df', v), [setFilter])
+  const dateTo = sp('dt')
+  const setDateTo = useCallback((v: string) => setFilter('dt', v), [setFilter])
+  const lastCalledFrom = sp('lcf')
+  const setLastCalledFrom = useCallback((v: string) => setFilter('lcf', v), [setFilter])
+  const lastCalledTo = sp('lct')
+  const setLastCalledTo = useCallback((v: string) => setFilter('lct', v), [setFilter])
+
+  const [phonePrefixes, setPhonePrefixes] = useState<string[]>(sp('pp') ? sp('pp').split(',') : [])
   const [phonePrefixInput, setPhonePrefixInput] = useState('')
-  const [commercialFilter, setCommercialFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState('created_at')
-  const [sortDesc, setSortDesc] = useState(true)
+
+  const commercialFilter = sp('com') || 'all'
+  const setCommercialFilter = useCallback((v: string) => setFilter('com', v), [setFilter])
+
+  const sortBy = sp('sb', 'created_at')
+  const setSortBy = useCallback((v: string | ((prev: string) => string)) => {
+    if (typeof v === 'function') {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev)
+        const newVal = v(next.get('sb') || 'created_at')
+        next.set('sb', newVal)
+        return next
+      }, { replace: true })
+    } else {
+      setFilter('sb', v)
+    }
+  }, [setFilter, setSearchParams])
+  const sortDesc = sp('sd', 'true') === 'true'
+  const setSortDesc = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
+    if (typeof v === 'function') {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev)
+        const cur = (next.get('sd') ?? 'true') === 'true'
+        next.set('sd', String(v(cur)))
+        return next
+      }, { replace: true })
+    } else {
+      setFilter('sd', String(v))
+    }
+  }, [setFilter, setSearchParams])
 
   // Side panel state
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null)
@@ -217,20 +277,10 @@ export function ProspectsListPage() {
   }
 
   function clearAllFilters() {
-    setStatusFilter('all')
-    setCommercialFilter('all')
-    setCityFilter('')
-    setProfessionFilter('')
-    setNeverCalled(false)
-    setHasOverdue(false)
-    setHasReminderToday(false)
-    setDateFrom('')
-    setDateTo('')
-    setLastCalledFrom('')
-    setLastCalledTo('')
+    setSearchParams({}, { replace: true })
+    setSearch('')
     setPhonePrefixes([])
     setPhonePrefixInput('')
-    setPage(1)
   }
 
   // Keep the user on the same prospect after a call is logged
@@ -415,7 +465,7 @@ export function ProspectsListPage() {
                     <SelectTrigger className="w-[160px] h-8 text-sm">
                       <SelectValue placeholder="Métier..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       <SelectItem value="all">Tous les métiers</SelectItem>
                       {professions.map((p) => (
                         <SelectItem key={p} value={p}>{p}</SelectItem>
