@@ -1,18 +1,17 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePortalLead, usePortalLeadEvents, useUpdatePortalLeadStatus, useUpdatePortalLead, useDeletePortalLead } from '../hooks/use-portal-leads'
-import { PORTAL_LEAD_STATUS_LABELS, PORTAL_LEAD_STATUS_COLORS, PORTAL_LEAD_SOURCE_LABELS } from '@/types/enums'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Skeleton } from '@/components/ui/skeleton'
-import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2, Loader2, Euro } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2, MoreHorizontal, RefreshCcw, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/format'
+
+const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+  nouveau: { label: 'Nouveau', color: 'var(--blue-600)', bg: 'var(--blue-100)' },
+  qualifie: { label: 'Qualifié', color: 'var(--violet-700)', bg: 'var(--violet-100)' },
+  devis: { label: 'Devis envoyé', color: 'var(--amber-600)', bg: 'var(--amber-100)' },
+  signe: { label: 'Signé', color: 'var(--emerald-600)', bg: 'var(--emerald-100)' },
+  perdu: { label: 'Perdu', color: 'var(--gray-500)', bg: 'var(--gray-100)' },
+}
 
 export function PortalLeadDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -24,16 +23,15 @@ export function PortalLeadDetailPage() {
   const deleteLead = useDeletePortalLead()
 
   const [notes, setNotes] = useState<string | null>(null)
-  const [signDialogOpen, setSignDialogOpen] = useState(false)
-  const [signedAmount, setSignedAmount] = useState('')
-  const [signedDate, setSignedDate] = useState(new Date().toISOString().split('T')[0])
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [signAmount, setSignAmount] = useState('')
+  const [signDate, setSignDate] = useState(new Date().toISOString().split('T')[0])
+  const [confirming, setConfirming] = useState(false)
 
-  if (isLoading || !lead) {
-    return <Skeleton className="h-96 rounded-xl" />
-  }
+  if (isLoading || !lead) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>Chargement...</div>
 
+  const m = STATUS_META[lead.status] || STATUS_META.nouveau
   const currentNotes = notes ?? lead.notes ?? ''
+  const commission = signAmount ? (Number(signAmount) * 0.1).toLocaleString('fr-FR') : '—'
 
   async function saveNotes() {
     if (notes === null || notes === lead?.notes) return
@@ -42,208 +40,161 @@ export function PortalLeadDetailPage() {
   }
 
   async function handleSign() {
-    const amount = parseFloat(signedAmount)
+    const amount = parseFloat(signAmount)
     if (!amount || amount <= 0) { toast.error('Montant invalide'); return }
-    await updateStatus.mutateAsync({
-      id: lead!.id,
-      newStatus: 'signe',
-      oldStatus: lead!.status,
-      extra: { signed_amount: amount, signed_at: signedDate },
-    })
-    setSignDialogOpen(false)
-    toast.success('Lead marqué comme signé !')
+    setConfirming(true)
+    try {
+      await updateStatus.mutateAsync({ id: lead!.id, newStatus: 'signe', oldStatus: lead!.status, extra: { signed_amount: amount, signed_at: signDate } })
+      toast.success('Lead marqué comme signé !')
+    } finally { setConfirming(false) }
   }
 
   async function handleDelete() {
+    if (!confirm('Supprimer ce lead ?')) return
     await deleteLead.mutateAsync(lead!.id)
     navigate('/portal/leads')
   }
 
-  const commission = lead.signed_amount ? (lead.signed_amount * (lead.commission_rate || 0.10)) : null
-
   return (
-    <div className="space-y-6">
+    <div>
+      {/* Back button */}
+      <button className="btn btn-ghost" onClick={() => navigate('/portal/leads')} style={{ marginBottom: 16, padding: '6px 10px', fontSize: 13 }}>
+        <ArrowLeft size={14} /> Retour aux leads
+      </button>
+
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/portal/leads')}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-900">{lead.name}</h1>
-          <div className="flex items-center gap-2 mt-0.5">
-            <Badge className={PORTAL_LEAD_STATUS_COLORS[lead.status]}>
-              {PORTAL_LEAD_STATUS_LABELS[lead.status]}
-            </Badge>
-            <span className="text-xs text-gray-400">{lead.work_type} · {PORTAL_LEAD_SOURCE_LABELS[lead.source]}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <h1 className="font-display" style={{ fontSize: 26, fontWeight: 700 }}>{lead.name}</h1>
+            <span className="p-tag" style={{ background: m.bg, color: m.color, border: 'none' }}>{m.label}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 12, fontSize: 13, color: 'var(--gray-500)', flexWrap: 'wrap' }}>
+            {lead.city && <span>{lead.city}</span>}
+            <span>·</span>
+            <span>{lead.work_type}</span>
+            <span>·</span>
+            <span>Créé le {formatDate(lead.created_at)}</span>
           </div>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        {/* Left: info + notes + timeline */}
-        <div className="md:col-span-2 space-y-4">
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)', gap: 24 }}>
+        {/* Left column */}
+        <div style={{ display: 'grid', gap: 16 }}>
           {/* Contact */}
-          <Card>
-            <CardContent className="pt-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                {lead.phone && (
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <Phone className="h-4 w-4 text-gray-400" />
-                    <a href={`tel:${lead.phone}`} className="hover:text-violet-600">{lead.phone}</a>
-                  </div>
-                )}
-                {lead.city && (
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <MapPin className="h-4 w-4 text-gray-400" /> {lead.city}
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-gray-700">
-                  <Calendar className="h-4 w-4 text-gray-400" /> Créé le {formatDate(lead.created_at)}
-                </div>
-                {lead.amount_estimated && (
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <Euro className="h-4 w-4 text-gray-400" /> Estimé {lead.amount_estimated.toLocaleString('fr-FR')} €
-                  </div>
-                )}
+          <div className="p-card" style={{ padding: 20 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 14 }}>Coordonnées</h3>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--gray-700)' }}>
+                <Phone size={16} style={{ color: 'var(--gray-400)' }} />
+                <a href={`tel:${lead.phone}`} style={{ color: 'var(--violet-600)', fontWeight: 500, textDecoration: 'none' }}>{lead.phone}</a>
               </div>
-            </CardContent>
-          </Card>
+              {lead.city && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--gray-700)' }}>
+                  <MapPin size={16} style={{ color: 'var(--gray-400)' }} /> {lead.city}
+                </div>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--gray-700)' }}>
+                <Calendar size={16} style={{ color: 'var(--gray-400)' }} /> Créé le {formatDate(lead.created_at)}
+              </div>
+            </div>
+          </div>
 
           {/* Notes */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Notes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={currentNotes}
-                onChange={(e) => setNotes(e.target.value)}
-                onBlur={saveNotes}
-                rows={3}
-                placeholder="Ajouter des notes..."
-                className="text-sm"
-              />
-              {notes !== null && notes !== lead.notes && (
-                <p className="text-xs text-amber-600 mt-1">Modifications non sauvegardées — cliquez ailleurs pour sauvegarder</p>
-              )}
-            </CardContent>
-          </Card>
+          <div className="p-card" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)' }}>Notes</h3>
+              {notes !== null && notes !== lead.notes && <span style={{ fontSize: 11, color: 'var(--violet-600)' }}>Modifié</span>}
+            </div>
+            <textarea
+              className="input"
+              value={currentNotes}
+              onChange={e => setNotes(e.target.value)}
+              onBlur={saveNotes}
+              placeholder="Ajouter des notes..."
+              style={{ minHeight: 100, resize: 'vertical', lineHeight: 1.55 }}
+            />
+          </div>
 
           {/* Timeline */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Historique</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {events && events.length > 0 ? (
-                <div className="space-y-3">
-                  {events.map(ev => (
-                    <div key={ev.id} className="flex items-start gap-3">
-                      <div className="mt-0.5 h-2 w-2 rounded-full bg-violet-400 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-700">{ev.description}</p>
-                        <p className="text-xs text-gray-400">{formatDate(ev.created_at)}</p>
-                      </div>
+          <div className="p-card" style={{ padding: 20 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 14 }}>Historique</h3>
+            {events && events.length > 0 ? (
+              <div className="timeline">
+                {events.map(ev => (
+                  <div className="timeline-item" key={ev.id}>
+                    <div className="timeline-dot done">
+                      <CheckCircle2 size={10} />
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400">Aucun événement</p>
-              )}
-            </CardContent>
-          </Card>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 2 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--gray-900)' }}>{ev.description}</div>
+                      <div style={{ fontSize: 12, color: 'var(--gray-500)', flexShrink: 0 }}>{formatDate(ev.created_at)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: 'var(--gray-400)', textAlign: 'center', padding: '16px 0' }}>Aucun événement</p>
+            )}
+          </div>
         </div>
 
-        {/* Right: actions */}
-        <div className="space-y-4">
+        {/* Right column */}
+        <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
           {/* Sign card */}
           {lead.status !== 'signe' && lead.status !== 'perdu' && (
-            <Card className="border-violet-200">
-              <CardContent className="pt-4">
-                <Button
-                  className="w-full bg-violet-600 hover:bg-violet-700"
-                  onClick={() => setSignDialogOpen(true)}
-                >
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Marquer comme signé
-                </Button>
-              </CardContent>
-            </Card>
+            <div className="p-card" style={{ padding: 20, border: '1.5px solid var(--violet-200)', background: 'rgba(124,58,237,0.02)' }}>
+              <h3 className="font-display" style={{ fontSize: 16, fontWeight: 700, color: 'var(--gray-900)', marginBottom: 14 }}>
+                Marquer comme signé
+              </h3>
+              <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
+                <div>
+                  <label className="label-input">Montant du devis (€ HT) *</label>
+                  <input className="input" type="number" value={signAmount} onChange={e => setSignAmount(e.target.value)} placeholder="5 000" />
+                </div>
+                <div>
+                  <label className="label-input">Date de signature</label>
+                  <input className="input" type="date" value={signDate} onChange={e => setSignDate(e.target.value)} />
+                </div>
+              </div>
+              {signAmount && Number(signAmount) > 0 && (
+                <div style={{ padding: 14, background: 'var(--violet-50)', borderRadius: 'var(--radius-md)', marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, color: 'var(--gray-600)' }}>Commission Celexia (10%)</div>
+                  <div className="font-display" style={{ fontSize: 20, fontWeight: 700, color: 'var(--violet-700)' }}>{commission} €</div>
+                  <div style={{ fontSize: 11, color: 'var(--gray-500)', marginTop: 2 }}>Facturée le 1<sup>er</sup> du mois suivant</div>
+                </div>
+              )}
+              <button className="btn btn-primary" style={{ width: '100%' }} disabled={!signAmount || Number(signAmount) <= 0 || confirming} onClick={handleSign}>
+                <CheckCircle2 size={16} /> {confirming ? 'Enregistrement...' : 'Confirmer la signature'}
+              </button>
+            </div>
           )}
 
           {/* Signed info */}
           {lead.status === 'signe' && lead.signed_amount && (
-            <Card className="border-emerald-200 bg-emerald-50">
-              <CardContent className="pt-4 space-y-2">
-                <p className="text-sm font-semibold text-emerald-900">Devis signé</p>
-                <p className="text-2xl font-bold text-emerald-700" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-                  {lead.signed_amount.toLocaleString('fr-FR')} € HT
-                </p>
-                {lead.signed_at && <p className="text-xs text-emerald-600">Signé le {lead.signed_at}</p>}
-                {commission && (
-                  <div className="pt-2 border-t border-emerald-200">
-                    <p className="text-xs text-emerald-600">Commission (10%) : <strong>{commission.toLocaleString('fr-FR')} €</strong></p>
-                    <p className="text-xs text-emerald-500">Facturée le 1er du mois suivant</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <div className="p-card" style={{ padding: 20, background: 'var(--emerald-100)', border: '1px solid var(--emerald-500)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <CheckCircle2 size={18} style={{ color: 'var(--emerald-600)' }} />
+                <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--emerald-600)' }}>Devis signé</h3>
+              </div>
+              <div className="font-display" style={{ fontSize: 28, fontWeight: 700, color: 'var(--emerald-600)', marginBottom: 4 }}>
+                {lead.signed_amount.toLocaleString('fr-FR')} € HT
+              </div>
+              {lead.signed_at && <div style={{ fontSize: 12, color: 'var(--gray-600)' }}>Signé le {lead.signed_at}</div>}
+              <div style={{ borderTop: '1px solid rgba(5,150,105,0.2)', marginTop: 12, paddingTop: 12 }}>
+                <div style={{ fontSize: 12, color: 'var(--gray-600)' }}>Commission (10%)</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--violet-700)' }}>{(lead.signed_amount * 0.10).toLocaleString('fr-FR')} €</div>
+              </div>
+            </div>
           )}
 
           {/* Delete */}
-          <Button variant="ghost" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setDeleteDialogOpen(true)}>
-            <Trash2 className="mr-2 h-4 w-4" /> Supprimer ce lead
-          </Button>
+          <button className="btn" style={{ width: '100%', background: 'white', color: '#DC2626', border: '1.5px solid #FECACA', padding: '10px 18px', fontSize: 14, fontWeight: 600 }} onClick={handleDelete}>
+            <Trash2 size={16} /> Supprimer ce lead
+          </button>
         </div>
       </div>
-
-      {/* Sign dialog */}
-      <Dialog open={signDialogOpen} onOpenChange={setSignDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Marquer comme signé</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Montant du devis (€ HT) *</Label>
-              <Input type="number" value={signedAmount} onChange={(e) => setSignedAmount(e.target.value)} placeholder="5000" autoFocus />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Date de signature</Label>
-              <Input type="date" value={signedDate} onChange={(e) => setSignedDate(e.target.value)} />
-            </div>
-            {signedAmount && parseFloat(signedAmount) > 0 && (
-              <div className="rounded-lg bg-violet-50 p-3 text-sm">
-                <p className="text-violet-700">Commission (10%) : <strong>{(parseFloat(signedAmount) * 0.10).toLocaleString('fr-FR')} €</strong></p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setSignDialogOpen(false)}>Annuler</Button>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={handleSign} disabled={updateStatus.isPending || !signedAmount}>
-              {updateStatus.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-              Confirmer la signature
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete confirmation */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Supprimer ce lead ?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-gray-500">Cette action est irréversible.</p>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDeleteDialogOpen(false)}>Annuler</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteLead.isPending}>
-              {deleteLead.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-              Supprimer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

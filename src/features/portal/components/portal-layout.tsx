@@ -1,11 +1,11 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { Home, LayoutGrid, Euro, FolderOpen, LogOut } from 'lucide-react'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
-import { Button } from '@/components/ui/button'
+import { Home, LayoutGrid, Euro, FolderOpen, Settings, LogOut, Bell, Sparkles, Clock } from 'lucide-react'
+import '../portal.css'
 
 const NAV_ITEMS = [
   { to: '/portal/dashboard', label: 'Dashboard', icon: Home },
-  { to: '/portal/leads', label: 'Leads', icon: LayoutGrid },
+  { to: '/portal/leads', label: 'Leads', icon: LayoutGrid, badge: true },
   { to: '/portal/commission', label: 'Commission', icon: Euro },
   { to: '/portal/documents', label: 'Documents', icon: FolderOpen },
 ] as const
@@ -13,80 +13,128 @@ const NAV_ITEMS = [
 export function PortalLayout() {
   const { profile, client, signOut } = usePortalAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const route = location.pathname
 
   const handleSignOut = async () => {
     await signOut()
     navigate('/portal/auth')
   }
 
+  const initials = profile?.full_name
+    ? profile.full_name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+    : '?'
+
   return (
-    <div className="min-h-screen bg-gray-50" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <img src="/logocelexia.png" alt="Celexia" className="h-7" />
-            <span className="text-sm font-semibold text-gray-400">Portail client</span>
+    <div className="portal-root">
+      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--gray-50)' }}>
+        {/* Sidebar — exact mockup copy */}
+        <aside style={{
+          width: 240, background: 'white', borderRight: '1px solid var(--gray-200)',
+          display: 'flex', flexDirection: 'column', flexShrink: 0,
+          position: 'sticky', top: 0, height: '100vh',
+        }}>
+          {/* Logo */}
+          <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--gray-100)' }}>
+            <img src="/logocelexia.png" alt="Celexia" style={{ height: 28, width: 'auto' }} />
           </div>
-          <nav className="hidden md:flex items-center gap-1">
-            {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-violet-50 text-violet-700'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                  }`
-                }
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:block text-right">
-              <p className="text-sm font-semibold text-gray-900">{profile?.full_name}</p>
-              <p className="text-xs text-gray-500">{client?.company_name}</p>
+
+          {/* Nav items */}
+          <div style={{ padding: '14px 0', flex: 1, overflowY: 'auto' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--gray-400)', padding: '4px 24px 8px' }}>
+              Espace artisan
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-xs font-bold text-white">
-              {profile?.full_name?.charAt(0) || '?'}
+            {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
+              const isActive = route === to || (to === '/portal/leads' && route.startsWith('/portal/leads/'))
+              return (
+                <NavLink
+                  key={to}
+                  to={to}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 14px', margin: '2px 10px',
+                    borderRadius: 'var(--radius-md)',
+                    color: isActive ? 'var(--violet-700)' : 'var(--gray-600)',
+                    fontSize: 14, fontWeight: isActive ? 600 : 500,
+                    background: isActive ? 'var(--violet-50)' : 'transparent',
+                    textDecoration: 'none',
+                    transition: 'all 0.15s',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Icon size={18} style={{ color: isActive ? 'var(--violet-600)' : undefined }} />
+                  <span>{label}</span>
+                </NavLink>
+              )
+            })}
+
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--gray-400)', padding: '20px 24px 8px' }}>
+              Parcours client
             </div>
-            <Button variant="ghost" size="icon" onClick={handleSignOut} title="Se déconnecter">
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        {/* Mobile nav */}
-        <div className="flex md:hidden border-t overflow-x-auto px-2 py-1 gap-1">
-          {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap ${
-                  isActive ? 'bg-violet-50 text-violet-700' : 'text-gray-500'
-                }`
-              }
+              to="/portal/onboarding/welcome"
+              style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', margin: '2px 10px', borderRadius: 'var(--radius-md)', color: 'var(--gray-600)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}
             >
-              <Icon className="h-3.5 w-3.5" />
-              {label}
+              <Sparkles size={18} /><span>Onboarding (demo)</span>
             </NavLink>
-          ))}
+          </div>
+
+          {/* User footer */}
+          <div style={{ padding: 14, borderTop: '1px solid var(--gray-100)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, borderRadius: 8 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: '50%',
+                background: 'linear-gradient(135deg, var(--violet-400), var(--violet-600))',
+                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 700, fontSize: 13,
+              }}>
+                {initials}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-900)' }}>{profile?.full_name}</div>
+                <div style={{ fontSize: 11, color: 'var(--gray-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {client?.company_name}
+                </div>
+              </div>
+              <button
+                onClick={handleSignOut}
+                title="Se déconnecter"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--gray-500)' }}
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main content */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* Topbar */}
+          <div style={{
+            background: 'white', borderBottom: '1px solid var(--gray-200)',
+            padding: '14px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            minHeight: 64,
+          }}>
+            <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>
+              Espace artisan · {NAV_ITEMS.find(n => route.startsWith(n.to))?.label || 'Page'}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, position: 'relative', color: 'var(--gray-600)' }}>
+                <Bell size={18} />
+                <span style={{ position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: '50%', background: '#DC2626', border: '2px solid white' }} />
+              </button>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: 'var(--gray-600)' }}>
+                <Settings size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Page content */}
+          <div style={{ padding: 32, flex: 1, overflowX: 'hidden' }}>
+            <Outlet />
+          </div>
         </div>
-      </header>
-
-      {/* Page content */}
-      <main className="mx-auto max-w-6xl px-4 py-6">
-        <Outlet />
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t bg-white py-4 text-center text-xs text-gray-400">
-        Celexia — Agence apport d'affaire · <a href="mailto:agence.celexia@gmail.com" className="text-violet-600 hover:underline">agence.celexia@gmail.com</a>
-      </footer>
+      </div>
     </div>
   )
 }

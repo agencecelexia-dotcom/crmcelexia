@@ -1,17 +1,9 @@
 import { usePortalAuth } from '../hooks/use-portal-auth'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { FileText, Shield, Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
+import { FileText, Shield, Download, Building2 } from 'lucide-react'
 
 function DocCard({ title, icon: Icon, status, statusColor, subtitle, path }: {
-  title: string
-  icon: React.ElementType
-  status?: string
-  statusColor?: string
-  subtitle?: string
-  path?: string | null
+  title: string; icon: React.ElementType; status?: string; statusColor?: string; subtitle?: string; path?: string | null
 }) {
   async function handleDownload() {
     if (!path) return
@@ -20,29 +12,27 @@ function DocCard({ title, icon: Icon, status, statusColor, subtitle, path }: {
   }
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="pt-5 pb-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600 shrink-0">
-            <Icon className="h-5 w-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900">{title}</p>
-            {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
-            {status && (
-              <Badge className={`mt-1.5 text-xs ${statusColor || 'bg-gray-100 text-gray-600'}`}>
-                {status}
-              </Badge>
-            )}
-          </div>
-          {path && (
-            <Button variant="ghost" size="icon" onClick={handleDownload} title="Télécharger">
-              <Download className="h-4 w-4" />
-            </Button>
+    <div className="p-card p-card-hoverable" style={{ padding: 20, cursor: path ? 'pointer' : 'default' }} onClick={path ? handleDownload : undefined}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--violet-100)', color: 'var(--violet-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon size={22} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 2 }}>{title}</div>
+          {subtitle && <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 6 }}>{subtitle}</div>}
+          {status && (
+            <span className="p-tag" style={{
+              background: statusColor?.includes('emerald') ? 'var(--emerald-100)' : statusColor?.includes('amber') ? 'var(--amber-100)' : 'var(--gray-100)',
+              color: statusColor?.includes('emerald') ? 'var(--emerald-600)' : statusColor?.includes('amber') ? 'var(--amber-600)' : 'var(--gray-600)',
+              border: 'none',
+            }}>
+              {status}
+            </span>
           )}
         </div>
-      </CardContent>
-    </Card>
+        {path && <Download size={16} style={{ color: 'var(--gray-400)', flexShrink: 0, marginTop: 4 }} />}
+      </div>
+    </div>
   )
 }
 
@@ -50,36 +40,31 @@ export function PortalDocumentsPage() {
   const { onboarding } = usePortalAuth()
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-          Documents
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">Vos documents contractuels et légaux</p>
-      </div>
+    <div>
+      <h1 className="font-display" style={{ fontSize: 26, fontWeight: 700, marginBottom: 6 }}>Documents</h1>
+      <p style={{ fontSize: 14, color: 'var(--gray-500)', marginBottom: 24 }}>Vos documents contractuels et légaux</p>
 
-      {/* Documents grid */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 28 }}>
         <DocCard
           title="Contrat Celexia"
           icon={FileText}
           status={onboarding?.contract_signed ? 'Signé' : 'Non signé'}
-          statusColor={onboarding?.contract_signed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}
+          statusColor={onboarding?.contract_signed ? 'emerald' : 'amber'}
           subtitle="Contrat de partenariat d'apport d'affaires"
         />
         <DocCard
           title="Assurance RC Pro"
           icon={Shield}
           status={onboarding?.rc_pro_uploaded ? 'Envoyée' : 'Manquante'}
-          statusColor={onboarding?.rc_pro_uploaded ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}
+          statusColor={onboarding?.rc_pro_uploaded ? 'emerald' : 'amber'}
           subtitle="Responsabilité civile professionnelle"
           path={onboarding?.rc_pro_path}
         />
         <DocCard
           title="Extrait Kbis"
-          icon={Shield}
+          icon={Building2}
           status={onboarding?.kbis_uploaded ? 'Envoyé' : 'Manquant'}
-          statusColor={onboarding?.kbis_uploaded ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}
+          statusColor={onboarding?.kbis_uploaded ? 'emerald' : 'amber'}
           subtitle="Extrait de moins de 3 mois"
           path={onboarding?.kbis_path}
         />
@@ -87,23 +72,21 @@ export function PortalDocumentsPage() {
           title="Preuve de paiement"
           icon={FileText}
           status={onboarding?.payment_proof_uploaded ? 'Reçue' : 'Manquante'}
-          statusColor={onboarding?.payment_proof_uploaded ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}
+          statusColor={onboarding?.payment_proof_uploaded ? 'emerald' : 'amber'}
           subtitle="Justificatif de virement du budget pub"
           path={onboarding?.payment_proof_path}
         />
       </div>
 
-      {/* Invoices section */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Factures</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-400 py-6 text-center">
-            Les factures apparaîtront ici à partir du mois prochain.
-          </p>
-        </CardContent>
-      </Card>
+      {/* Invoices */}
+      <div className="p-card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--gray-100)' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--gray-900)' }}>Factures</h2>
+        </div>
+        <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+          <p style={{ fontSize: 14, color: 'var(--gray-400)' }}>Les factures apparaîtront ici à partir du mois prochain.</p>
+        </div>
+      </div>
     </div>
   )
 }
