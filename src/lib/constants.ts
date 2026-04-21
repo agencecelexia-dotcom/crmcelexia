@@ -15,3 +15,8 @@ export const N8N_SALE_NOTIFICATION_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud
 
 // n8n webhook for creating Gmail draft (conversion client)
 export const N8N_EMAIL_DRAFT_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/crm-email-draft'
+
+// n8n webhooks for portal
+export const N8N_PORTAL_VALIDATED_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/portal-onboarding-validated'
+export const N8N_PORTAL_REMINDER_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/portal-onboarding-reminder'
+export const N8N_PORTAL_ADMIN_ALERT_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/portal-admin-alert'

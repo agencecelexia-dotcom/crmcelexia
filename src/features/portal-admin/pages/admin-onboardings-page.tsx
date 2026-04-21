@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { usePendingOnboardings, useValidateOnboarding, useRejectOnboarding, useToggleReminders } from '../hooks/use-admin-onboardings'
 import type { AdminOnboardingRow } from '../services/admin-onboarding-service'
 import { useAuth } from '@/features/auth/hooks/use-auth'
+import { sendOnboardingValidatedEmail } from '@/features/portal/services/portal-email-service'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -269,7 +270,16 @@ export function AdminOnboardingsPage() {
                 <OnboardingCard
                   key={onb.id}
                   onb={onb}
-                  onValidate={() => validate.mutate({ id: onb.id, validatedBy: profile!.id })}
+                  onValidate={() => {
+                    validate.mutate({ id: onb.id, validatedBy: profile!.id })
+                    if (onb.client.contact_email) {
+                      sendOnboardingValidatedEmail({
+                        email: onb.client.contact_email,
+                        artisan_firstname: onb.client.contact_firstname || onb.client.company_name,
+                        company_name: onb.client.company_name,
+                      })
+                    }
+                  }}
                   onReject={(reason) => reject.mutate({ id: onb.id, reason })}
                   onToggleReminders={(disabled) => toggleReminders.mutate({ id: onb.id, disabled })}
                 />
