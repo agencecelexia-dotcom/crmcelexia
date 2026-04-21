@@ -89,7 +89,9 @@ import {
 import { toast } from 'sonner'
 import { useOpportunitiesForClient } from '@/features/opportunities/hooks/use-opportunities'
 import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STATUS_COLORS } from '@/types/enums'
-import { Zap } from 'lucide-react'
+import { Zap, UserPlus } from 'lucide-react'
+import { inviteArtisanToPortal } from '@/features/portal/services/portal-invite-service'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 
 const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
   actif: 'Actif',
@@ -126,6 +128,10 @@ export function ClientDetailPage() {
   const updateClient = useUpdateClient()
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, string>>({})
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviting, setInviting] = useState(false)
+  const [inviteResult, setInviteResult] = useState<{ email: string; temp_password: string } | null>(null)
 
   if (isLoading) {
     return (
@@ -231,9 +237,24 @@ export function ClientDetailPage() {
               </Button>
             </>
           ) : (
-            <Button variant="outline" size="sm" onClick={startEditing}>
-              <Pencil className="mr-1 h-4 w-4" /> Modifier
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={startEditing}>
+                <Pencil className="mr-1 h-4 w-4" /> Modifier
+              </Button>
+              {!client.portal_enabled && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-violet-300 text-violet-700 hover:bg-violet-50"
+                  onClick={() => { setInviteEmail(client.contact_email || ''); setInviteDialogOpen(true) }}
+                >
+                  <UserPlus className="mr-1 h-4 w-4" /> Inviter portail
+                </Button>
+              )}
+              {client.portal_enabled && (
+                <Badge className="bg-violet-100 text-violet-700">Portail actif</Badge>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -374,6 +395,94 @@ export function ClientDetailPage() {
           <OpportunitesTab clientId={client.id} />
         </TabsContent>
       </Tabs>
+
+      {/* Portal invite dialog */}
+      <Dialog open={inviteDialogOpen} onOpenChange={(o) => { if (!o) { setInviteResult(null) }; setInviteDialogOpen(o) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-violet-600" />
+              Inviter sur le portail
+            </DialogTitle>
+          </DialogHeader>
+          {!inviteResult ? (
+            <>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Un compte artisan sera créé pour <strong>{client.company_name}</strong> avec un mot de passe temporaire.
+                </p>
+                <div className="space-y-1">
+                  <Label className="text-xs">Email du client *</Label>
+                  <Input
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="artisan@email.com"
+                    type="email"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setInviteDialogOpen(false)}>Annuler</Button>
+                <Button
+                  className="bg-violet-600 hover:bg-violet-700"
+                  disabled={!inviteEmail || inviting}
+                  onClick={async () => {
+                    setInviting(true)
+                    try {
+                      const result = await inviteArtisanToPortal(client.id, inviteEmail)
+                      setInviteResult({ email: result.email, temp_password: result.temp_password })
+                      toast.success('Compte artisan créé !')
+                    } catch (err) {
+                      toast.error((err as Error).message)
+                    } finally {
+                      setInviting(false)
+                    }
+                  }}
+                >
+                  {inviting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                  Créer le compte
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4">
+                  <p className="text-sm font-medium text-emerald-900">Compte créé avec succès !</p>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500">Email</p>
+                    <p className="text-sm font-mono">{inviteResult.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500">Mot de passe temporaire</p>
+                    <p className="text-sm font-mono font-bold text-violet-700">{inviteResult.temp_password}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Envoyez ces identifiants au client. Il pourra se connecter sur{' '}
+                  <strong>{window.location.origin}/portal/auth</strong>
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`Email: ${inviteResult.email}\nMot de passe: ${inviteResult.temp_password}\nConnexion: ${window.location.origin}/portal/auth`)
+                    toast.success('Identifiants copiés !')
+                  }}
+                >
+                  Copier les identifiants
+                </Button>
+                <Button onClick={() => { setInviteDialogOpen(false); setInviteResult(null); window.location.reload() }}>
+                  Fermer
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

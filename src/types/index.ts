@@ -140,6 +140,10 @@ export interface Client {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  // Portal
+  user_id: string | null
+  portal_enabled: boolean
+  portal_activated_at: string | null
   // Joined
   commercial?: Profile
   prospect?: Prospect
