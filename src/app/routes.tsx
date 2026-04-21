@@ -5,6 +5,9 @@ import { ProtectedRoute } from '@/features/auth/components/protected-route'
 import { FounderGuard } from '@/features/auth/components/role-guard'
 import { LoginPage } from '@/features/auth/pages/login-page'
 import { Loader2 } from 'lucide-react'
+import { PortalAuthProvider } from '@/features/portal/components/portal-auth-provider'
+import { PortalProtectedRoute } from '@/features/portal/components/portal-protected-route'
+import { PortalOnboardingLayout } from '@/features/portal/components/portal-onboarding-layout'
 
 // Lazy-loaded pages for code splitting
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/dashboard-page').then(m => ({ default: m.DashboardPage })))
@@ -34,6 +37,16 @@ const NotesPage = lazy(() => import('@/features/notes/pages/notes-page').then(m 
 const RemindersPage = lazy(() => import('@/features/reminders/pages/reminders-page').then(m => ({ default: m.RemindersPage })))
 const MyPipelinePage = lazy(() => import('@/features/pipeline/pages/my-pipeline-page').then(m => ({ default: m.MyPipelinePage })))
 
+// Portal pages
+const PortalLoginPage = lazy(() => import('@/features/portal/pages/portal-login-page').then(m => ({ default: m.PortalLoginPage })))
+const WelcomePage = lazy(() => import('@/features/portal/pages/onboarding/welcome-page').then(m => ({ default: m.WelcomePage })))
+const ContractPage = lazy(() => import('@/features/portal/pages/onboarding/contract-page').then(m => ({ default: m.ContractPage })))
+const PaymentPage = lazy(() => import('@/features/portal/pages/onboarding/payment-page').then(m => ({ default: m.PaymentPage })))
+const GmbPage = lazy(() => import('@/features/portal/pages/onboarding/gmb-page').then(m => ({ default: m.GmbPage })))
+const LegalPage = lazy(() => import('@/features/portal/pages/onboarding/legal-page').then(m => ({ default: m.LegalPage })))
+const TrainingPage = lazy(() => import('@/features/portal/pages/onboarding/training-page').then(m => ({ default: m.TrainingPage })))
+const PendingPage = lazy(() => import('@/features/portal/pages/onboarding/pending-page').then(m => ({ default: m.PendingPage })))
+
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[400px]">
@@ -47,6 +60,29 @@ function LazyPage({ children }: { children: React.ReactNode }) {
 }
 
 export const router = createBrowserRouter([
+  // ── Portal artisan (separate auth flow) ──
+  {
+    path: '/portal/auth',
+    element: <LazyPage><PortalLoginPage /></LazyPage>,
+  },
+  {
+    element: <PortalAuthProvider><PortalProtectedRoute /></PortalAuthProvider>,
+    children: [
+      {
+        element: <PortalOnboardingLayout />,
+        children: [
+          { path: '/portal/onboarding/welcome', element: <LazyPage><WelcomePage /></LazyPage> },
+          { path: '/portal/onboarding/contract', element: <LazyPage><ContractPage /></LazyPage> },
+          { path: '/portal/onboarding/payment', element: <LazyPage><PaymentPage /></LazyPage> },
+          { path: '/portal/onboarding/gmb', element: <LazyPage><GmbPage /></LazyPage> },
+          { path: '/portal/onboarding/legal', element: <LazyPage><LegalPage /></LazyPage> },
+          { path: '/portal/onboarding/training', element: <LazyPage><TrainingPage /></LazyPage> },
+          { path: '/portal/onboarding/pending', element: <LazyPage><PendingPage /></LazyPage> },
+        ],
+      },
+    ],
+  },
+  // ── CRM interne ──
   {
     path: '/login',
     element: <LoginPage />,

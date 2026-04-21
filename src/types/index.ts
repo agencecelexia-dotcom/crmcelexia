@@ -440,3 +440,38 @@ export interface ProspectFilters {
   last_called_to?: string
   phone_prefixes?: string[]
 }
+
+// ── Portal Lead ──
+export interface PortalLead {
+  id: string
+  client_id: string
+  name: string
+  phone: string
+  city: string | null
+  work_type: string
+  amount_estimated: number | null
+  source: 'lsa' | 'bao'
+  status: 'nouveau' | 'qualifie' | 'devis' | 'signe' | 'perdu'
+  signed_amount: number | null
+  signed_at: string | null
+  signed_pdf_path: string | null
+  commission_rate: number
+  commission_amount: number | null
+  notes: string | null
+  is_urgent: boolean
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+// ── Portal Lead Event ──
+export interface PortalLeadEvent {
+  id: string
+  portal_lead_id: string
+  event_type: 'created' | 'status_change' | 'call' | 'note' | 'signed' | 'lost'
+  description: string
+  old_status: string | null
+  new_status: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
+}

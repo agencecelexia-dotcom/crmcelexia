@@ -594,3 +594,56 @@ export function contextFromOppStatus(oppStatus: string): ReminderContext {
   return 'cold_call'
 }
 
+// ── Portal Lead Status ──
+export const PORTAL_LEAD_STATUS = {
+  NOUVEAU: 'nouveau',
+  QUALIFIE: 'qualifie',
+  DEVIS: 'devis',
+  SIGNE: 'signe',
+  PERDU: 'perdu',
+} as const
+
+export type PortalLeadStatus = (typeof PORTAL_LEAD_STATUS)[keyof typeof PORTAL_LEAD_STATUS]
+
+export const PORTAL_LEAD_STATUS_LABELS: Record<PortalLeadStatus, string> = {
+  nouveau: 'Nouveau',
+  qualifie: 'Qualifié',
+  devis: 'Devis envoyé',
+  signe: 'Signé',
+  perdu: 'Perdu',
+}
+
+export const PORTAL_LEAD_STATUS_COLORS: Record<PortalLeadStatus, string> = {
+  nouveau: 'bg-blue-100 text-blue-700',
+  qualifie: 'bg-violet-100 text-violet-700',
+  devis: 'bg-amber-100 text-amber-700',
+  signe: 'bg-emerald-100 text-emerald-700',
+  perdu: 'bg-gray-100 text-gray-600',
+}
+
+export const PORTAL_LEAD_PIPELINE: PortalLeadStatus[] = ['nouveau', 'qualifie', 'devis', 'signe']
+
+// ── Portal Onboarding Status ──
+export const PORTAL_ONBOARDING_STATUS = {
+  IN_PROGRESS: 'in_progress',
+  PENDING_VALIDATION: 'pending_validation',
+  VALIDATED: 'validated',
+  REJECTED: 'rejected',
+  ABANDONED: 'abandoned',
+} as const
+
+export type PortalOnboardingStatus = (typeof PORTAL_ONBOARDING_STATUS)[keyof typeof PORTAL_ONBOARDING_STATUS]
+
+// ── Portal Lead Source ──
+export const PORTAL_LEAD_SOURCE = {
+  LSA: 'lsa',
+  BAO: 'bao',
+} as const
+
+export type PortalLeadSource = (typeof PORTAL_LEAD_SOURCE)[keyof typeof PORTAL_LEAD_SOURCE]
+
+export const PORTAL_LEAD_SOURCE_LABELS: Record<PortalLeadSource, string> = {
+  lsa: 'Google Ads',
+  bao: 'Bouche à oreille',
+}
+
