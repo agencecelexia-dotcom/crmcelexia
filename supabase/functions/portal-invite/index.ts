@@ -96,6 +96,16 @@ Deno.serve(async (req) => {
 
     const userId = authData.user.id
 
+    // Create profile manually (trigger may fail silently)
+    await supabase
+      .from('profiles')
+      .upsert({
+        id: userId,
+        email,
+        full_name: displayName,
+        role: 'artisan',
+      }, { onConflict: 'id' })
+
     // Link user to client
     await supabase
       .from('clients')
