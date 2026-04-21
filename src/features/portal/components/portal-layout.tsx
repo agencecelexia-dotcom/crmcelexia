@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
-import { Home, LayoutGrid, Euro, FolderOpen, Settings, LogOut, Bell, Sparkles, Clock } from 'lucide-react'
+import { Home, LayoutGrid, Euro, FolderOpen, Settings, LogOut, Bell, Sparkles } from 'lucide-react'
 import '../portal.css'
 
 const NAV_ITEMS = [

@@ -1,8 +1,7 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLeads, useCreatePortalLead, useUpdatePortalLeadStatus } from '../hooks/use-portal-leads'
-import type { PortalLead } from '@/types'
 import { Plus, Search, Filter, Calendar, LayoutGrid, List, Phone, X, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 

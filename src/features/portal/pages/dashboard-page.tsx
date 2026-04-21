@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLeads, usePortalLeadStats } from '../hooks/use-portal-leads'
-import { Users, FileText, CheckCircle2, TrendingUp, Plus, Phone, Euro, ArrowRight } from 'lucide-react'
+import { Users, FileText, CheckCircle2, TrendingUp, Plus, Phone, ArrowRight } from 'lucide-react'
 
 function KPI({ label, value, delta, icon, tone = 'violet' }: {
   label: string; value: string; delta?: string; icon: React.ReactNode; tone?: string

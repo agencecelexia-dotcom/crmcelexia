@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
-import { Loader2, Mail, ArrowRight } from 'lucide-react'
+import { Loader2, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import '../portal.css'
 

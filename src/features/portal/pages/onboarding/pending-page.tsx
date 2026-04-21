@@ -1,4 +1,4 @@
-import { Clock, Check, Mail, ArrowRight } from 'lucide-react'
+import { Clock, Check, Mail } from 'lucide-react'
 
 export function PendingPage() {
   return (

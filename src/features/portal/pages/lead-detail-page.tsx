@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePortalLead, usePortalLeadEvents, useUpdatePortalLeadStatus, useUpdatePortalLead, useDeletePortalLead } from '../hooks/use-portal-leads'
-import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2, MoreHorizontal, RefreshCcw, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/format'
 
