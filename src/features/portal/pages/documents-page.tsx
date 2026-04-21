@@ -2,7 +2,7 @@ import { usePortalAuth } from '../hooks/use-portal-auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { FileText, Shield, Download, ExternalLink } from 'lucide-react'
+import { FileText, Shield, Download } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 
 function DocCard({ title, icon: Icon, status, statusColor, subtitle, path }: {

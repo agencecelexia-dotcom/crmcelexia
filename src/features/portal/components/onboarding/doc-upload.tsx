@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { Upload, X, CheckCircle2, FileText } from 'lucide-react'
+import { Upload, X, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface Props {

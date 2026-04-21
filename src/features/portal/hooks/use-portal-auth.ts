@@ -9,10 +9,13 @@ export interface PortalOnboarding {
   contract_signed: boolean
   contract_signed_at: string | null
   payment_proof_uploaded: boolean
+  payment_proof_path: string | null
   payment_amount: number | null
   gmb_access_confirmed: boolean
   rc_pro_uploaded: boolean
+  rc_pro_path: string | null
   kbis_uploaded: boolean
+  kbis_path: string | null
   training_video_watched: boolean
   quiz_score: number | null
   quiz_completed_at: string | null

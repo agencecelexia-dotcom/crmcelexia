@@ -3,7 +3,7 @@ import { usePendingOnboardings, useValidateOnboarding, useRejectOnboarding, useT
 import type { AdminOnboardingRow } from '../services/admin-onboarding-service'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { sendOnboardingValidatedEmail } from '@/features/portal/services/portal-email-service'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Switch } from '@/components/ui/switch'
 import { supabase } from '@/lib/supabase/client'
 import {
-  CheckCircle2, AlertCircle, Clock, XCircle, Loader2, FileText,
+  CheckCircle2, AlertCircle, Clock, FileText,
   Shield, Globe, Play, Users, Eye, BellOff,
 } from 'lucide-react'
 import { formatDate } from '@/lib/format'
@@ -48,7 +48,7 @@ function OnboardingCard({ onb, onValidate, onReject, onToggleReminders }: {
   const initials = fullName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 
   const stepsDone = STEPS.filter(s => {
-    const val = (onb as Record<string, unknown>)[s.key]
+    const val = (onb as unknown as Record<string, unknown>)[s.key]
     return val === true || (typeof val === 'string' && val.length > 0)
   }).length
 
@@ -76,7 +76,7 @@ function OnboardingCard({ onb, onValidate, onReject, onToggleReminders }: {
           {/* Step indicators */}
           <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">
             {STEPS.map(({ key, label }) => {
-              const val = (onb as Record<string, unknown>)[key]
+              const val = (onb as unknown as Record<string, unknown>)[key]
               const done = val === true || (typeof val === 'string' && val.length > 0)
               return (
                 <div key={key} className="flex items-center gap-1.5">
@@ -105,7 +105,7 @@ function OnboardingCard({ onb, onValidate, onReject, onToggleReminders }: {
               <span className="text-xs text-gray-400">{onb.reminders_disabled ? 'Désactivées' : 'Activées'}</span>
               <Switch
                 checked={!onb.reminders_disabled}
-                onCheckedChange={(checked) => onToggleReminders(!checked)}
+                onCheckedChange={(checked: boolean) => onToggleReminders(!checked)}
               />
             </div>
           </div>
@@ -144,7 +144,7 @@ function OnboardingCard({ onb, onValidate, onReject, onToggleReminders }: {
             </div>
             <div className="border-t pt-3 space-y-2">
               {STEPS.map(({ key, label, icon: Icon }) => {
-                const val = (onb as Record<string, unknown>)[key]
+                const val = (onb as unknown as Record<string, unknown>)[key]
                 const done = val === true || (typeof val === 'string' && val.length > 0)
                 return (
                   <div key={key} className="flex items-center gap-2">

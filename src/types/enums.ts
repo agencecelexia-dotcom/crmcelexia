@@ -205,6 +205,7 @@ export const USER_ROLE = {
   FONDATEUR: 'fondateur',
   CO_FONDATEUR: 'co_fondateur',
   COMMERCIAL: 'commercial',
+  ARTISAN: 'artisan',
 } as const
 
 export type UserRole = (typeof USER_ROLE)[keyof typeof USER_ROLE]
@@ -213,6 +214,7 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   fondateur: 'Fondateur',
   co_fondateur: 'Co-fondateur',
   commercial: 'Commercial',
+  artisan: 'Artisan',
 }
 
 export const PROSPECT_SOURCE = {

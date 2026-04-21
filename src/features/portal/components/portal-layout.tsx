@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { Home, LayoutGrid, Euro, FolderOpen, LogOut, Settings } from 'lucide-react'
+import { Home, LayoutGrid, Euro, FolderOpen, LogOut } from 'lucide-react'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { Button } from '@/components/ui/button'
 

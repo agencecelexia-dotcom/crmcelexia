@@ -24,7 +24,7 @@ export function PendingPage() {
   }
 
   const stepDone = (key: string) => {
-    const val = (onboarding as Record<string, unknown>)[key]
+    const val = (onboarding as unknown as Record<string, unknown>)[key]
     return val === true || (typeof val === 'string' && val.length > 0)
   }
 

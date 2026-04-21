@@ -6,7 +6,7 @@ import { FounderGuard } from '@/features/auth/components/role-guard'
 import { LoginPage } from '@/features/auth/pages/login-page'
 import { Loader2 } from 'lucide-react'
 import { PortalAuthProvider } from '@/features/portal/components/portal-auth-provider'
-import { PortalProtectedRoute, PortalValidatedRoute } from '@/features/portal/components/portal-protected-route'
+import { PortalProtectedRoute } from '@/features/portal/components/portal-protected-route'
 import { PortalOnboardingLayout } from '@/features/portal/components/portal-onboarding-layout'
 import { PortalLayout } from '@/features/portal/components/portal-layout'
 
