@@ -1,46 +1,62 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../../hooks/use-portal-auth'
 import { updateOnboarding, uploadPortalDocument } from '../../services/onboarding-service'
 import { ProgressHeader } from '../../components/onboarding/progress-header'
-import { DocUpload } from '../../components/onboarding/doc-upload'
-import { Button } from '@/components/ui/button'
-import { ArrowLeft, ArrowRight, Loader2, Copy, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Upload, FileText, Trash2, Copy, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
 const IBAN = 'FR76 1820 6004 4464 1939 4300 155'
 const BIC = 'AGRIFRPP882'
 const REFERENCE = 'CELEXIA-LAUNCH'
 
+function Row({ label, value, mono, highlight }: { label: string; value: string; mono?: boolean; highlight?: boolean }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>{label}</span>
+      <span className={mono ? 'font-mono' : ''} style={{
+        fontSize: 14, fontWeight: 500,
+        color: highlight ? 'var(--violet-700)' : 'var(--gray-900)',
+        background: highlight ? 'var(--violet-50)' : 'transparent',
+        padding: highlight ? '3px 10px' : 0, borderRadius: 6,
+      }}>{value}</span>
+    </div>
+  )
+}
+
 export function PaymentPage() {
   const { onboarding, client, refreshOnboarding } = usePortalAuth()
   const navigate = useNavigate()
-  const [file, setFile] = useState<File | null>(null)
+  const [file, setFile] = useState<{ name: string; size: string; raw?: File } | null>(null)
+  const [drag, setDrag] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [copiedIban, setCopiedIban] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   function copyIban() {
-    navigator.clipboard.writeText(IBAN.replace(/\s/g, ''))
-    setCopiedIban(true)
-    toast.success('IBAN copié !')
-    setTimeout(() => setCopiedIban(false), 2000)
+    navigator.clipboard?.writeText(IBAN.replace(/\s/g, ''))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
   }
 
-  async function handleSubmit() {
-    if (!onboarding || !file || !client) return
+  function onFile(f: File) {
+    setFile({ name: f.name, size: (f.size / 1024).toFixed(0) + ' Ko', raw: f })
+  }
+
+  async function handleContinue() {
+    if (!onboarding || !file?.raw || !client) return
     setSaving(true)
     try {
-      const path = await uploadPortalDocument(client.id, file, 'payment-proof')
+      const path = await uploadPortalDocument(client.id, file.raw, 'payment-proof')
       await updateOnboarding(onboarding.id, {
         payment_proof_uploaded: true,
         payment_proof_path: path,
         current_step: 3,
       } as Record<string, unknown>)
       await refreshOnboarding()
-      toast.success('Preuve de paiement enregistrée !')
       navigate('/portal/onboarding/gmb')
     } catch {
-      toast.error('Erreur lors de l\'upload')
+      toast.error("Erreur lors de l'upload")
     } finally {
       setSaving(false)
     }
@@ -48,53 +64,72 @@ export function PaymentPage() {
 
   return (
     <div>
-      <ProgressHeader step={2} title="Preuve de paiement" subtitle="Effectuez le virement de votre budget publicitaire et uploadez le justificatif." />
+      <ProgressHeader step={2} title="Preuve de virement" />
+      <p style={{ fontSize: 15, color: 'var(--gray-600)', lineHeight: 1.6, marginBottom: 24 }}>
+        Merci d'effectuer un virement sur le compte ci-dessous, puis téléversez la preuve.
+      </p>
 
-      {/* IBAN card */}
-      <div className="rounded-xl border bg-violet-50 border-violet-200 p-5 mb-6">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-violet-600 mb-1">IBAN</p>
-              <p className="font-mono text-sm font-semibold text-gray-900">{IBAN}</p>
+      {/* Bank details card */}
+      <div className="p-card" style={{ padding: 24, marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14 }}>
+          Coordonnées bancaires Celexia
+        </div>
+        <div style={{ display: 'grid', gap: 14 }}>
+          <Row label="Bénéficiaire" value="LEIA SASU" />
+          <Row label="Banque" value="Crédit Agricole" />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 2 }}>IBAN</div>
+              <div className="font-mono" style={{ fontSize: 14, color: 'var(--gray-900)', fontWeight: 500 }}>{IBAN}</div>
             </div>
-            <Button variant="outline" size="sm" onClick={copyIban} className="shrink-0">
-              {copiedIban ? <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
-              {copiedIban ? 'Copié' : 'Copier'}
-            </Button>
+            <button className="btn btn-secondary" onClick={copyIban} style={{ padding: '8px 14px', fontSize: 13 }}>
+              {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copié !' : 'Copier'}
+            </button>
           </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-violet-600 mb-1">BIC</p>
-            <p className="font-mono text-sm text-gray-700">{BIC}</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-violet-600 mb-1">Référence du virement</p>
-            <p className="font-mono text-sm font-semibold text-violet-700">{REFERENCE}</p>
-          </div>
+          <Row label="BIC" value={BIC} mono />
+          <Row label="Référence virement" value={REFERENCE} mono highlight />
         </div>
       </div>
 
-      {/* Upload */}
-      <DocUpload
-        label="Justificatif de virement"
-        subtitle="Capture d'écran ou PDF de confirmation de votre banque"
-        file={file}
-        onFileChange={setFile}
-      />
+      {/* File upload */}
+      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-700)', marginBottom: 10 }}>
+        Preuve de virement (capture ou PDF)
+      </div>
+      {file ? (
+        <div className="p-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--violet-100)', color: 'var(--violet-600)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FileText size={20} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)' }}>{file.name}</div>
+            <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>{file.size} · Uploadé</div>
+          </div>
+          <button className="btn btn-ghost" onClick={() => setFile(null)}><Trash2 size={16} /></button>
+        </div>
+      ) : (
+        <div
+          className={`dropzone ${drag ? 'drag' : ''}`}
+          onDragOver={e => { e.preventDefault(); setDrag(true) }}
+          onDragLeave={() => setDrag(false)}
+          onDrop={e => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) onFile(f) }}
+          onClick={() => inputRef.current?.click()}
+          style={{ marginBottom: 24 }}
+        >
+          <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f) }} />
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--violet-100)', color: 'var(--violet-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+            <Upload size={22} />
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 4 }}>Glissez votre fichier ici</div>
+          <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>ou <span style={{ color: 'var(--violet-600)', fontWeight: 600 }}>parcourir</span> · PDF, JPG, PNG · 10 Mo max</div>
+        </div>
+      )}
 
       {/* Navigation */}
-      <div className="mt-8 flex justify-between">
-        <Button variant="ghost" onClick={() => navigate('/portal/onboarding/contract')}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Retour
-        </Button>
-        <Button
-          className="bg-violet-600 hover:bg-violet-700"
-          disabled={!file || saving}
-          onClick={handleSubmit}
-        >
-          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Continuer <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <button className="btn btn-ghost" onClick={() => navigate('/portal/onboarding/contract')}><ArrowLeft size={16} /> Retour</button>
+        <button className="btn btn-primary lg" disabled={!file || saving} onClick={handleContinue}>
+          {saving ? 'Envoi...' : 'Continuer'} <ArrowRight size={18} />
+        </button>
       </div>
     </div>
   )

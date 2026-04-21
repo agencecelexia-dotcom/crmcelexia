@@ -1,88 +1,50 @@
-import { usePortalAuth } from '../../hooks/use-portal-auth'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { CheckCircle2, Clock, Circle, Loader2 } from 'lucide-react'
-
-const STEPS = [
-  { label: 'Contrat signé', key: 'contract_signed' },
-  { label: 'Preuve de paiement', key: 'payment_proof_uploaded' },
-  { label: 'Accès Google Business', key: 'gmb_access_confirmed' },
-  { label: 'Documents légaux', key: 'rc_pro_uploaded' },
-  { label: 'Formation validée', key: 'quiz_completed_at' },
-  { label: 'Validation par Celexia', key: 'validated_at' },
-] as const
+import { Clock, Check, Mail, ArrowRight } from 'lucide-react'
 
 export function PendingPage() {
-  const { onboarding } = usePortalAuth()
-
-  if (!onboarding) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-      </div>
-    )
-  }
-
-  const stepDone = (key: string) => {
-    const val = (onboarding as unknown as Record<string, unknown>)[key]
-    return val === true || (typeof val === 'string' && val.length > 0)
-  }
-
   return (
-    <div className="max-w-lg mx-auto text-center">
-      {/* Status icon */}
-      <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-violet-100">
-        <Clock className="h-10 w-10 text-violet-600" />
+    <div>
+      <div style={{ textAlign: 'center', padding: '20px 0 40px' }}>
+        <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--violet-100)', color: 'var(--violet-600)', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Clock size={32} />
+        </div>
+        <span className="p-tag p-tag-violet">En cours de validation</span>
+        <h1 className="font-display" style={{ fontSize: 32, fontWeight: 700, marginTop: 16, marginBottom: 12 }}>
+          Votre compte est en cours de validation
+        </h1>
+        <p style={{ fontSize: 16, color: 'var(--gray-600)', maxWidth: 520, margin: '0 auto', lineHeight: 1.6 }}>
+          Thomas ou Antoine examine votre onboarding. Vous recevrez un email dès que votre campagne sera lancée — généralement sous 24 h.
+        </p>
       </div>
-
-      <h1 className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-        Onboarding soumis !
-      </h1>
-      <p className="text-base text-gray-500 mb-8">
-        Votre dossier est en cours de validation par l'équipe Celexia. Vous recevrez un email dès que votre compte sera activé.
-      </p>
 
       {/* Timeline */}
-      <Card className="text-left mb-8">
-        <CardContent className="pt-5">
-          <div className="space-y-4">
-            {STEPS.map(({ label, key }, i) => {
-              const done = stepDone(key)
-              const isCurrent = !done && (i === 0 || stepDone(STEPS[i - 1].key))
-              return (
-                <div key={key} className="flex items-center gap-3">
-                  <div className="relative flex items-center justify-center">
-                    {done ? (
-                      <CheckCircle2 className="h-6 w-6 text-emerald-500" />
-                    ) : isCurrent ? (
-                      <div className="relative">
-                        <Clock className="h-6 w-6 text-violet-600" />
-                        <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-violet-500 animate-pulse" />
-                      </div>
-                    ) : (
-                      <Circle className="h-6 w-6 text-gray-300" />
-                    )}
-                    {i < STEPS.length - 1 && (
-                      <div className={`absolute top-6 left-1/2 -translate-x-1/2 w-px h-5 ${done ? 'bg-emerald-300' : 'bg-gray-200'}`} />
-                    )}
-                  </div>
-                  <p className={`text-sm font-medium ${done ? 'text-emerald-700' : isCurrent ? 'text-violet-700' : 'text-gray-400'}`}>
-                    {label}
-                  </p>
-                  {isCurrent && (
-                    <span className="ml-auto text-xs text-violet-600 font-medium">En attente · 24h max</span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="p-card" style={{ padding: 28, marginBottom: 24 }}>
+        <div className="timeline">
+          {[
+            ['done', 'Contrat signé', 'il y a 5 min'],
+            ['done', 'Virement confirmé', 'il y a 4 min'],
+            ['done', 'Accès Google Business invité', 'il y a 3 min'],
+            ['done', 'Documents légaux téléversés', 'il y a 2 min'],
+            ['done', 'Formation et QCM complétés', "à l'instant"],
+            ['current', 'Validation par Celexia', 'en attente · 24 h max'],
+            ['', 'Lancement de votre campagne', ''],
+          ].map(([status, label, time], i) => (
+            <div className="timeline-item" key={i}>
+              <div className={`timeline-dot ${status}`}>
+                {status === 'done' ? <Check size={12} /> : status === 'current' ? <Clock size={12} /> : null}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 2 }}>
+                <div style={{ fontSize: 14, fontWeight: status === 'current' ? 600 : 500, color: status ? 'var(--gray-900)' : 'var(--gray-400)' }}>{label}</div>
+                <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>{time}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 justify-center">
-        <Button variant="outline" asChild>
-          <a href="mailto:agence.celexia@gmail.com">Contacter Celexia</a>
-        </Button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <a href="mailto:agence.celexia@gmail.com" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+          <Mail size={16} /> Contacter Celexia
+        </a>
       </div>
     </div>
   )

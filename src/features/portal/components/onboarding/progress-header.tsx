@@ -1,28 +1,28 @@
-import { Progress } from '@/components/ui/progress'
-
 interface Props {
   step: number
   total?: number
-  title: string
-  subtitle?: string
+  title?: string
 }
 
-export function ProgressHeader({ step, total = 5, title, subtitle }: Props) {
-  const pct = Math.round((step / total) * 100)
+export function ProgressHeader({ step, total = 5, title }: Props) {
+  const pct = (step / total) * 100
 
   return (
-    <div className="mb-8">
-      <div className="flex items-baseline justify-between mb-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-violet-600">
+    <div style={{ marginBottom: 32 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--violet-600)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           Étape {step} sur {total}
         </span>
-        <span className="text-sm font-medium text-gray-500">{pct}%</span>
+        <span style={{ fontSize: 13, color: 'var(--gray-500)', fontWeight: 500 }}>{Math.round(pct)}%</span>
       </div>
-      <Progress value={pct} className="h-2 mb-6" />
-      <h1 className="text-3xl font-bold text-gray-900 mb-2" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
-        {title}
-      </h1>
-      {subtitle && <p className="text-base text-gray-500">{subtitle}</p>}
+      <div className="progress-track">
+        <div className="progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+      {title && (
+        <h1 className="font-display" style={{ fontSize: 32, fontWeight: 700, color: 'var(--gray-900)', marginTop: 24, marginBottom: 8 }}>
+          {title}
+        </h1>
+      )}
     </div>
   )
 }

@@ -1,12 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
-import { Loader2, Mail } from 'lucide-react'
+import { Loader2, Mail, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
+import '../portal.css'
 
 export function PortalLoginPage() {
   const [email, setEmail] = useState('')
@@ -20,7 +17,30 @@ export function PortalLoginPage() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      navigate('/portal/dashboard')
+
+      // Check profile role + onboarding status to redirect properly
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No user')
+
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (!profile || profile.role !== 'artisan') {
+        // Not an artisan — redirect to CRM
+        navigate('/dashboard')
+        return
+      }
+
+      // Check onboarding status
+      const { data: client } = await supabase.from('clients').select('id').eq('user_id', user.id).single()
+      if (!client) { navigate('/portal/onboarding/welcome'); return }
+
+      const { data: onb } = await supabase.from('portal_onboardings').select('status').eq('client_id', client.id).single()
+      if (!onb || onb.status === 'in_progress' || onb.status === 'rejected') {
+        navigate('/portal/onboarding/welcome')
+      } else if (onb.status === 'pending_validation') {
+        navigate('/portal/onboarding/pending')
+      } else {
+        navigate('/portal/dashboard')
+      }
     } catch {
       toast.error('Email ou mot de passe incorrect')
     } finally {
@@ -29,51 +49,51 @@ export function PortalLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <div className="w-full max-w-sm space-y-6">
-        <div className="text-center">
-          <img src="/logocelexia.png" alt="Celexia" className="mx-auto h-10 mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+    <div className="portal-root" style={{ minHeight: '100vh', background: 'var(--gray-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ width: '100%', maxWidth: 400 }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <img src="/logocelexia.png" alt="Celexia" style={{ height: 40, margin: '0 auto 16px', display: 'block' }} />
+          <h1 className="font-display" style={{ fontSize: 28, fontWeight: 700, color: 'var(--gray-900)', marginBottom: 6 }}>
             Portail Client
           </h1>
-          <p className="mt-1 text-sm text-gray-500">Connectez-vous à votre espace artisan</p>
+          <p style={{ fontSize: 15, color: 'var(--gray-500)' }}>Connectez-vous à votre espace artisan</p>
         </div>
 
-        <Card>
-          <CardContent className="pt-6">
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="votre@email.com"
-                  required
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Mot de passe</Label>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-700" disabled={loading}>
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-                Se connecter
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        <div className="p-card" style={{ padding: 28 }}>
+          <form onSubmit={handleLogin} style={{ display: 'grid', gap: 16 }}>
+            <div>
+              <label className="label-input">Email</label>
+              <input
+                type="email"
+                className="input"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="votre@email.com"
+                required
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="label-input">Mot de passe</label>
+              <input
+                type="password"
+                className="input"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            <button type="submit" className="btn btn-primary lg" disabled={loading} style={{ width: '100%' }}>
+              {loading ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
+              Se connecter
+            </button>
+          </form>
+        </div>
 
-        <p className="text-center text-xs text-gray-400">
+        <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--gray-400)', marginTop: 20 }}>
           Pas encore de compte ? Contactez{' '}
-          <a href="mailto:agence.celexia@gmail.com" className="text-violet-600 hover:underline">agence.celexia@gmail.com</a>
+          <a href="mailto:agence.celexia@gmail.com" style={{ color: 'var(--violet-600)', fontWeight: 600, textDecoration: 'none' }}>agence.celexia@gmail.com</a>
         </p>
       </div>
     </div>
