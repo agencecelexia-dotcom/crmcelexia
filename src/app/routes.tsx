@@ -52,6 +52,7 @@ const PortalLeadsKanbanPage = lazy(() => import('@/features/portal/pages/leads-k
 const PortalLeadDetailPage = lazy(() => import('@/features/portal/pages/lead-detail-page').then(m => ({ default: m.PortalLeadDetailPage })))
 const PortalCommissionPage = lazy(() => import('@/features/portal/pages/commission-page').then(m => ({ default: m.PortalCommissionPage })))
 const PortalDocumentsPage = lazy(() => import('@/features/portal/pages/documents-page').then(m => ({ default: m.PortalDocumentsPage })))
+const AdminOnboardingsPage = lazy(() => import('@/features/portal-admin/pages/admin-onboardings-page').then(m => ({ default: m.AdminOnboardingsPage })))
 
 function PageLoader() {
   return (
@@ -223,6 +224,11 @@ export const router = createBrowserRouter([
               {
                 path: '/settings/targets',
                 element: <LazyPage><TargetsPage /></LazyPage>,
+              },
+              // Portal admin
+              {
+                path: '/onboardings',
+                element: <LazyPage><AdminOnboardingsPage /></LazyPage>,
               },
             ],
           },

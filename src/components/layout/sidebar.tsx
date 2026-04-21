@@ -22,6 +22,7 @@ import {
   StickyNote,
   Bell,
   ListChecks,
+  UserCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -67,6 +68,7 @@ const navSections: NavSection[] = [
       { to: '/contracts', label: 'Contrats', icon: <FileCheck className="h-4 w-4" />, founderOnly: true },
       { to: '/billing', label: 'Devis & Facturation', icon: <FileText className="h-4 w-4" />, founderOnly: true },
       { to: '/payments', label: 'Paiements', icon: <CreditCard className="h-4 w-4" />, founderOnly: true },
+      { to: '/onboardings', label: 'Onboardings', icon: <UserCheck className="h-4 w-4" />, founderOnly: true },
     ],
   },
   {
