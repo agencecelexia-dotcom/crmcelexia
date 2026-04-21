@@ -6,8 +6,9 @@ import { FounderGuard } from '@/features/auth/components/role-guard'
 import { LoginPage } from '@/features/auth/pages/login-page'
 import { Loader2 } from 'lucide-react'
 import { PortalAuthProvider } from '@/features/portal/components/portal-auth-provider'
-import { PortalProtectedRoute } from '@/features/portal/components/portal-protected-route'
+import { PortalProtectedRoute, PortalValidatedRoute } from '@/features/portal/components/portal-protected-route'
 import { PortalOnboardingLayout } from '@/features/portal/components/portal-onboarding-layout'
+import { PortalLayout } from '@/features/portal/components/portal-layout'
 
 // Lazy-loaded pages for code splitting
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/dashboard-page').then(m => ({ default: m.DashboardPage })))
@@ -46,6 +47,11 @@ const GmbPage = lazy(() => import('@/features/portal/pages/onboarding/gmb-page')
 const LegalPage = lazy(() => import('@/features/portal/pages/onboarding/legal-page').then(m => ({ default: m.LegalPage })))
 const TrainingPage = lazy(() => import('@/features/portal/pages/onboarding/training-page').then(m => ({ default: m.TrainingPage })))
 const PendingPage = lazy(() => import('@/features/portal/pages/onboarding/pending-page').then(m => ({ default: m.PendingPage })))
+const PortalDashboardPage = lazy(() => import('@/features/portal/pages/dashboard-page').then(m => ({ default: m.PortalDashboardPage })))
+const PortalLeadsKanbanPage = lazy(() => import('@/features/portal/pages/leads-kanban-page').then(m => ({ default: m.PortalLeadsKanbanPage })))
+const PortalLeadDetailPage = lazy(() => import('@/features/portal/pages/lead-detail-page').then(m => ({ default: m.PortalLeadDetailPage })))
+const PortalCommissionPage = lazy(() => import('@/features/portal/pages/commission-page').then(m => ({ default: m.PortalCommissionPage })))
+const PortalDocumentsPage = lazy(() => import('@/features/portal/pages/documents-page').then(m => ({ default: m.PortalDocumentsPage })))
 
 function PageLoader() {
   return (
@@ -68,6 +74,7 @@ export const router = createBrowserRouter([
   {
     element: <PortalAuthProvider><PortalProtectedRoute /></PortalAuthProvider>,
     children: [
+      // Onboarding flow (no sidebar, light header)
       {
         element: <PortalOnboardingLayout />,
         children: [
@@ -78,6 +85,17 @@ export const router = createBrowserRouter([
           { path: '/portal/onboarding/legal', element: <LazyPage><LegalPage /></LazyPage> },
           { path: '/portal/onboarding/training', element: <LazyPage><TrainingPage /></LazyPage> },
           { path: '/portal/onboarding/pending', element: <LazyPage><PendingPage /></LazyPage> },
+        ],
+      },
+      // Dashboard + CRM artisan (nav header, requires validated onboarding)
+      {
+        element: <PortalLayout />,
+        children: [
+          { path: '/portal/dashboard', element: <LazyPage><PortalDashboardPage /></LazyPage> },
+          { path: '/portal/leads', element: <LazyPage><PortalLeadsKanbanPage /></LazyPage> },
+          { path: '/portal/leads/:id', element: <LazyPage><PortalLeadDetailPage /></LazyPage> },
+          { path: '/portal/commission', element: <LazyPage><PortalCommissionPage /></LazyPage> },
+          { path: '/portal/documents', element: <LazyPage><PortalDocumentsPage /></LazyPage> },
         ],
       },
     ],
