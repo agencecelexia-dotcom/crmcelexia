@@ -67,5 +67,10 @@ export function ProtectedRoute() {
     )
   }
 
+  // Artisans belong in the client portal — redirect them there
+  if (profile.role === 'artisan') {
+    return <Navigate to="/portal/onboarding/welcome" replace />
+  }
+
   return <Outlet />
 }
