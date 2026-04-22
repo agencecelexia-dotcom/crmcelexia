@@ -56,23 +56,36 @@ function DocUploadCard({ title, subtitle, file, setFile, criteria }: {
 export function LegalPage() {
   const { onboarding, client, refreshOnboarding } = usePortalAuth()
   const navigate = useNavigate()
-  const [rc, setRc] = useState<{ name: string; raw?: File } | null>(null)
-  const [kbis, setKbis] = useState<{ name: string; raw?: File } | null>(null)
+  const rcAlreadyUploaded = !!onboarding?.rc_pro_uploaded
+  const kbisAlreadyUploaded = !!onboarding?.kbis_uploaded
+  const [rc, setRc] = useState<{ name: string; raw?: File } | null>(
+    rcAlreadyUploaded ? { name: 'Déjà transmis' } : null,
+  )
+  const [kbis, setKbis] = useState<{ name: string; raw?: File } | null>(
+    kbisAlreadyUploaded ? { name: 'Déjà transmis' } : null,
+  )
   const [saving, setSaving] = useState(false)
 
+  const rcReady = rc !== null // soit déjà uploadé en DB, soit nouveau fichier
+  const kbisReady = kbis !== null
+
   async function handleContinue() {
-    if (!onboarding || !client || !rc?.raw || !kbis?.raw) return
+    if (!onboarding || !client || !rcReady || !kbisReady) return
     setSaving(true)
     try {
-      const rcPath = await uploadPortalDocument(client.id, rc.raw, 'rc-pro')
-      const kbisPath = await uploadPortalDocument(client.id, kbis.raw, 'kbis')
-      await updateOnboarding(onboarding.id, {
-        rc_pro_uploaded: true,
-        rc_pro_path: rcPath,
-        kbis_uploaded: true,
-        kbis_path: kbisPath,
-        current_step: 5,
-      } as Record<string, unknown>)
+      const updates: Record<string, unknown> = { current_step: 5 }
+
+      // Upload uniquement si l'artisan a fourni un nouveau fichier
+      if (rc?.raw) {
+        updates.rc_pro_path = await uploadPortalDocument(client.id, rc.raw, 'rc-pro')
+        updates.rc_pro_uploaded = true
+      }
+      if (kbis?.raw) {
+        updates.kbis_path = await uploadPortalDocument(client.id, kbis.raw, 'kbis')
+        updates.kbis_uploaded = true
+      }
+
+      await updateOnboarding(onboarding.id, updates)
       await refreshOnboarding()
       navigate('/portal/onboarding/training')
     } catch {

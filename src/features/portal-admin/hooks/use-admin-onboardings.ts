@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getPendingOnboardings, getAllOnboardings,
   validateOnboarding, rejectOnboarding, toggleReminders,
+  type OnboardingStepKey,
 } from '../services/admin-onboarding-service'
 import { toast } from 'sonner'
 
@@ -37,8 +38,8 @@ export function useValidateOnboarding() {
 export function useRejectOnboarding() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
-      rejectOnboarding(id, reason),
+    mutationFn: ({ id, reason, stepsToReset }: { id: string; reason: string; stepsToReset: OnboardingStepKey[] }) =>
+      rejectOnboarding(id, reason, stepsToReset),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-onboardings'] })
       toast.success('Corrections demandées')

@@ -74,14 +74,56 @@ export async function validateOnboarding(onboardingId: string, validatedBy: stri
   if (error) throw error
 }
 
-export async function rejectOnboarding(onboardingId: string, reason: string) {
+export type OnboardingStepKey =
+  | 'contract'
+  | 'payment'
+  | 'gmb'
+  | 'rc_pro'
+  | 'kbis'
+  | 'training'
+
+export async function rejectOnboarding(
+  onboardingId: string,
+  reason: string,
+  stepsToReset: OnboardingStepKey[],
+) {
+  const updates: Record<string, unknown> = {
+    status: 'in_progress',
+    rejection_reason: reason,
+    completed_at: null,
+  }
+
+  if (stepsToReset.includes('contract')) {
+    updates.contract_signed = false
+    updates.contract_signed_at = null
+    updates.signed_contract_path = null
+  }
+  if (stepsToReset.includes('payment')) {
+    updates.payment_proof_uploaded = false
+    updates.payment_proof_path = null
+  }
+  if (stepsToReset.includes('gmb')) {
+    updates.gmb_access_confirmed = false
+    updates.gmb_confirmed_at = null
+  }
+  if (stepsToReset.includes('rc_pro')) {
+    updates.rc_pro_uploaded = false
+    updates.rc_pro_path = null
+  }
+  if (stepsToReset.includes('kbis')) {
+    updates.kbis_uploaded = false
+    updates.kbis_path = null
+  }
+  if (stepsToReset.includes('training')) {
+    updates.training_video_watched = false
+    updates.training_video_watched_at = null
+    updates.quiz_score = null
+    updates.quiz_completed_at = null
+  }
+
   const { error } = await supabase
     .from('portal_onboardings')
-    .update({
-      status: 'in_progress',
-      rejection_reason: reason,
-      completed_at: null,
-    })
+    .update(updates)
     .eq('id', onboardingId)
   if (error) throw error
 }

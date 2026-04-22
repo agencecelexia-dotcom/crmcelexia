@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { usePendingOnboardings, useValidateOnboarding, useRejectOnboarding, useToggleReminders } from '../hooks/use-admin-onboardings'
-import type { AdminOnboardingRow } from '../services/admin-onboarding-service'
+import type { AdminOnboardingRow, OnboardingStepKey } from '../services/admin-onboarding-service'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { sendOnboardingValidatedEmail, sendOnboardingRejectedEmail } from '@/features/portal/services/portal-email-service'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
@@ -17,6 +18,15 @@ import {
   Shield, Globe, Play, Users, Eye, BellOff,
 } from 'lucide-react'
 import { formatDate } from '@/lib/format'
+
+const REJECT_STEPS: { key: OnboardingStepKey; label: string; doneKey: keyof AdminOnboardingRow }[] = [
+  { key: 'contract', label: 'Contrat signé', doneKey: 'contract_signed' },
+  { key: 'payment', label: 'Preuve de virement', doneKey: 'payment_proof_uploaded' },
+  { key: 'gmb', label: 'Accès Google Business', doneKey: 'gmb_access_confirmed' },
+  { key: 'rc_pro', label: 'RC Pro', doneKey: 'rc_pro_uploaded' },
+  { key: 'kbis', label: 'Extrait Kbis', doneKey: 'kbis_uploaded' },
+  { key: 'training', label: 'Formation + QCM', doneKey: 'quiz_completed_at' },
+]
 
 const STEPS = [
   { key: 'contract_signed', label: 'Contrat signé', icon: FileText },
@@ -36,12 +46,17 @@ function StepIndicator({ done, warn }: { done: boolean; warn?: boolean }) {
 function OnboardingCard({ onb, onValidate, onReject, onToggleReminders }: {
   onb: AdminOnboardingRow
   onValidate: () => void
-  onReject: (reason: string) => void
+  onReject: (reason: string, stepsToReset: OnboardingStepKey[]) => void
   onToggleReminders: (disabled: boolean) => void
 }) {
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [rejectSteps, setRejectSteps] = useState<OnboardingStepKey[]>([])
   const [detailOpen, setDetailOpen] = useState(false)
+
+  function toggleStep(key: OnboardingStepKey, checked: boolean) {
+    setRejectSteps(prev => checked ? [...prev, key] : prev.filter(k => k !== key))
+  }
 
   const client = onb.client
   const fullName = [client.contact_firstname, client.contact_name].filter(Boolean).join(' ') || client.company_name
@@ -203,25 +218,65 @@ function OnboardingCard({ onb, onValidate, onReject, onToggleReminders }: {
 
       {/* Reject dialog */}
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Demander des corrections</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label className="text-xs">Motif des corrections *</Label>
-            <Textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              rows={3}
-              placeholder="Ex: La RC Pro est expirée, merci de renvoyer un document à jour."
-            />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-gray-700">
+                Étapes à corriger *
+              </Label>
+              <p className="text-xs text-gray-500 -mt-1">
+                Les étapes cochées seront réinitialisées côté artisan (il devra les refaire).
+              </p>
+              <div className="space-y-1.5 rounded-lg border border-gray-200 p-3">
+                {REJECT_STEPS.map(({ key, label, doneKey }) => {
+                  const isDone = !!(onb as unknown as Record<string, unknown>)[doneKey as string]
+                  return (
+                    <label
+                      key={key}
+                      className="flex items-center gap-2.5 cursor-pointer py-1 px-1 rounded hover:bg-gray-50"
+                    >
+                      <Checkbox
+                        checked={rejectSteps.includes(key)}
+                        onCheckedChange={(checked: boolean | 'indeterminate') => toggleStep(key, checked === true)}
+                      />
+                      <span className="text-sm text-gray-900 flex-1">{label}</span>
+                      {isDone ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      ) : (
+                        <Clock className="h-3.5 w-3.5 text-gray-300" />
+                      )}
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-gray-700">
+                Motif envoyé à l'artisan *
+              </Label>
+              <Textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={3}
+                placeholder="Ex: Votre RC Pro est expirée, merci de renvoyer un document à jour."
+              />
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => { setRejectOpen(false); setRejectReason('') }}>Annuler</Button>
+            <Button variant="ghost" onClick={() => { setRejectOpen(false); setRejectReason(''); setRejectSteps([]) }}>
+              Annuler
+            </Button>
             <Button
               className="bg-amber-600 hover:bg-amber-700"
-              disabled={!rejectReason.trim()}
-              onClick={() => { onReject(rejectReason); setRejectOpen(false); setRejectReason('') }}
+              disabled={!rejectReason.trim() || rejectSteps.length === 0}
+              onClick={() => {
+                onReject(rejectReason, rejectSteps)
+                setRejectOpen(false); setRejectReason(''); setRejectSteps([])
+              }}
             >
               Envoyer les corrections
             </Button>
@@ -297,8 +352,8 @@ export function AdminOnboardingsPage() {
                       })
                     }
                   }}
-                  onReject={(reason) => {
-                    reject.mutate({ id: onb.id, reason })
+                  onReject={(reason, stepsToReset) => {
+                    reject.mutate({ id: onb.id, reason, stepsToReset })
                     if (onb.client.contact_email) {
                       sendOnboardingRejectedEmail({
                         email: onb.client.contact_email,
