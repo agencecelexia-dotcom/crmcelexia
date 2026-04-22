@@ -10,7 +10,7 @@ import { ArrowLeft, ArrowRight, FileText, Download, Eye, Loader2 } from 'lucide-
 import { toast } from 'sonner'
 
 export function ContractPage() {
-  const { onboarding, client, refreshOnboarding } = usePortalAuth()
+  const { onboarding, client, isLoading, refreshOnboarding } = usePortalAuth()
   const navigate = useNavigate()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [signed, setSigned] = useState(false)
@@ -146,6 +146,19 @@ export function ContractPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Still loading onboarding — show loader (prevents "contract not available" flash)
+  if (isLoading || !onboarding) {
+    return (
+      <div>
+        <ProgressHeader step={1} title="Signature du contrat d'apport d'affaires" />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', gap: 12 }}>
+          <Loader2 size={32} style={{ color: 'var(--violet-600)', animation: 'spin 1s linear infinite' }} />
+          <p style={{ fontSize: 13, color: 'var(--gray-500)' }}>Chargement de votre contrat...</p>
+        </div>
+      </div>
+    )
   }
 
   // Missing contract data — show error
