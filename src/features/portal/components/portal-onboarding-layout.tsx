@@ -50,7 +50,7 @@ export function PortalOnboardingLayout() {
 
         {/* Footer */}
         <footer style={{ padding: '20px 32px', borderTop: '1px solid var(--gray-200)', background: 'white', textAlign: 'center', fontSize: 12, color: 'var(--gray-500)' }}>
-          Celexia · LEIA SASU · SIREN 939 306 429
+          CELEXIA SASU · SIREN 939 306 429
         </footer>
       </div>
 

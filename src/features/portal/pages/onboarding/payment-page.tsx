@@ -81,7 +81,7 @@ export function PaymentPage() {
           Coordonnées bancaires Celexia
         </div>
         <div style={{ display: 'grid', gap: 14 }}>
-          <Row label="Bénéficiaire" value="LEIA SASU" />
+          <Row label="Bénéficiaire" value="CELEXIA SASU" />
           <Row label="Banque" value="Crédit Agricole" />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
             <div style={{ minWidth: 0 }}>
