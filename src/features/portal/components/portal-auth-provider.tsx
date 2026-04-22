@@ -12,53 +12,65 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchPortalData = useCallback(async (userId: string) => {
-    // Fetch profile
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    setProfile(profileData as Profile | null)
-
-    if (!profileData || profileData.role !== 'artisan') {
-      setIsLoading(false)
-      return
-    }
-
-    // Fetch client linked to this user
-    const { data: clientData } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
-    setClient(clientData as Client | null)
-
-    // Fetch onboarding
-    if (clientData) {
-      const { data: onbData } = await supabase
-        .from('portal_onboardings')
+    try {
+      // Fetch profile
+      const { data: profileData, error: profileErr } = await supabase
+        .from('profiles')
         .select('*')
-        .eq('client_id', clientData.id)
+        .eq('id', userId)
         .single()
-      setOnboarding(onbData as PortalOnboarding | null)
-    }
+      if (profileErr) console.error('[portal] profile fetch:', profileErr)
+      setProfile(profileData as Profile | null)
 
-    setIsLoading(false)
+      if (!profileData || profileData.role !== 'artisan') return
+
+      // Fetch client linked to this user
+      const { data: clientData, error: clientErr } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (clientErr) console.error('[portal] client fetch:', clientErr)
+      setClient(clientData as Client | null)
+
+      // Fetch onboarding
+      if (clientData) {
+        const { data: onbData, error: onbErr } = await supabase
+          .from('portal_onboardings')
+          .select('*')
+          .eq('client_id', (clientData as Client).id)
+          .maybeSingle()
+        if (onbErr) console.error('[portal] onboarding fetch:', onbErr)
+        setOnboarding(onbData as PortalOnboarding | null)
+      }
+    } catch (err) {
+      console.error('[portal] fetchPortalData error:', err)
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s)
-      if (s?.user) fetchPortalData(s.user.id)
-      else setIsLoading(false)
-    })
+    let cancelled = false
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    // Safety net: ensure isLoading becomes false after 10s no matter what
+    const timeout = setTimeout(() => {
+      if (!cancelled) setIsLoading(false)
+    }, 10_000)
+
+    // Listen for auth changes (fires INITIAL_SESSION on mount)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      if (cancelled) return
       setSession(s)
-      if (s?.user) fetchPortalData(s.user.id)
-      else {
+
+      if (event === 'TOKEN_REFRESHED') {
+        setIsLoading(false)
+        return
+      }
+
+      if (s?.user) {
+        fetchPortalData(s.user.id)
+      } else {
         setProfile(null)
         setClient(null)
         setOnboarding(null)
@@ -66,7 +78,11 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      clearTimeout(timeout)
+      subscription.unsubscribe()
+    }
   }, [fetchPortalData])
 
   const signOut = useCallback(async () => {
@@ -83,7 +99,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
       .from('portal_onboardings')
       .select('*')
       .eq('client_id', client.id)
-      .single()
+      .maybeSingle()
     setOnboarding(data as PortalOnboarding | null)
   }, [client])
 
