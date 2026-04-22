@@ -20,3 +20,4 @@ export const N8N_EMAIL_DRAFT_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webho
 export const N8N_PORTAL_VALIDATED_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/portal-onboarding-validated'
 export const N8N_PORTAL_REMINDER_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/portal-onboarding-reminder'
 export const N8N_PORTAL_ADMIN_ALERT_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/portal-admin-alert'
+export const N8N_PORTAL_REJECTED_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/portal-onboarding-rejected'

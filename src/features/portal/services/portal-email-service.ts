@@ -2,6 +2,7 @@ import {
   N8N_PORTAL_VALIDATED_WEBHOOK,
   N8N_PORTAL_REMINDER_WEBHOOK,
   N8N_PORTAL_ADMIN_ALERT_WEBHOOK,
+  N8N_PORTAL_REJECTED_WEBHOOK,
 } from '@/lib/constants'
 
 async function callWebhook(url: string, body: Record<string, unknown>) {
@@ -37,6 +38,19 @@ export function sendOnboardingReminderEmail(params: {
   reminder_number: 1 | 2 | 3
 }) {
   callWebhook(N8N_PORTAL_REMINDER_WEBHOOK, {
+    ...params,
+    portal_url: `${window.location.origin}/portal/auth`,
+  })
+}
+
+/** Send "onboarding rejected / corrections needed" email to artisan */
+export function sendOnboardingRejectedEmail(params: {
+  email: string
+  artisan_firstname: string
+  company_name: string
+  rejection_reason: string
+}) {
+  callWebhook(N8N_PORTAL_REJECTED_WEBHOOK, {
     ...params,
     portal_url: `${window.location.origin}/portal/auth`,
   })
