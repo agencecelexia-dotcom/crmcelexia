@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
+import type { ContractData } from '@/features/contracts/services/contract-generator'
 
 interface InviteResult {
   success: boolean
@@ -8,7 +9,12 @@ interface InviteResult {
   message: string
 }
 
-export async function inviteArtisanToPortal(clientId: string, email: string, fullName?: string): Promise<InviteResult> {
+export async function inviteArtisanToPortal(
+  clientId: string,
+  email: string,
+  fullName?: string,
+  contractData?: ContractData,
+): Promise<InviteResult> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('Not authenticated')
 
@@ -20,7 +26,12 @@ export async function inviteArtisanToPortal(clientId: string, email: string, ful
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ client_id: clientId, email, full_name: fullName }),
+      body: JSON.stringify({
+        client_id: clientId,
+        email,
+        full_name: fullName,
+        contract_data: contractData,
+      }),
     },
   )
 

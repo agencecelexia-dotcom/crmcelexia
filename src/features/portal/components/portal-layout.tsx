@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
-import { Home, LayoutGrid, Euro, FolderOpen, Settings, LogOut, Bell, Sparkles } from 'lucide-react'
+import { Home, LayoutGrid, Euro, FolderOpen, KeyRound, LogOut, Bell, Sparkles } from 'lucide-react'
+import { ChangePasswordDialog } from './change-password-dialog'
 import '../portal.css'
 
 const NAV_ITEMS = [
@@ -15,6 +17,7 @@ export function PortalLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const route = location.pathname
+  const [pwdOpen, setPwdOpen] = useState(false)
 
   const handleSignOut = async () => {
     await signOut()
@@ -123,8 +126,12 @@ export function PortalLayout() {
                 <Bell size={18} />
                 <span style={{ position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: '50%', background: '#DC2626', border: '2px solid white' }} />
               </button>
-              <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: 'var(--gray-600)' }}>
-                <Settings size={18} />
+              <button
+                onClick={() => setPwdOpen(true)}
+                title="Changer mon mot de passe"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, color: 'var(--gray-600)' }}
+              >
+                <KeyRound size={18} />
               </button>
             </div>
           </div>
@@ -135,6 +142,8 @@ export function PortalLayout() {
           </div>
         </div>
       </div>
+
+      <ChangePasswordDialog open={pwdOpen} onOpenChange={setPwdOpen} />
     </div>
   )
 }

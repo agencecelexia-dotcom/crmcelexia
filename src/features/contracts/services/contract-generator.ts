@@ -164,7 +164,7 @@ function drawItalic(state: DrawState, text: string, centered = false) {
 
 // ── MAIN GENERATOR ──
 
-export async function generateContract(data: ContractData): Promise<Blob> {
+export async function generateContract(data: ContractData, options?: { clientSignatureDataUrl?: string; clientSignedDate?: string }): Promise<Blob> {
   const doc = await PDFDocument.create()
   const font = await doc.embedFont(StandardFonts.Helvetica)
 
@@ -344,37 +344,69 @@ export async function generateContract(data: ContractData): Promise<Blob> {
   state.page.drawText(`Signé le ${dateStr}`, { x: tableLeft + cellPad + 110, y: r3top - 16, size: 8, font: fontItalic, color: black })
   state.page.drawText('Thomas Aubigeon', { x: tableLeft + cellPad + 110, y: r3top - 28, size: 9, font: fontBold, color: black })
 
-  // Client signature fillable field — fits inside the right cell of row 3
-  const form = doc.getForm()
-  const sigField = form.createTextField('client_signature')
-  sigField.setText('')
-  sigField.addToPage(state.page, {
-    x: colMid + 2,
-    y: r3top - rowH + 2,
-    width: (tableRight - colMid) - 4,
-    height: rowH - 4,
-    borderWidth: 0,
-  })
+  // Client signature — embed image if provided, else create fillable field
+  if (options?.clientSignatureDataUrl) {
+    try {
+      // Convert dataURL to bytes
+      const b64 = options.clientSignatureDataUrl.split(',')[1] || options.clientSignatureDataUrl
+      const bin = atob(b64)
+      const clientSigBytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) clientSigBytes[i] = bin.charCodeAt(i)
+      const clientSigImage = await doc.embedPng(clientSigBytes)
+      const sigW = 100
+      const sigH = (clientSigImage.height / clientSigImage.width) * sigW
+      state.page.drawImage(clientSigImage, {
+        x: colMid + cellPad,
+        y: r3top - rowH + 4,
+        width: sigW,
+        height: Math.min(sigH, rowH - 8),
+      })
+      const clientDateStr = options.clientSignedDate || dateStr
+      state.page.drawText(`Signé le ${clientDateStr}`, { x: colMid + cellPad + 110, y: r3top - 16, size: 8, font: fontItalic, color: black })
+      state.page.drawText(`${data.client_prenom} ${data.client_nom}`, { x: colMid + cellPad + 110, y: r3top - 28, size: 9, font: fontBold, color: black })
+    } catch (err) {
+      console.error('Failed to embed client signature:', err)
+    }
+  } else {
+    const form = doc.getForm()
+    const sigField = form.createTextField('client_signature')
+    sigField.setText('')
+    sigField.addToPage(state.page, {
+      x: colMid + 2,
+      y: r3top - rowH + 2,
+      width: (tableRight - colMid) - 4,
+      height: rowH - 4,
+      borderWidth: 0,
+    })
+  }
 
   // Row 4: Dates
   const r4top = tableTop - rowH * 3
   state.page.drawText(`Date : ${dateStr}`, { x: tableLeft + cellPad, y: r4top - rowH / 2 - 4, size: 9, font, color: black })
-  state.page.drawText('Date :', { x: colMid + cellPad, y: r4top - rowH / 2 - 4, size: 9, font, color: black })
 
-  // Client date fillable field
-  const dateField = form.createTextField('client_date')
-  dateField.setText('')
-  dateField.addToPage(state.page, {
-    x: colMid + 55,
-    y: r4top - rowH + 6,
-    width: 140,
-    height: rowH - 12,
-    borderWidth: 0,
-  })
+  if (options?.clientSignatureDataUrl) {
+    // Client signed — print date next to it
+    const clientDateStr = options.clientSignedDate || dateStr
+    state.page.drawText(`Date : ${clientDateStr}`, { x: colMid + cellPad, y: r4top - rowH / 2 - 4, size: 9, font, color: black })
+  } else {
+    state.page.drawText('Date :', { x: colMid + cellPad, y: r4top - rowH / 2 - 4, size: 9, font, color: black })
+    const form = doc.getForm()
+    const dateField = form.createTextField('client_date')
+    dateField.setText('')
+    dateField.addToPage(state.page, {
+      x: colMid + 55,
+      y: r4top - rowH + 6,
+      width: 140,
+      height: rowH - 12,
+      borderWidth: 0,
+    })
+  }
 
   // Footer
   state.y = tableTop - tableHeight - 30
-  drawItalic(state, 'Le Client peut signer ce document en remplissant les champs ci-dessus, puis en sauvegardant le PDF.', true)
+  if (!options?.clientSignatureDataUrl) {
+    drawItalic(state, 'Le Client peut signer ce document en remplissant les champs ci-dessus, puis en sauvegardant le PDF.', true)
+  }
 
   // Serialize
   const pdfBytes = await doc.save()

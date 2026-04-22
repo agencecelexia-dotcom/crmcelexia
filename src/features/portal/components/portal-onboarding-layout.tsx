@@ -1,7 +1,12 @@
+import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import { KeyRound } from 'lucide-react'
+import { ChangePasswordDialog } from './change-password-dialog'
 import '../portal.css'
 
 export function PortalOnboardingLayout() {
+  const [pwdOpen, setPwdOpen] = useState(false)
+
   return (
     <div className="portal-root">
       <div className="onb-shell">
@@ -9,6 +14,13 @@ export function PortalOnboardingLayout() {
         <header className="onb-header">
           <img src="/logocelexia.png" alt="Celexia" style={{ height: 28, width: 'auto' }} />
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <button
+              onClick={() => setPwdOpen(true)}
+              title="Changer mon mot de passe"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--gray-500)', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
+            >
+              <KeyRound size={14} /> Mot de passe
+            </button>
             <span style={{ fontSize: 13, color: 'var(--gray-500)' }}>Besoin d'aide ?</span>
             <a href="mailto:agence.celexia@gmail.com" style={{ fontSize: 13, color: 'var(--violet-600)', fontWeight: 600, textDecoration: 'none' }}>
               agence.celexia@gmail.com
@@ -26,6 +38,8 @@ export function PortalOnboardingLayout() {
           Celexia · LEIA SASU · SIREN 939 306 429
         </footer>
       </div>
+
+      <ChangePasswordDialog open={pwdOpen} onOpenChange={setPwdOpen} />
     </div>
   )
 }

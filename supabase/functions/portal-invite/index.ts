@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { client_id, email, full_name, password } = await req.json()
+    const { client_id, email, full_name, password, contract_data } = await req.json()
     if (!client_id || !email) {
       return new Response(JSON.stringify({ error: 'client_id and email required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -74,7 +74,12 @@ Deno.serve(async (req) => {
     }
 
     // Create the auth user with artisan role
-    const tempPassword = password || crypto.randomUUID().slice(0, 12)
+    // Simple password: celexia + 4 random digits (e.g. celexia7452)
+    function generateSimplePassword(): string {
+      const digits = Math.floor(1000 + Math.random() * 9000)
+      return `celexia${digits}`
+    }
+    const tempPassword = password || generateSimplePassword()
     const displayName = full_name || [client.contact_firstname, client.contact_name].filter(Boolean).join(' ') || client.company_name
 
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -117,11 +122,12 @@ Deno.serve(async (req) => {
       })
       .eq('id', client_id)
 
-    // Create onboarding record
+    // Create onboarding record with contract_data
     await supabase
       .from('portal_onboardings')
       .insert({
         client_id,
+        contract_data: contract_data || null,
       })
 
     // Log the invitation

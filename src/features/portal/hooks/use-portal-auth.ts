@@ -22,6 +22,8 @@ export interface PortalOnboarding {
   validated_at: string | null
   current_step: number
   reminder_count: number
+  contract_data: Record<string, string> | null
+  signed_contract_path: string | null
 }
 
 export interface PortalAuthContextType {

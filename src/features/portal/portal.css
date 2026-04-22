@@ -183,6 +183,41 @@
   transition: width 0.5s cubic-bezier(0, 0, 0.2, 1);
 }
 
+/* ── Inputs ── */
+.portal-root .input,
+.portal-root .textarea,
+.portal-root .select {
+  width: 100%;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 11px 14px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--gray-900);
+  transition: all 0.2s cubic-bezier(0, 0, 0.2, 1);
+  display: block;
+  box-sizing: border-box;
+}
+.portal-root .input:focus,
+.portal-root .textarea:focus,
+.portal-root .select:focus {
+  outline: none;
+  border-color: var(--violet-500);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+}
+.portal-root .textarea { resize: vertical; min-height: 80px; line-height: 1.55; }
+.portal-root .input::placeholder,
+.portal-root .textarea::placeholder { color: var(--gray-400); }
+
+.portal-root .label-input {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 6px;
+}
+
 /* ── Checkbox ── */
 .portal-root .p-checkbox {
   appearance: none;
