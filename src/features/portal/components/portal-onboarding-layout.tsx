@@ -1,11 +1,19 @@
 import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
-import { KeyRound } from 'lucide-react'
+import { Outlet, useNavigate } from 'react-router-dom'
+import { KeyRound, LogOut } from 'lucide-react'
+import { usePortalAuth } from '../hooks/use-portal-auth'
 import { ChangePasswordDialog } from './change-password-dialog'
 import '../portal.css'
 
 export function PortalOnboardingLayout() {
   const [pwdOpen, setPwdOpen] = useState(false)
+  const { signOut } = usePortalAuth()
+  const navigate = useNavigate()
+
+  async function handleLogout() {
+    await signOut()
+    navigate('/portal/auth')
+  }
 
   return (
     <div className="portal-root">
@@ -20,6 +28,13 @@ export function PortalOnboardingLayout() {
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--gray-500)', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
             >
               <KeyRound size={14} /> Mot de passe
+            </button>
+            <button
+              onClick={handleLogout}
+              title="Se déconnecter"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--gray-500)', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}
+            >
+              <LogOut size={14} /> Déconnexion
             </button>
             <span style={{ fontSize: 13, color: 'var(--gray-500)' }}>Besoin d'aide ?</span>
             <a href="mailto:agence.celexia@gmail.com" style={{ fontSize: 13, color: 'var(--violet-600)', fontWeight: 600, textDecoration: 'none' }}>
