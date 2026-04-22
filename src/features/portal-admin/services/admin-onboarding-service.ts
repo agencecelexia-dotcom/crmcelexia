@@ -78,8 +78,9 @@ export async function rejectOnboarding(onboardingId: string, reason: string) {
   const { error } = await supabase
     .from('portal_onboardings')
     .update({
-      status: 'rejected',
+      status: 'in_progress',
       rejection_reason: reason,
+      completed_at: null,
     })
     .eq('id', onboardingId)
   if (error) throw error

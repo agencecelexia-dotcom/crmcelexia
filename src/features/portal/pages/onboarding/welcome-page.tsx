@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../../hooks/use-portal-auth'
-import { FileText, Euro, Building2, Shield, Play, Clock, ArrowRight } from 'lucide-react'
+import { FileText, Euro, Building2, Shield, Play, Clock, ArrowRight, AlertCircle } from 'lucide-react'
 
 const STEPS = [
   { num: 1, title: "Signature du contrat d'apport d'affaires", duration: '2 min', icon: <FileText size={20} /> },
@@ -34,20 +34,60 @@ function StepCard({ num, title, duration, icon }: { num: number; title: string; 
 }
 
 export function WelcomePage() {
-  const { profile } = usePortalAuth()
+  const { profile, onboarding } = usePortalAuth()
   const navigate = useNavigate()
   const firstName = profile?.full_name?.split(' ')[0] || 'artisan'
+  const hasCorrections = !!onboarding?.rejection_reason
 
   return (
     <div>
+      {hasCorrections && (
+        <div style={{
+          marginBottom: 24,
+          padding: 20,
+          borderRadius: 14,
+          background: '#FEF3C7',
+          border: '1px solid #FCD34D',
+          display: 'flex',
+          gap: 14,
+          alignItems: 'flex-start',
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: '#F59E0B', color: 'white',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <AlertCircle size={18} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#92400E', marginBottom: 4 }}>
+              Corrections demandées par Celexia
+            </div>
+            <div style={{ fontSize: 14, color: '#78350F', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+              {onboarding?.rejection_reason}
+            </div>
+            <div style={{ fontSize: 13, color: '#92400E', marginTop: 10, fontWeight: 500 }}>
+              Mettez à jour l'étape concernée puis soumettez à nouveau votre onboarding.
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ marginBottom: 40 }}>
-        <span className="p-tag p-tag-violet" style={{ marginBottom: 16, display: 'inline-flex' }}>Bienvenue</span>
+        <span className="p-tag p-tag-violet" style={{ marginBottom: 16, display: 'inline-flex' }}>
+          {hasCorrections ? 'À corriger' : 'Bienvenue'}
+        </span>
         <h1 className="font-display" style={{ fontSize: 40, fontWeight: 700, lineHeight: 1.1, marginTop: 14, marginBottom: 12 }}>
-          Bienvenue chez Celexia,<br />
-          <span style={{ color: 'var(--violet-600)' }}>{firstName}</span>.
+          {hasCorrections ? (
+            <>Reprenons votre onboarding, <span style={{ color: 'var(--violet-600)' }}>{firstName}</span>.</>
+          ) : (
+            <>Bienvenue chez Celexia,<br /><span style={{ color: 'var(--violet-600)' }}>{firstName}</span>.</>
+          )}
         </h1>
         <p style={{ fontSize: 17, color: 'var(--gray-600)', lineHeight: 1.6, maxWidth: 620 }}>
-          Voici les 5 étapes pour activer vos campagnes. Comptez environ 15 minutes.
+          {hasCorrections
+            ? "Corrigez l'étape signalée ci-dessus, puis validez à nouveau votre onboarding."
+            : 'Voici les 5 étapes pour activer vos campagnes. Comptez environ 15 minutes.'}
         </p>
       </div>
 
@@ -57,7 +97,7 @@ export function WelcomePage() {
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <button className="btn btn-primary lg" onClick={() => navigate('/portal/onboarding/contract')}>
-          Commencer l'onboarding <ArrowRight size={18} />
+          {hasCorrections ? "Reprendre l'onboarding" : "Commencer l'onboarding"} <ArrowRight size={18} />
         </button>
         <span style={{ fontSize: 13, color: 'var(--gray-500)' }}>
           Vous pourrez reprendre à tout moment depuis le lien reçu par email.

@@ -53,10 +53,15 @@ function OnboardingCard({ onb, onValidate, onReject, onToggleReminders }: {
   }).length
 
   const isPendingValidation = onb.status === 'pending_validation'
+  const hasCorrectionsRequested = onb.status === 'in_progress' && !!onb.rejection_reason
 
   return (
     <>
-      <Card className={isPendingValidation ? 'border-violet-200 bg-violet-50/30' : ''}>
+      <Card className={
+        isPendingValidation ? 'border-violet-200 bg-violet-50/30'
+          : hasCorrectionsRequested ? 'border-amber-200 bg-amber-50/30'
+          : ''
+      }>
         <CardContent className="pt-5">
           {/* Header */}
           <div className="flex items-start gap-3 mb-4">
@@ -68,10 +73,21 @@ function OnboardingCard({ onb, onValidate, onReject, onToggleReminders }: {
               <p className="text-xs text-gray-500">{client.company_name} · {client.city || 'Ville non renseignée'}</p>
               <p className="text-xs text-gray-400 mt-0.5">Soumis {formatDate(onb.completed_at || onb.updated_at)}</p>
             </div>
-            <Badge className={isPendingValidation ? 'bg-violet-100 text-violet-700' : 'bg-amber-100 text-amber-700'}>
-              {isPendingValidation ? 'À valider' : 'En cours'}
+            <Badge className={
+              isPendingValidation ? 'bg-violet-100 text-violet-700'
+                : hasCorrectionsRequested ? 'bg-orange-100 text-orange-700'
+                : 'bg-amber-100 text-amber-700'
+            }>
+              {isPendingValidation ? 'À valider' : hasCorrectionsRequested ? 'Corrections demandées' : 'En cours'}
             </Badge>
           </div>
+
+          {hasCorrectionsRequested && (
+            <div className="mb-4 p-3 rounded-lg bg-orange-50 border border-orange-200">
+              <p className="text-xs font-semibold text-orange-900 mb-1">Motif envoyé à l'artisan :</p>
+              <p className="text-xs text-orange-800 whitespace-pre-wrap">{onb.rejection_reason}</p>
+            </div>
+          )}
 
           {/* Step indicators */}
           <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">

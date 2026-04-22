@@ -26,6 +26,7 @@ export async function completeOnboarding(onboardingId: string) {
   return updateOnboarding(onboardingId, {
     status: 'pending_validation',
     completed_at: new Date().toISOString(),
+    rejection_reason: null,
   } as Partial<PortalOnboarding>)
 }
 
