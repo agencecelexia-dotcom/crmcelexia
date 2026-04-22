@@ -25,7 +25,8 @@ export function PortalProtectedRoute() {
   return <Outlet />
 }
 
-/** Protects dashboard routes — requires validated onboarding */
+/** Protects dashboard routes — requires validated onboarding.
+ *  Non-validated artisans are redirected to the appropriate onboarding step. */
 export function PortalValidatedRoute() {
   const { onboarding, isLoading } = usePortalAuth()
 
@@ -37,9 +38,18 @@ export function PortalValidatedRoute() {
     )
   }
 
-  if (!onboarding || onboarding.status !== 'validated') {
+  if (!onboarding) {
     return <Navigate to="/portal/onboarding/welcome" replace />
   }
 
-  return <Outlet />
+  if (onboarding.status === 'validated') {
+    return <Outlet />
+  }
+
+  if (onboarding.status === 'pending_validation') {
+    return <Navigate to="/portal/onboarding/pending" replace />
+  }
+
+  // in_progress (avec ou sans rejection_reason)
+  return <Navigate to="/portal/onboarding/welcome" replace />
 }

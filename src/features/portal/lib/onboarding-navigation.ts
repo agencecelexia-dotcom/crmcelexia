@@ -20,12 +20,22 @@ export function getOnboardingSteps(onb: Pick<PortalOnboarding,
   ]
 }
 
-/** Returns the path of the next incomplete step, or pending page if all done */
+/** Returns the path of the next incomplete step.
+ *  If all steps are done but not submitted yet, returns the training page
+ *  (which has the resubmit UI when quiz is already completed). */
 export function getNextOnboardingStep(onb: Pick<PortalOnboarding,
   'contract_signed' | 'payment_proof_uploaded' | 'gmb_access_confirmed' |
   'rc_pro_uploaded' | 'kbis_uploaded' | 'quiz_completed_at'
 >): string {
   const steps = getOnboardingSteps(onb)
   const next = steps.find(s => !s.done)
-  return next ? next.path : '/portal/onboarding/pending'
+  return next ? next.path : '/portal/onboarding/training'
+}
+
+/** True if all 6 sub-modules are marked complete in the onboarding */
+export function isOnboardingComplete(onb: Pick<PortalOnboarding,
+  'contract_signed' | 'payment_proof_uploaded' | 'gmb_access_confirmed' |
+  'rc_pro_uploaded' | 'kbis_uploaded' | 'quiz_completed_at'
+>): boolean {
+  return getOnboardingSteps(onb).every(s => s.done)
 }

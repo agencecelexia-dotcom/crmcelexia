@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../../hooks/use-portal-auth'
 import { updateOnboarding, uploadPortalDocument } from '../../services/onboarding-service'
 import { ProgressHeader } from '../../components/onboarding/progress-header'
-import { ArrowLeft, ArrowRight, Upload, FileText, Trash2, Copy, Check } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Upload, FileText, Trash2, Copy, Check, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const IBAN = 'FR76 1820 6004 4464 1939 4300 155'
@@ -27,7 +27,10 @@ function Row({ label, value, mono, highlight }: { label: string; value: string; 
 export function PaymentPage() {
   const { onboarding, client, refreshOnboarding } = usePortalAuth()
   const navigate = useNavigate()
-  const [file, setFile] = useState<{ name: string; size: string; raw?: File } | null>(null)
+  const alreadyUploaded = !!onboarding?.payment_proof_uploaded
+  const [file, setFile] = useState<{ name: string; size: string; raw?: File } | null>(
+    alreadyUploaded ? { name: 'Preuve déjà transmise', size: '' } : null,
+  )
   const [drag, setDrag] = useState(false)
   const [copied, setCopied] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -44,16 +47,19 @@ export function PaymentPage() {
   }
 
   async function handleContinue() {
-    if (!onboarding || !file?.raw || !client) return
+    if (!onboarding || !file || !client) return
     setSaving(true)
     try {
-      const path = await uploadPortalDocument(client.id, file.raw, 'payment-proof')
-      await updateOnboarding(onboarding.id, {
-        payment_proof_uploaded: true,
-        payment_proof_path: path,
-        current_step: 3,
-      } as Record<string, unknown>)
-      await refreshOnboarding()
+      // Upload uniquement si l'artisan a fourni un nouveau fichier
+      if (file.raw) {
+        const path = await uploadPortalDocument(client.id, file.raw, 'payment-proof')
+        await updateOnboarding(onboarding.id, {
+          payment_proof_uploaded: true,
+          payment_proof_path: path,
+          current_step: 3,
+        } as Record<string, unknown>)
+        await refreshOnboarding()
+      }
       navigate('/portal/onboarding/gmb')
     } catch {
       toast.error("Erreur lors de l'upload")
@@ -97,12 +103,12 @@ export function PaymentPage() {
       </div>
       {file ? (
         <div className="p-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--violet-100)', color: 'var(--violet-600)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <FileText size={20} />
+          <div style={{ width: 40, height: 40, borderRadius: 8, background: file.raw ? 'var(--violet-100)' : 'var(--emerald-100)', color: file.raw ? 'var(--violet-600)' : 'var(--emerald-600)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {file.raw ? <FileText size={20} /> : <CheckCircle2 size={20} />}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)' }}>{file.name}</div>
-            <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>{file.size} · Uploadé</div>
+            <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>{file.raw ? `${file.size} · Uploadé` : 'Cliquez sur la poubelle pour remplacer'}</div>
           </div>
           <button className="btn btn-ghost" onClick={() => setFile(null)}><Trash2 size={16} /></button>
         </div>

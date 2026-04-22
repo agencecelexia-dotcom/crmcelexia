@@ -68,17 +68,22 @@ export function WelcomePage() {
 
   const stepsDone = STEPS.filter(s => isStepDone(s.doneKey)).length
   const allDone = stepsDone === STEPS.length
+  const firstIncomplete = STEPS.find(s => !isStepDone(s.doneKey))
   const nextPath = onboarding ? getNextOnboardingStep(onboarding) : '/portal/onboarding/contract'
 
-  // En corrections : bouton principal renvoie vers training pour resoumettre après modif
-  const mainCtaPath = hasCorrections ? '/portal/onboarding/training' : nextPath
+  // Le CTA principal pointe toujours vers la prochaine étape à compléter.
+  // En mode corrections : si tout est complet on va à training (qui montrera l'UI "Soumettre").
+  // Sinon, getNextOnboardingStep pointe déjà vers la bonne étape incomplète.
+  const mainCtaPath = nextPath
   const mainCtaLabel = hasCorrections
-    ? 'Soumettre à nouveau'
+    ? allDone
+      ? 'Soumettre à nouveau'
+      : `Corriger l'étape ${firstIncomplete?.num ?? '?'}`
     : stepsDone === 0
       ? "Commencer l'onboarding"
       : allDone
         ? 'Finaliser mon onboarding'
-        : `Reprendre à l'étape ${stepsDone + 1}`
+        : `Reprendre à l'étape ${firstIncomplete?.num ?? '?'}`
 
   return (
     <div>

@@ -58,19 +58,23 @@ function GmbStep({ num, title, desc, highlight, mock }: { num: string; title: st
 export function GmbPage() {
   const { onboarding, refreshOnboarding } = usePortalAuth()
   const navigate = useNavigate()
-  const [confirmed, setConfirmed] = useState(false)
+  const alreadyConfirmed = !!onboarding?.gmb_access_confirmed
+  const [confirmed, setConfirmed] = useState(alreadyConfirmed)
   const [saving, setSaving] = useState(false)
 
   async function handleContinue() {
     if (!onboarding || !confirmed) return
     setSaving(true)
     try {
-      await updateOnboarding(onboarding.id, {
-        gmb_access_confirmed: true,
-        gmb_confirmed_at: new Date().toISOString(),
-        current_step: 4,
-      } as Record<string, unknown>)
-      await refreshOnboarding()
+      // Skip update if already confirmed (artisan just passed through)
+      if (!alreadyConfirmed) {
+        await updateOnboarding(onboarding.id, {
+          gmb_access_confirmed: true,
+          gmb_confirmed_at: new Date().toISOString(),
+          current_step: 4,
+        } as Record<string, unknown>)
+        await refreshOnboarding()
+      }
       navigate('/portal/onboarding/legal')
     } catch {
       toast.error('Erreur')

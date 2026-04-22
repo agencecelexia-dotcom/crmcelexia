@@ -6,7 +6,8 @@ import { usePortalAuth } from '../../hooks/use-portal-auth'
 import { updateOnboarding, uploadPortalDocument } from '../../services/onboarding-service'
 import { ProgressHeader } from '../../components/onboarding/progress-header'
 import { generateContract, type ContractData } from '@/features/contracts/services/contract-generator'
-import { ArrowLeft, ArrowRight, FileText, Download, Eye, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, FileText, Download, Eye, Loader2, CheckCircle2 } from 'lucide-react'
+import { supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 export function ContractPage() {
@@ -156,6 +157,44 @@ export function ContractPage() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', gap: 12 }}>
           <Loader2 size={32} style={{ color: 'var(--violet-600)', animation: 'spin 1s linear infinite' }} />
           <p style={{ fontSize: 13, color: 'var(--gray-500)' }}>Chargement de votre contrat...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Contrat déjà signé — écran "déjà fait" avec bouton voir PDF + continuer
+  if (onboarding.contract_signed && onboarding.signed_contract_path) {
+    async function viewSignedPdf() {
+      const { data } = await supabase.storage
+        .from('portal-documents')
+        .createSignedUrl(onboarding!.signed_contract_path!, 3600)
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+    }
+
+    return (
+      <div>
+        <ProgressHeader step={1} title="Signature du contrat d'apport d'affaires" />
+        <div className="p-card" style={{ padding: 32, textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--emerald-100)', color: 'var(--emerald-600)', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CheckCircle2 size={36} />
+          </div>
+          <h2 className="font-display" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
+            Contrat déjà signé
+          </h2>
+          <p style={{ fontSize: 14, color: 'var(--gray-600)', marginBottom: 20, maxWidth: 480, margin: '0 auto 20px', lineHeight: 1.6 }}>
+            Votre contrat a été signé le {onboarding.contract_signed_at ? new Date(onboarding.contract_signed_at).toLocaleDateString('fr-FR') : '—'}.
+          </p>
+          <button className="btn btn-secondary" onClick={viewSignedPdf} style={{ marginBottom: 8 }}>
+            <Eye size={16} /> Voir le contrat signé
+          </button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <button className="btn btn-ghost" onClick={() => navigate('/portal/onboarding/welcome')}>
+            <ArrowLeft size={16} /> Retour au sommaire
+          </button>
+          <button className="btn btn-primary lg" onClick={() => navigate('/portal/onboarding/payment')}>
+            Étape suivante <ArrowRight size={18} />
+          </button>
         </div>
       </div>
     )

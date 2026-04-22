@@ -6,7 +6,7 @@ import { FounderGuard } from '@/features/auth/components/role-guard'
 import { LoginPage } from '@/features/auth/pages/login-page'
 import { Loader2 } from 'lucide-react'
 import { PortalAuthProvider } from '@/features/portal/components/portal-auth-provider'
-import { PortalProtectedRoute } from '@/features/portal/components/portal-protected-route'
+import { PortalProtectedRoute, PortalValidatedRoute } from '@/features/portal/components/portal-protected-route'
 import { PortalOnboardingLayout } from '@/features/portal/components/portal-onboarding-layout'
 import { PortalLayout } from '@/features/portal/components/portal-layout'
 
@@ -90,13 +90,18 @@ export const router = createBrowserRouter([
       },
       // Dashboard + CRM artisan (nav header, requires validated onboarding)
       {
-        element: <PortalLayout />,
+        element: <PortalValidatedRoute />,
         children: [
-          { path: '/portal/dashboard', element: <LazyPage><PortalDashboardPage /></LazyPage> },
-          { path: '/portal/leads', element: <LazyPage><PortalLeadsKanbanPage /></LazyPage> },
-          { path: '/portal/leads/:id', element: <LazyPage><PortalLeadDetailPage /></LazyPage> },
-          { path: '/portal/commission', element: <LazyPage><PortalCommissionPage /></LazyPage> },
-          { path: '/portal/documents', element: <LazyPage><PortalDocumentsPage /></LazyPage> },
+          {
+            element: <PortalLayout />,
+            children: [
+              { path: '/portal/dashboard', element: <LazyPage><PortalDashboardPage /></LazyPage> },
+              { path: '/portal/leads', element: <LazyPage><PortalLeadsKanbanPage /></LazyPage> },
+              { path: '/portal/leads/:id', element: <LazyPage><PortalLeadDetailPage /></LazyPage> },
+              { path: '/portal/commission', element: <LazyPage><PortalCommissionPage /></LazyPage> },
+              { path: '/portal/documents', element: <LazyPage><PortalDocumentsPage /></LazyPage> },
+            ],
+          },
         ],
       },
     ],

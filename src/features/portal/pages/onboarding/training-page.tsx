@@ -4,7 +4,8 @@ import { usePortalAuth } from '../../hooks/use-portal-auth'
 import { updateOnboarding } from '../../services/onboarding-service'
 import { ProgressHeader } from '../../components/onboarding/progress-header'
 import { QUIZ_QUESTIONS, QUIZ_PASS_SCORE } from '../../lib/quiz-questions'
-import { ArrowLeft, ArrowRight, Play, Check } from 'lucide-react'
+import { getOnboardingSteps, isOnboardingComplete, getNextOnboardingStep } from '../../lib/onboarding-navigation'
+import { ArrowLeft, ArrowRight, Play, Check, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function TrainingPage() {
@@ -18,9 +19,15 @@ export function TrainingPage() {
   const allAnswered = QUIZ_QUESTIONS.every((_, i) => answers[i] !== undefined)
   const score = submitted ? QUIZ_QUESTIONS.reduce((s, q, i) => s + (answers[i] === q.correctIndex ? 1 : 0), 0) : null
   const alreadyCompleted = !!onboarding?.quiz_completed_at
+  const onboardingComplete = onboarding ? isOnboardingComplete(onboarding) : false
+  const missingSteps = onboarding ? getOnboardingSteps(onboarding).filter(s => !s.done) : []
 
   async function handleResubmit() {
     if (!onboarding) return
+    if (!onboardingComplete) {
+      toast.error('Vous devez compléter toutes les étapes avant de soumettre à nouveau.')
+      return
+    }
     setSaving(true)
     try {
       await updateOnboarding(onboarding.id, {
@@ -47,6 +54,17 @@ export function TrainingPage() {
       return
     }
 
+    // Si d'autres modules sont manquants (cas où admin a reset rc_pro + quiz mais pas kbis p.ex.),
+    // ne pas soumettre : rediriger vers le module manquant.
+    if (onboarding && !isOnboardingComplete({ ...onboarding, quiz_completed_at: new Date().toISOString() })) {
+      const missing = getOnboardingSteps({ ...onboarding, quiz_completed_at: new Date().toISOString() }).find(st => !st.done)
+      if (missing) {
+        toast.error(`Complétez d'abord l'étape ${missing.num} — ${missing.label}`)
+        navigate(missing.path)
+        return
+      }
+    }
+
     setSaving(true)
     try {
       await updateOnboarding(onboarding.id, {
@@ -57,6 +75,7 @@ export function TrainingPage() {
         quiz_completed_at: new Date().toISOString(),
         status: 'pending_validation',
         completed_at: new Date().toISOString(),
+        rejection_reason: null,
       } as Record<string, unknown>)
       await refreshOnboarding()
       navigate('/portal/onboarding/pending')
@@ -69,6 +88,41 @@ export function TrainingPage() {
 
   // Quiz déjà complété → resoumettre directement (cas corrections ou retour navigation)
   if (alreadyCompleted && !submitted) {
+    // Mais bloque si d'autres modules sont encore incomplets
+    if (!onboardingComplete) {
+      const nextPath = onboarding ? getNextOnboardingStep(onboarding) : '/portal/onboarding/welcome'
+      return (
+        <div style={{ textAlign: 'center', padding: '40px 0' }}>
+          <ProgressHeader step={5} />
+          <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#FEF3C7', color: '#D97706', margin: '0 auto 24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AlertCircle size={40} />
+          </div>
+          <h1 className="font-display" style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>
+            Étapes à compléter avant de soumettre
+          </h1>
+          <p style={{ fontSize: 15, color: 'var(--gray-600)', marginBottom: 20, maxWidth: 520, margin: '0 auto 20px', lineHeight: 1.6 }}>
+            Merci de compléter les étapes suivantes avant de soumettre votre onboarding :
+          </p>
+          <ul style={{ listStyle: 'none', padding: 0, maxWidth: 360, margin: '0 auto 28px', textAlign: 'left', display: 'grid', gap: 8 }}>
+            {missingSteps.map(s => (
+              <li key={s.num} className="p-card" style={{ padding: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <AlertCircle size={16} style={{ color: '#D97706', flexShrink: 0 }} />
+                <span style={{ fontSize: 14, color: 'var(--gray-800)' }}>Étape {s.num} · {s.label}</span>
+              </li>
+            ))}
+          </ul>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button className="btn btn-ghost" onClick={() => navigate('/portal/onboarding/welcome')}>
+              <ArrowLeft size={16} /> Retour au sommaire
+            </button>
+            <button className="btn btn-primary lg" onClick={() => navigate(nextPath)}>
+              Compléter l'étape {missingSteps[0]?.num} <ArrowRight size={18} />
+            </button>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div style={{ textAlign: 'center', padding: '40px 0' }}>
         <ProgressHeader step={5} />
