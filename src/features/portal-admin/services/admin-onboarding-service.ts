@@ -18,6 +18,7 @@ export interface AdminOnboardingRow {
   training_video_watched: boolean
   quiz_score: number | null
   quiz_completed_at: string | null
+  signed_contract_path: string | null
   validated_at: string | null
   validated_by: string | null
   rejection_reason: string | null

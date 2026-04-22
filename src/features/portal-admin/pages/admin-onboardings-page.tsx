@@ -168,6 +168,7 @@ function OnboardingCard({ onb, onValidate, onReject, onToggleReminders }: {
             {/* Doc preview buttons */}
             <div className="border-t pt-3 grid grid-cols-2 gap-2">
               {[
+                { label: 'Contrat signé', path: onb.signed_contract_path },
                 { label: 'RC Pro', path: onb.rc_pro_path },
                 { label: 'Kbis', path: onb.kbis_path },
                 { label: 'Preuve paiement', path: onb.payment_proof_path },
