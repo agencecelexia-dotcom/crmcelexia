@@ -17,6 +17,25 @@ export function TrainingPage() {
 
   const allAnswered = QUIZ_QUESTIONS.every((_, i) => answers[i] !== undefined)
   const score = submitted ? QUIZ_QUESTIONS.reduce((s, q, i) => s + (answers[i] === q.correctIndex ? 1 : 0), 0) : null
+  const alreadyCompleted = !!onboarding?.quiz_completed_at
+
+  async function handleResubmit() {
+    if (!onboarding) return
+    setSaving(true)
+    try {
+      await updateOnboarding(onboarding.id, {
+        status: 'pending_validation',
+        completed_at: new Date().toISOString(),
+        rejection_reason: null,
+      } as Record<string, unknown>)
+      await refreshOnboarding()
+      navigate('/portal/onboarding/pending')
+    } catch {
+      toast.error('Erreur')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   async function handleSubmitAndContinue() {
     if (!onboarding) return
@@ -46,6 +65,35 @@ export function TrainingPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Quiz déjà complété → resoumettre directement (cas corrections ou retour navigation)
+  if (alreadyCompleted && !submitted) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 0' }}>
+        <ProgressHeader step={5} />
+        <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--emerald-100)', color: 'var(--emerald-600)', margin: '0 auto 24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Check size={40} />
+        </div>
+        <h1 className="font-display" style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>
+          Formation déjà validée
+        </h1>
+        <p style={{ fontSize: 15, color: 'var(--gray-600)', marginBottom: 8, maxWidth: 520, margin: '0 auto', lineHeight: 1.6 }}>
+          Score : <strong>{onboarding?.quiz_score}/{QUIZ_QUESTIONS.length}</strong>
+        </p>
+        <p style={{ fontSize: 14, color: 'var(--gray-500)', marginBottom: 28, maxWidth: 520, margin: '0 auto 28px', lineHeight: 1.6 }}>
+          Soumettez votre onboarding à Celexia pour validation.
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button className="btn btn-ghost" onClick={() => navigate('/portal/onboarding/welcome')}>
+            <ArrowLeft size={16} /> Retour
+          </button>
+          <button className="btn btn-primary lg" disabled={saving} onClick={handleResubmit}>
+            {saving ? 'Envoi...' : 'Soumettre pour validation'} <ArrowRight size={18} />
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // Success screen after submit

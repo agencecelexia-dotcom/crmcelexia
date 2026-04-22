@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
 import { Loader2, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { getNextOnboardingStep } from '../lib/onboarding-navigation'
 import '../portal.css'
 
 export function PortalLoginPage() {
@@ -33,13 +34,24 @@ export function PortalLoginPage() {
       const { data: client } = await supabase.from('clients').select('id').eq('user_id', user.id).single()
       if (!client) { navigate('/portal/onboarding/welcome'); return }
 
-      const { data: onb } = await supabase.from('portal_onboardings').select('status').eq('client_id', client.id).single()
-      if (!onb || onb.status === 'in_progress' || onb.status === 'rejected') {
-        navigate('/portal/onboarding/welcome')
+      const { data: onb } = await supabase
+        .from('portal_onboardings')
+        .select('status, rejection_reason, contract_signed, payment_proof_uploaded, gmb_access_confirmed, rc_pro_uploaded, kbis_uploaded, quiz_completed_at')
+        .eq('client_id', client.id)
+        .single()
+
+      if (!onb) { navigate('/portal/onboarding/welcome'); return }
+
+      if (onb.status === 'validated') {
+        navigate('/portal/dashboard')
       } else if (onb.status === 'pending_validation') {
         navigate('/portal/onboarding/pending')
+      } else if (onb.rejection_reason) {
+        // Corrections demandées — welcome page affiche le motif + liste d'étapes
+        navigate('/portal/onboarding/welcome')
       } else {
-        navigate('/portal/dashboard')
+        // Reprendre à la prochaine étape non complétée
+        navigate(getNextOnboardingStep(onb))
       }
     } catch {
       toast.error('Email ou mot de passe incorrect')

@@ -1,33 +1,53 @@
 import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../../hooks/use-portal-auth'
-import { FileText, Euro, Building2, Shield, Play, Clock, ArrowRight, AlertCircle } from 'lucide-react'
+import { FileText, Euro, Building2, Shield, Play, Clock, ArrowRight, AlertCircle, Check } from 'lucide-react'
+import { getNextOnboardingStep } from '../../lib/onboarding-navigation'
 
 const STEPS = [
-  { num: 1, title: "Signature du contrat d'apport d'affaires", duration: '2 min', icon: <FileText size={20} /> },
-  { num: 2, title: 'Preuve du virement de lancement', duration: '1 min', icon: <Euro size={20} /> },
-  { num: 3, title: 'Accès à votre fiche Google Business', duration: '5 min', icon: <Building2 size={20} /> },
-  { num: 4, title: 'Assurance RC Pro + Extrait Kbis', duration: '3 min', icon: <Shield size={20} /> },
-  { num: 5, title: 'Formation vidéo et QCM', duration: '4 min', icon: <Play size={20} /> },
+  { num: 1, title: "Signature du contrat d'apport d'affaires", duration: '2 min', icon: <FileText size={20} />, path: '/portal/onboarding/contract', doneKey: 'contract_signed' as const },
+  { num: 2, title: 'Preuve du virement de lancement', duration: '1 min', icon: <Euro size={20} />, path: '/portal/onboarding/payment', doneKey: 'payment_proof_uploaded' as const },
+  { num: 3, title: 'Accès à votre fiche Google Business', duration: '5 min', icon: <Building2 size={20} />, path: '/portal/onboarding/gmb', doneKey: 'gmb_access_confirmed' as const },
+  { num: 4, title: 'Assurance RC Pro + Extrait Kbis', duration: '3 min', icon: <Shield size={20} />, path: '/portal/onboarding/legal', doneKey: 'legal' as const },
+  { num: 5, title: 'Formation vidéo et QCM', duration: '4 min', icon: <Play size={20} />, path: '/portal/onboarding/training', doneKey: 'quiz_completed_at' as const },
 ]
 
-function StepCard({ num, title, duration, icon }: { num: number; title: string; duration: string; icon: React.ReactNode }) {
+function StepCard({
+  num, title, duration, icon, done, onClick,
+}: {
+  num: number
+  title: string
+  duration: string
+  icon: React.ReactNode
+  done: boolean
+  onClick: () => void
+}) {
   return (
-    <div className="p-card" style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 16 }}>
+    <div
+      className="p-card"
+      onClick={onClick}
+      style={{
+        padding: 18, display: 'flex', alignItems: 'center', gap: 16,
+        cursor: 'pointer',
+        opacity: done ? 0.8 : 1,
+        borderColor: done ? 'var(--emerald-200, #A7F3D0)' : undefined,
+      }}
+    >
       <div style={{
         width: 44, height: 44, borderRadius: 12,
-        background: 'var(--violet-100)', color: 'var(--violet-600)',
+        background: done ? 'var(--emerald-100, #D1FAE5)' : 'var(--violet-100)',
+        color: done ? 'var(--emerald-600, #059669)' : 'var(--violet-600)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
       }}>
-        {icon}
+        {done ? <Check size={20} /> : icon}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', letterSpacing: '0.05em', marginBottom: 2 }}>
-          ÉTAPE {num}
+          ÉTAPE {num}{done ? ' · TERMINÉE' : ''}
         </div>
         <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-900)' }}>{title}</div>
       </div>
       <div style={{ fontSize: 13, color: 'var(--gray-500)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-        <Clock size={14} /> {duration}
+        {done ? 'Modifier' : <><Clock size={14} /> {duration}</>}
       </div>
     </div>
   )
@@ -38,6 +58,27 @@ export function WelcomePage() {
   const navigate = useNavigate()
   const firstName = profile?.full_name?.split(' ')[0] || 'artisan'
   const hasCorrections = !!onboarding?.rejection_reason
+
+  const isStepDone = (doneKey: string): boolean => {
+    if (!onboarding) return false
+    if (doneKey === 'legal') return onboarding.rc_pro_uploaded && onboarding.kbis_uploaded
+    if (doneKey === 'quiz_completed_at') return !!onboarding.quiz_completed_at
+    return !!(onboarding as unknown as Record<string, unknown>)[doneKey]
+  }
+
+  const stepsDone = STEPS.filter(s => isStepDone(s.doneKey)).length
+  const allDone = stepsDone === STEPS.length
+  const nextPath = onboarding ? getNextOnboardingStep(onboarding) : '/portal/onboarding/contract'
+
+  // En corrections : bouton principal renvoie vers training pour resoumettre après modif
+  const mainCtaPath = hasCorrections ? '/portal/onboarding/training' : nextPath
+  const mainCtaLabel = hasCorrections
+    ? 'Soumettre à nouveau'
+    : stepsDone === 0
+      ? "Commencer l'onboarding"
+      : allDone
+        ? 'Finaliser mon onboarding'
+        : `Reprendre à l'étape ${stepsDone + 1}`
 
   return (
     <div>
@@ -67,7 +108,7 @@ export function WelcomePage() {
               {onboarding?.rejection_reason}
             </div>
             <div style={{ fontSize: 13, color: '#92400E', marginTop: 10, fontWeight: 500 }}>
-              Mettez à jour l'étape concernée puis soumettez à nouveau votre onboarding.
+              Cliquez sur l'étape concernée ci-dessous pour la modifier, puis soumettez à nouveau.
             </div>
           </div>
         </div>
@@ -75,7 +116,7 @@ export function WelcomePage() {
 
       <div style={{ marginBottom: 40 }}>
         <span className="p-tag p-tag-violet" style={{ marginBottom: 16, display: 'inline-flex' }}>
-          {hasCorrections ? 'À corriger' : 'Bienvenue'}
+          {hasCorrections ? 'À corriger' : stepsDone > 0 ? 'En cours' : 'Bienvenue'}
         </span>
         <h1 className="font-display" style={{ fontSize: 40, fontWeight: 700, lineHeight: 1.1, marginTop: 14, marginBottom: 12 }}>
           {hasCorrections ? (
@@ -86,21 +127,33 @@ export function WelcomePage() {
         </h1>
         <p style={{ fontSize: 17, color: 'var(--gray-600)', lineHeight: 1.6, maxWidth: 620 }}>
           {hasCorrections
-            ? "Corrigez l'étape signalée ci-dessus, puis validez à nouveau votre onboarding."
-            : 'Voici les 5 étapes pour activer vos campagnes. Comptez environ 15 minutes.'}
+            ? "Cliquez sur l'étape à modifier ci-dessous, puis validez à nouveau votre onboarding."
+            : stepsDone > 0
+              ? `Vous avez complété ${stepsDone}/${STEPS.length} étapes. Reprenez où vous en étiez.`
+              : 'Voici les 5 étapes pour activer vos campagnes. Comptez environ 15 minutes.'}
         </p>
       </div>
 
       <div style={{ display: 'grid', gap: 10, marginBottom: 40 }}>
-        {STEPS.map(s => <StepCard key={s.num} {...s} />)}
+        {STEPS.map(s => (
+          <StepCard
+            key={s.num}
+            num={s.num}
+            title={s.title}
+            duration={s.duration}
+            icon={s.icon}
+            done={isStepDone(s.doneKey)}
+            onClick={() => navigate(s.path)}
+          />
+        ))}
       </div>
 
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button className="btn btn-primary lg" onClick={() => navigate('/portal/onboarding/contract')}>
-          {hasCorrections ? "Reprendre l'onboarding" : "Commencer l'onboarding"} <ArrowRight size={18} />
+        <button className="btn btn-primary lg" onClick={() => navigate(mainCtaPath)}>
+          {mainCtaLabel} <ArrowRight size={18} />
         </button>
         <span style={{ fontSize: 13, color: 'var(--gray-500)' }}>
-          Vous pourrez reprendre à tout moment depuis le lien reçu par email.
+          Vous pouvez reprendre à tout moment en vous reconnectant.
         </span>
       </div>
     </div>
