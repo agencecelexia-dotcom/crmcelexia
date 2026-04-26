@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Opportunity } from '@/types'
 import type { OpportunityStatus, OpportunityType } from '@/types/enums'
-import { OPPORTUNITY_PIPELINE_STAGES, OPPORTUNITY_PUB_STAGES, LOSS_REASON_LABELS, PUB_COMMISSION_RATE, type LossReason } from '@/types/enums'
+import { OPPORTUNITY_PIPELINE_STAGES, OPPORTUNITY_PUB_STAGES, PUB_COMMISSION_RATE } from '@/types/enums'
 import { formatCurrency } from '@/lib/format'
 import { useOpportunitiesKanban, useUpdateOpportunityStatus, useUpdateOpportunity } from '../hooks/use-opportunities'
 import { useAuth } from '@/features/auth/hooks/use-auth'
@@ -19,14 +19,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { TerminalStatusDialog } from '@/components/shared/terminal-status-dialog'
 
 interface KanbanBoardProps {
   opportunityType?: OpportunityType
@@ -65,10 +58,8 @@ export function KanbanBoard({ opportunityType }: KanbanBoardProps) {
     }
   }, [draggingId])
 
-  // Loss reason dialog state
+  // Loss reason dialog state — actual form state lives inside TerminalStatusDialog.
   const [pendingLoss, setPendingLoss] = useState<{ oppId: string } | null>(null)
-  const [lossReason, setLossReason] = useState<string>('')
-  const [lossNotes, setLossNotes] = useState('')
 
   // Pub stats dialog state (required before moving to R2 or Close)
   const [pendingPubStats, setPendingPubStats] = useState<{ oppId: string; targetStatus: OpportunityStatus } | null>(null)
@@ -121,16 +112,14 @@ export function KanbanBoard({ opportunityType }: KanbanBoardProps) {
     setDragOverStatus(null)
   }, [draggingId, opportunities, statusMutation, opportunityType])
 
-  const confirmLoss = () => {
-    if (!pendingLoss || !lossReason) return
+  const confirmLoss = (reason: string, note?: string) => {
+    if (!pendingLoss || !reason) return
     statusMutation.mutate({
       id: pendingLoss.oppId,
       status: 'perdu',
-      extra: { loss_reason: lossReason, loss_notes: lossNotes || undefined },
+      extra: { loss_reason: reason, loss_notes: note },
     })
     setPendingLoss(null)
-    setLossReason('')
-    setLossNotes('')
   }
 
   const confirmPubStats = async () => {
@@ -238,46 +227,14 @@ export function KanbanBoard({ opportunityType }: KanbanBoardProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Loss reason dialog */}
-      <Dialog open={!!pendingLoss} onOpenChange={(open) => { if (!open) { setPendingLoss(null); setLossReason(''); setLossNotes('') } }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Raison de la perte</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Raison *</Label>
-              <Select value={lossReason} onValueChange={setLossReason}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une raison..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.entries(LOSS_REASON_LABELS) as [LossReason, string][]).map(([val, label]) => (
-                    <SelectItem key={val} value={val}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                value={lossNotes}
-                onChange={(e) => setLossNotes(e.target.value)}
-                placeholder="Détails supplémentaires..."
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => { setPendingLoss(null); setLossReason(''); setLossNotes('') }}>
-              Annuler
-            </Button>
-            <Button variant="destructive" onClick={confirmLoss} disabled={!lossReason}>
-              Confirmer la perte
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Loss reason dialog — shared component */}
+      <TerminalStatusDialog
+        open={!!pendingLoss}
+        onOpenChange={(open) => { if (!open) setPendingLoss(null) }}
+        mode="lost"
+        onConfirm={confirmLoss}
+        isPending={statusMutation.isPending}
+      />
 
     </>
   )

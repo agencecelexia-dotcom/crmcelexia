@@ -87,6 +87,7 @@ import {
 import type { LeadScore } from '@/types'
 import { GenerateContractDialog } from '@/features/contracts/components/generate-contract-dialog'
 import { ConversionDialog } from '../components/conversion-dialog'
+import { TerminalStatusDialog } from '@/components/shared/terminal-status-dialog'
 
 export function ProspectDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -121,8 +122,6 @@ export function ProspectDetailPage() {
   const { data: linkedOpportunity } = useOpportunityForProspect(id)
   const updateOppStatus = useUpdateOpportunityStatus()
   const [pendingOppLoss, setPendingOppLoss] = useState<boolean>(false)
-  const [oppLossReason, setOppLossReason] = useState<string>('')
-  const [oppLossNotes, setOppLossNotes] = useState('')
   const [pendingOppSiteEnvoye, setPendingOppSiteEnvoye] = useState(false)
   const [oppSiteUrl, setOppSiteUrl] = useState('')
   const [oppDateEnvoiSite, setOppDateEnvoiSite] = useState('')
@@ -135,10 +134,11 @@ export function ProspectDetailPage() {
   const prospectIds = useMemo(() => (prospectListData?.data ?? []).map((p) => p.id), [prospectListData])
   const currentIndex = useMemo(() => prospectIds.indexOf(id ?? ''), [prospectIds, id])
 
-  // Loss reason dialog
+  // Loss reason dialog — reason/notes are owned by TerminalStatusDialog,
+  // we keep prefill values here so the parent can seed the dialog when editing
+  // an already-saved loss reason.
   const [lossDialogOpen, setLossDialogOpen] = useState(false)
-  const [selectedLossReason, setSelectedLossReason] = useState<LossReason | ''>('')
-  const [lossNotes, setLossNotes] = useState('')
+  const [lossDialogPrefill, setLossDialogPrefill] = useState<{ reason?: string; note?: string }>({})
   const [lossRecallDate, setLossRecallDate] = useState('')
   const [lossRecallNote, setLossRecallNote] = useState('')
 
@@ -325,8 +325,8 @@ export function ProspectDetailPage() {
     }
   }
 
-  async function saveLossReason() {
-    if (!selectedLossReason) {
+  async function saveLossReason(reason: string, note?: string) {
+    if (!reason) {
       toast.error('Veuillez sélectionner une raison de perte')
       return
     }
@@ -340,8 +340,8 @@ export function ProspectDetailPage() {
           custom_fields: {
             ...currentFields,
             loss_reason: {
-              reason: selectedLossReason,
-              notes: lossNotes.trim() || undefined,
+              reason: reason as LossReason,
+              notes: note,
               date: new Date().toISOString(),
             },
           },
@@ -373,7 +373,7 @@ export function ProspectDetailPage() {
             commercial_id: session.user.id,
             result: 'reached_not_interested' as CallResult,
             new_status: 'perdu' as ProspectStatus,
-            note: `Perdu: ${LOSS_REASON_LABELS[selectedLossReason as LossReason]}${lossNotes ? ' - ' + lossNotes : ''}`,
+            note: `Perdu: ${LOSS_REASON_LABELS[reason as LossReason]}${note ? ' - ' + note : ''}`,
           })
         } catch {
           // Non-blocking
@@ -395,10 +395,9 @@ export function ProspectDetailPage() {
         }
       }
       setLossDialogOpen(false)
-      setSelectedLossReason('')
-      setLossNotes('')
       setLossRecallDate('')
       setLossRecallNote('')
+      setLossDialogPrefill({})
     } catch {
       toast.error('Erreur lors de la sauvegarde')
     }
@@ -657,7 +656,7 @@ export function ProspectDetailPage() {
               <p className="text-xs text-red-600 mt-1">{savedLossReason.notes}</p>
             )}
           </div>
-          <Button size="sm" variant="ghost" onClick={() => { setSelectedLossReason(savedLossReason.reason); setLossNotes(savedLossReason.notes ?? ''); setLossDialogOpen(true) }}>
+          <Button size="sm" variant="ghost" onClick={() => { setLossDialogPrefill({ reason: savedLossReason.reason, note: savedLossReason.notes ?? '' }); setLossDialogOpen(true) }}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -1007,60 +1006,22 @@ export function ProspectDetailPage() {
             </Card>
           )}
 
-          {/* Dialog raison de perte opportunité depuis fiche prospect */}
-          <Dialog open={pendingOppLoss} onOpenChange={(open) => { if (!open) { setPendingOppLoss(false); setOppLossReason(''); setOppLossNotes('') } }}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Raison de la perte</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label>Raison *</Label>
-                  <Select value={oppLossReason} onValueChange={setOppLossReason}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner une raison..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(Object.entries(LOSS_REASON_LABELS) as [LossReason, string][]).map(([val, label]) => (
-                        <SelectItem key={val} value={val}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Notes</Label>
-                  <Textarea
-                    value={oppLossNotes}
-                    onChange={(e) => setOppLossNotes(e.target.value)}
-                    placeholder="Détails supplémentaires..."
-                    rows={2}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => { setPendingOppLoss(false); setOppLossReason(''); setOppLossNotes('') }}>
-                  Annuler
-                </Button>
-                <Button
-                  variant="destructive"
-                  disabled={!oppLossReason || updateOppStatus.isPending}
-                  onClick={() => {
-                    if (!linkedOpportunity || !oppLossReason) return
-                    updateOppStatus.mutate({
-                      id: linkedOpportunity.id,
-                      status: 'perdu',
-                      extra: { loss_reason: oppLossReason, loss_notes: oppLossNotes || undefined },
-                    })
-                    setPendingOppLoss(false)
-                    setOppLossReason('')
-                    setOppLossNotes('')
-                  }}
-                >
-                  Confirmer la perte
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          {/* Dialog raison de perte opportunité depuis fiche prospect — shared component */}
+          <TerminalStatusDialog
+            open={pendingOppLoss}
+            onOpenChange={(open) => { if (!open) setPendingOppLoss(false) }}
+            mode="lost"
+            isPending={updateOppStatus.isPending}
+            onConfirm={(reason, note) => {
+              if (!linkedOpportunity || !reason) return
+              updateOppStatus.mutate({
+                id: linkedOpportunity.id,
+                status: 'perdu',
+                extra: { loss_reason: reason, loss_notes: note },
+              })
+              setPendingOppLoss(false)
+            }}
+          />
 
           <Card>
             <CardHeader>
@@ -1384,83 +1345,52 @@ export function ProspectDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Loss Reason Dialog */}
-      <Dialog open={lossDialogOpen} onOpenChange={setLossDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Raison de la perte</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              Pourquoi ce prospect est-il perdu ? Cette information est obligatoire pour améliorer votre taux de conversion.
+      {/* Loss Reason Dialog — shared component + extraContent for the future-recall block */}
+      <TerminalStatusDialog
+        open={lossDialogOpen}
+        onOpenChange={(o) => { if (!o) setLossDialogOpen(false) }}
+        mode="lost"
+        isPending={updateProspect.isPending}
+        description="Pourquoi ce prospect est-il perdu ? Cette information est obligatoire pour améliorer votre taux de conversion."
+        confirmLabel={`Enregistrer${lossRecallDate ? ' + Rappel' : ''}`}
+        initialReason={lossDialogPrefill.reason}
+        initialNote={lossDialogPrefill.note}
+        onClose={() => { setLossRecallDate(''); setLossRecallNote(''); setLossDialogPrefill({}) }}
+        onConfirm={(reason, note) => { void saveLossReason(reason, note) }}
+        extraContent={
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-amber-600" />
+              <p className="text-sm font-medium text-amber-800">Rappel futur (optionnel)</p>
+            </div>
+            <p className="text-xs text-amber-700">
+              Il dit non maintenant mais peut-être plus tard ? Planifie une relance.
             </p>
             <div className="space-y-2">
-              <Label>Raison *</Label>
-              <Select value={selectedLossReason} onValueChange={(v) => setSelectedLossReason(v as LossReason)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sélectionner une raison..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.entries(LOSS_REASON_LABELS) as [LossReason, string][]).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Notes complémentaires</Label>
-              <Textarea
-                value={lossNotes}
-                onChange={(e) => setLossNotes(e.target.value)}
-                placeholder="Détails supplémentaires..."
-                rows={2}
+              <Label className="text-xs">Date de rappel</Label>
+              <Input
+                type="date"
+                value={lossRecallDate}
+                onChange={(e) => setLossRecallDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className="bg-white"
               />
             </div>
-            {/* Rappel optionnel — "non maintenant, peut-être plus tard" */}
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-3">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-amber-600" />
-                <p className="text-sm font-medium text-amber-800">Rappel futur (optionnel)</p>
-              </div>
-              <p className="text-xs text-amber-700">
-                Il dit non maintenant mais peut-être plus tard ? Planifie une relance.
-              </p>
+            {lossRecallDate && (
               <div className="space-y-2">
-                <Label className="text-xs">Date de rappel</Label>
+                <Label className="text-xs">Note pour le rappel</Label>
                 <Input
-                  type="date"
-                  value={lossRecallDate}
-                  onChange={(e) => setLossRecallDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
+                  type="text"
+                  value={lossRecallNote}
+                  onChange={(e) => setLossRecallNote(e.target.value)}
+                  placeholder="Ex: Rappeler en mars, budget prévu..."
                   className="bg-white"
                 />
               </div>
-              {lossRecallDate && (
-                <div className="space-y-2">
-                  <Label className="text-xs">Note pour le rappel</Label>
-                  <Input
-                    type="text"
-                    value={lossRecallNote}
-                    onChange={(e) => setLossRecallNote(e.target.value)}
-                    placeholder="Ex: Rappeler en mars, budget prévu..."
-                    className="bg-white"
-                  />
-                </div>
-              )}
-            </div>
+            )}
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => { setLossDialogOpen(false); setLossRecallDate(''); setLossRecallNote('') }}>Annuler</Button>
-            <Button
-              onClick={saveLossReason}
-              disabled={!selectedLossReason || updateProspect.isPending}
-              variant="destructive"
-            >
-              Enregistrer{lossRecallDate ? ' + Rappel' : ''}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        }
+      />
 
       {/* Site envoyé Dialog — requires date + URL */}
       <Dialog open={siteEnvoyeDialogOpen} onOpenChange={(o) => { if (!o) { setDateEnvoiSite(''); setSiteUrl('') }; setSiteEnvoyeDialogOpen(o) }}>
