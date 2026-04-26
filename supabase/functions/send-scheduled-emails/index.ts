@@ -227,22 +227,45 @@ Deno.serve(async (req) => {
     })
   }
 
-  // 2. Heures ouvrées : si on est hors créneau, reprogramme tout et exit (sauf force_send=true)
+  // 2. Heures ouvrées : on défère seulement les emails NON transactionnels.
+  //    Les emails transactionnels (rdv_confirmation envoyé juste après booking,
+  //    alertes internes, annulation client) doivent partir immédiatement —
+  //    sinon un prospect qui book à 21h ne reçoit notre email que le lendemain 7h.
+  const TRANSACTIONAL_TYPES = new Set([
+    'rdv_confirmation',
+    'rdv_cancelled',
+    'internal_rdv_confirmed',
+    'internal_rdv_cancelled',
+    'internal_devis_signed',
+    'internal_lead_hot',
+    'internal_payment_received',
+    'internal_rdv_unconfirmed',
+  ])
   const now = new Date()
   const nextSlot = forceSend ? null : nextBusinessSlot(now)
   if (nextSlot) {
     const newScheduledAt = nextSlot.toISOString()
+    const transactionalRows: EmailScheduleRow[] = []
     let deferred = 0
     for (const row of due as EmailScheduleRow[]) {
-      await supabase.from('email_schedule')
-        .update({ scheduled_at: newScheduledAt })
-        .eq('id', row.id)
-      deferred++
+      if (TRANSACTIONAL_TYPES.has(row.email_type)) {
+        transactionalRows.push(row)
+      } else {
+        await supabase.from('email_schedule')
+          .update({ scheduled_at: newScheduledAt })
+          .eq('id', row.id)
+        deferred++
+      }
     }
-    return new Response(JSON.stringify({
-      ok: true, deferred, deferred_to: newScheduledAt,
-      reason: 'Outside business hours (7h-20h Paris, no Sunday)',
-    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    if (transactionalRows.length === 0) {
+      return new Response(JSON.stringify({
+        ok: true, deferred, deferred_to: newScheduledAt,
+        reason: 'Outside business hours (7h-20h Paris, no Sunday) — non-transactional emails deferred',
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+    // On continue avec uniquement les transactionnels — substitue la liste des `due`
+    ;(due as EmailScheduleRow[]).length = 0
+    ;(due as EmailScheduleRow[]).push(...transactionalRows)
   }
 
   // 3. Templates cache
