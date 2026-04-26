@@ -183,6 +183,24 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Filtre par event type slug : on ne traite que les RDVs commerciaux légitimes.
+    // 4 event types existent côté Cal.com, mais seuls 2 mènent à un vrai RDV CRM.
+    const ALLOWED_EVENT_SLUGS = new Set([
+      'apport-d-affaires',
+      'presentation-site-web-agence-celexia',
+    ])
+    const eventTypeSlug =
+      (payload.eventType?.slug as string | undefined) ??
+      (payload.event_type?.slug as string | undefined) ??
+      null
+    if (eventTypeSlug && !ALLOWED_EVENT_SLUGS.has(eventTypeSlug)) {
+      console.log(`[calcom-webhook] Skipping event for non-allowed slug: ${eventTypeSlug}`)
+      return new Response(JSON.stringify({ ok: true, ignored: 'event_slug', slug: eventTypeSlug }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     // Create Supabase admin client (bypasses RLS)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
