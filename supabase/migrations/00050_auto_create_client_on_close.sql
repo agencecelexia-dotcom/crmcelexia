@@ -91,6 +91,4 @@ CREATE TRIGGER trg_auto_create_client_on_close
   EXECUTE FUNCTION auto_create_client_on_opp_close();
 
 COMMENT ON FUNCTION auto_create_client_on_opp_close() IS
-  'ISSUE-010 : Crée automatiquement un client quand une opportunity passe en close. ' ||
-  'Idempotent : skip si le client existe déjà pour ce prospect. ' ||
-  'Met à jour prospects.client_id pour la cohérence.';
+  'ISSUE-010 : Crée automatiquement un client quand une opportunity passe en close. Idempotent : skip si le client existe déjà pour ce prospect. Met à jour prospects.client_id pour la cohérence.';

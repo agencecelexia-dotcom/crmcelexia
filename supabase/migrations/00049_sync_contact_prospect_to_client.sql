@@ -60,5 +60,4 @@ CREATE TRIGGER trg_sync_prospect_contact_to_client
   EXECUTE FUNCTION sync_prospect_contact_to_client();
 
 COMMENT ON FUNCTION sync_prospect_contact_to_client() IS
-  'ISSUE-003 : Propage les changements de contact prospects → clients liés. ' ||
-  'Évite la désync data quand on modifie un contact côté prospect après conversion.';
+  'ISSUE-003 : Propage les changements de contact prospects vers clients liés. Évite la désync data quand on modifie un contact côté prospect après conversion.';
