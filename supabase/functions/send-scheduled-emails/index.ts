@@ -23,6 +23,7 @@ interface EmailScheduleRow {
   email_type: string
   scheduled_at: string
   payload: Record<string, unknown>
+  attachments: Array<{ filename: string; storage_bucket: string; storage_path: string; content_type: string }>
   attempt_count: number
 }
 
@@ -330,8 +331,22 @@ Deno.serve(async (req) => {
       // Defaults Antoine
       vars.antoine_phone = '+33769136182'
       vars.antoine_phone_display = '07 69 13 61 82'
+      // Defaults Thomas
+      vars.thomas_phone = '+33651725756'
+      vars.thomas_phone_display = '06 51 72 57 56'
       vars.reschedule_url = 'https://cal.com/celexia/30min'
       vars.reminder_number = (row.payload?.reminder_number as number) ?? 1
+      vars.portal_url = 'https://crmcelexia.vercel.app/portal/auth'
+
+      // Alias client_* depuis prospect (pour template client_welcome)
+      if (row.email_type === 'client_welcome' || row.email_type.startsWith('portal_')) {
+        vars.client_firstname = vars.prospect_firstname
+        vars.client_lastname = vars.prospect_lastname
+        vars.client_company = vars.prospect_company
+        vars.client_sector_label = vars.prospect_sector_label
+        // quote_url placeholder (pas encore implémenté côté client)
+        vars.quote_url = 'https://crmcelexia.vercel.app/portal/auth'
+      }
 
       // Override avec payload custom si présent
       if (row.payload) {
@@ -342,25 +357,68 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Internal email types : enrichir vars avec payload data
+      if (row.email_type.startsWith('internal_')) {
+        for (const [k, v] of Object.entries(row.payload ?? {})) {
+          if (v !== null && v !== undefined) vars[k] = v as string | number
+        }
+        // Helpers de format
+        const price = Number(row.payload?.project_price ?? 0)
+        const budget = Number(row.payload?.budget_pub ?? 0)
+        vars.project_price_human = price > 0 ? `${price.toLocaleString('fr-FR')} €` : '—'
+        vars.budget_pub_human = budget > 0 ? `${budget.toLocaleString('fr-FR')} €/mois` : '—'
+        if (!vars.contact_name) vars.contact_name = '—'
+        if (!vars.profession) vars.profession = '—'
+        if (!vars.city) vars.city = '—'
+      }
+
       const subject = fillTemplate(tpl.subject_template, vars)
       const html = fillTemplate(tpl.html_template, vars)
 
+      // Récupère les attachments depuis Storage (si présents)
+      const resendAttachments: Array<{ filename: string; content: string }> = []
+      if (Array.isArray(row.attachments) && row.attachments.length > 0) {
+        for (const att of row.attachments) {
+          try {
+            const { data: blob } = await supabase.storage
+              .from(att.storage_bucket)
+              .download(att.storage_path)
+            if (blob) {
+              const buf = new Uint8Array(await blob.arrayBuffer())
+              // base64 encode (Deno standard)
+              let binary = ''
+              for (let i = 0; i < buf.byteLength; i++) binary += String.fromCharCode(buf[i])
+              const b64 = btoa(binary)
+              resendAttachments.push({ filename: att.filename, content: b64 })
+            }
+          } catch (attErr) {
+            console.error(`Failed to load attachment ${att.storage_path}:`, attErr)
+          }
+        }
+      }
+
       // Send via Resend (avec fallback si domain pas vérifié)
       const fromPrimary = `${tpl.from_name} <${tpl.from_email}>`
+      const resendBody: Record<string, unknown> = {
+        from: fromPrimary, to: [row.recipient_email], subject, html, reply_to: tpl.reply_to,
+      }
+      if (resendAttachments.length > 0) resendBody.attachments = resendAttachments
+
       let resp = await fetch(RESEND_URL, {
         method: 'POST',
         headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: fromPrimary, to: [row.recipient_email], subject, html, reply_to: tpl.reply_to }),
+        body: JSON.stringify(resendBody),
       })
 
       if (resp.status === 403) {
+        const fallbackBody = {
+          ...resendBody,
+          from: `${tpl.from_name} <${FROM_FALLBACK}>`,
+        }
         resp = await fetch(RESEND_URL, {
           method: 'POST',
           headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: `${tpl.from_name} <${FROM_FALLBACK}>`,
-            to: [row.recipient_email], subject, html, reply_to: tpl.reply_to,
-          }),
+          body: JSON.stringify(fallbackBody),
         })
       }
 
