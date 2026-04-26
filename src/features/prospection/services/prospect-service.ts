@@ -32,6 +32,12 @@ export async function getProspects({
     query = query.in('status', filters.status)
   }
 
+  // ISSUE-004 : filtre par phase métier (prospection / pipeline / terminal)
+  // Permet de cibler une étape sans énumérer les statuts (ex: tous les actifs en prospection)
+  if (filters.phase && filters.phase.length > 0) {
+    query = query.in('phase', filters.phase)
+  }
+
   if (filters.profession && filters.profession.length > 0) {
     // Use ilike for case-insensitive matching
     if (filters.profession.length === 1) {

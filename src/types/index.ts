@@ -1,4 +1,4 @@
-import type { UserRole, ProspectStatus, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus, LossReason, PaymentStatus, OpportunityStatus, OpportunityType, ContractStatus } from './enums'
+import type { UserRole, ProspectStatus, ProspectPhase, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus, LossReason, PaymentStatus, OpportunityStatus, OpportunityType, ContractStatus } from './enums'
 
 export interface Profile {
   id: string
@@ -28,6 +28,7 @@ export interface Prospect {
   zone: string | null
   address: string | null
   status: ProspectStatus
+  phase: ProspectPhase  // Generated column (cf migration 00052), maintenue auto par PG
   commercial_id: string
   import_id: string | null
   source: ProspectSource
@@ -429,6 +430,7 @@ export interface PaginatedResponse<T> {
 export interface ProspectFilters {
   search?: string
   status?: ProspectStatus[]
+  phase?: ProspectPhase[]  // ISSUE-004 : filtre par phase métier
   profession?: string[]
   city?: string[]
   commercial_id?: string

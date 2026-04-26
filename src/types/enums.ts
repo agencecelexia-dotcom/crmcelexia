@@ -67,6 +67,43 @@ export const PROSPECT_STATUS_TRANSITIONS: Record<ProspectStatus, ProspectStatus[
   faux_numero: [],
 }
 
+// ISSUE-004 : Phases métier dérivées du status
+// La colonne `phase` en DB est calculée automatiquement (cf migration 00052).
+// Le mapping ici doit rester synchro avec le CASE WHEN de la migration.
+export const PROSPECT_PHASE = {
+  PROSPECTION: 'prospection',
+  PIPELINE: 'pipeline',
+  TERMINAL: 'terminal',
+} as const
+
+export type ProspectPhase = (typeof PROSPECT_PHASE)[keyof typeof PROSPECT_PHASE]
+
+export const PROSPECT_PHASE_LABELS: Record<ProspectPhase, string> = {
+  prospection: 'Prospection',
+  pipeline: 'Pipeline site',
+  terminal: 'Terminé',
+}
+
+export const PROSPECT_STATUS_TO_PHASE: Record<ProspectStatus, ProspectPhase> = {
+  nouveau: 'prospection',
+  messagerie: 'prospection',
+  a_rappeler: 'prospection',
+  rdv_pris: 'prospection',
+  site_en_attente: 'pipeline',
+  site_envoye: 'pipeline',
+  perdu: 'terminal',
+  converti_client: 'terminal',
+  negatif: 'terminal',
+  faux_numero: 'terminal',
+}
+
+// Inverse pour requêtes : phase → statuts inclus
+export const PROSPECT_PHASE_TO_STATUSES: Record<ProspectPhase, ProspectStatus[]> = {
+  prospection: ['nouveau', 'messagerie', 'a_rappeler', 'rdv_pris'],
+  pipeline: ['site_en_attente', 'site_envoye'],
+  terminal: ['perdu', 'converti_client', 'negatif', 'faux_numero'],
+}
+
 export const CALL_RESULT = {
   NO_ANSWER: 'no_answer',
   VOICEMAIL: 'voicemail',
