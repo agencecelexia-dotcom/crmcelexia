@@ -43,7 +43,7 @@ export function RescheduleRdvPage() {
         variant="expired"
         title="Lien expiré"
         subtitle="Ce lien de replanification a expiré."
-        hint="Réservez un nouveau créneau sur https://cal.com/celexia/30min."
+        hint="Réservez un nouveau créneau sur https://cal.com/agence-celexia-1qyn93/apport-d-affaires."
       />
     )
   }
@@ -54,7 +54,7 @@ export function RescheduleRdvPage() {
         variant="invalid"
         title="Rendez-vous déjà annulé"
         subtitle="Ce rendez-vous a été annulé. Vous pouvez en réserver un nouveau."
-        hint="Réservez un nouveau créneau sur https://cal.com/celexia/30min."
+        hint="Réservez un nouveau créneau sur https://cal.com/agence-celexia-1qyn93/apport-d-affaires."
       />
     )
   }

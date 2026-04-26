@@ -17,6 +17,7 @@ const corsHeaders = {
 
 const SUPABASE_FN_BASE = 'https://zsbrhftzjqqqbwbboyqe.supabase.co/functions/v1'
 const CRM_BASE_URL = 'https://crmcelexia.vercel.app'
+const CALCOM_BOOKING_URL = 'https://cal.com/agence-celexia-1qyn93/apport-d-affaires'
 
 interface EmailScheduleRow {
   id: string
@@ -345,7 +346,7 @@ Deno.serve(async (req) => {
           vars.rdv_time_human = fmt.time
           vars.rdv_when_relative = fmt.relative
           vars.rdv_duration = `${rdvDuration} min`
-          vars.meeting_url = rdv.meeting_url ?? 'https://cal.com/celexia/30min'
+          vars.meeting_url = rdv.meeting_url ?? CALCOM_BOOKING_URL
         }
       }
 
@@ -370,7 +371,7 @@ Deno.serve(async (req) => {
       vars.antoine_phone_display = '07 69 13 61 82'
       vars.thomas_phone = '+33651725756'
       vars.thomas_phone_display = '06 51 72 57 56'
-      vars.reschedule_url = 'https://cal.com/celexia/30min'
+      vars.reschedule_url = CALCOM_BOOKING_URL
       vars.reminder_number = (row.payload?.reminder_number as number) ?? 1
       vars.portal_url = 'https://crmcelexia.vercel.app/portal/auth'
 
