@@ -16,6 +16,7 @@ const corsHeaders = {
 }
 
 const SUPABASE_FN_BASE = 'https://zsbrhftzjqqqbwbboyqe.supabase.co/functions/v1'
+const CRM_BASE_URL = 'https://crmcelexia.vercel.app'
 
 interface EmailScheduleRow {
   id: string
@@ -252,7 +253,7 @@ Deno.serve(async (req) => {
   const tplBySlug = new Map<string, EmailTemplate>()
   for (const t of tpls ?? []) tplBySlug.set(t.slug, t as EmailTemplate)
 
-  const results: Array<{ id: string; status: string; error?: string }> = []
+  const results: Array<{ id: string; status: string; error?: string; resend_id?: string }> = []
 
   // 5. Process each email
   for (const row of due as EmailScheduleRow[]) {
@@ -348,9 +349,12 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Calendar URLs
+      // Action URLs (token-based, hébergées dans le CRM)
       if (token) {
-        vars.confirm_url = `${SUPABASE_FN_BASE}/confirm-rdv-presence?token=${encodeURIComponent(token)}`
+        const tokenEnc = encodeURIComponent(token)
+        vars.confirm_url = `${CRM_BASE_URL}/rdv/confirmer?token=${tokenEnc}`
+        vars.cancel_url = `${CRM_BASE_URL}/rdv/annuler?token=${tokenEnc}`
+        vars.reschedule_token_url = `${CRM_BASE_URL}/rdv/replanifier?token=${tokenEnc}`
         const cal = buildCalendarUrls({
           rdv_start_iso: rdvStartIso, rdv_duration_min: rdvDuration,
           meeting_url: meetingUrl,
@@ -384,10 +388,19 @@ Deno.serve(async (req) => {
         if (!vars.city) vars.city = '—'
       }
 
-      // Aliases pour portail / client_*
+      // Aliases pour portail (alimentés depuis le prospect lookup)
       if (row.email_type.startsWith('portal_')) {
         vars.client_firstname = vars.prospect_firstname
         vars.client_company = vars.prospect_company
+      }
+
+      // client_first_signed_quote : pas de prospect_id, vars viennent du payload
+      // Calcule les variantes "_human" en EUR formaté français
+      if (row.email_type === 'client_first_signed_quote') {
+        const quote = Number(row.payload?.lead_quote_amount ?? 0)
+        const commission = Number(row.payload?.lead_commission_amount ?? 0)
+        vars.lead_quote_amount_human = quote > 0 ? `${quote.toLocaleString('fr-FR')} €` : '—'
+        vars.lead_commission_amount_human = commission > 0 ? `${commission.toLocaleString('fr-FR')} €` : '—'
       }
 
       // Override avec autres clés du payload (excluant ce qu'on a déjà géré)
@@ -454,8 +467,9 @@ Deno.serve(async (req) => {
       } else {
         await supabase.from('email_schedule').update({
           status: 'sent', sent_at: new Date().toISOString(),
+          resend_id: respBody.id ?? null,
         }).eq('id', row.id)
-        results.push({ id: row.id, status: 'sent' })
+        results.push({ id: row.id, status: 'sent', resend_id: respBody.id })
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

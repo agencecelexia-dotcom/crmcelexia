@@ -32,3 +32,5 @@ supabase/.temp/
 
 # Confidential documents (IBAN, etc.)
 iban/
+
+credentials.md

@@ -54,6 +54,11 @@ const PortalCommissionPage = lazy(() => import('@/features/portal/pages/commissi
 const PortalDocumentsPage = lazy(() => import('@/features/portal/pages/documents-page').then(m => ({ default: m.PortalDocumentsPage })))
 const AdminOnboardingsPage = lazy(() => import('@/features/portal-admin/pages/admin-onboardings-page').then(m => ({ default: m.AdminOnboardingsPage })))
 
+// Public RDV action pages (token-based, no auth)
+const ConfirmRdvPage = lazy(() => import('@/features/rdv-public/pages/confirm-rdv-page').then(m => ({ default: m.ConfirmRdvPage })))
+const CancelRdvPage = lazy(() => import('@/features/rdv-public/pages/cancel-rdv-page').then(m => ({ default: m.CancelRdvPage })))
+const RescheduleRdvPage = lazy(() => import('@/features/rdv-public/pages/reschedule-rdv-page').then(m => ({ default: m.RescheduleRdvPage })))
+
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[400px]">
@@ -67,6 +72,11 @@ function LazyPage({ children }: { children: React.ReactNode }) {
 }
 
 export const router = createBrowserRouter([
+  // ── Public RDV actions (token-based, pas d'auth, route depuis emails) ──
+  { path: '/rdv/confirmer', element: <LazyPage><ConfirmRdvPage /></LazyPage> },
+  { path: '/rdv/annuler', element: <LazyPage><CancelRdvPage /></LazyPage> },
+  { path: '/rdv/replanifier', element: <LazyPage><RescheduleRdvPage /></LazyPage> },
+
   // ── Portal artisan (separate auth flow) ──
   {
     path: '/portal/auth',
