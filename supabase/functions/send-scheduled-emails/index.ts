@@ -1,6 +1,11 @@
 // Edge function : appelée par cron N8N toutes les 5 min.
-// Traite les emails programmés (email_schedule) dont scheduled_at <= NOW().
-// Construit confirm_url + cal_links + variables prospect/rdv/case_study + envoie via Resend.
+// Envoi via Resend HTTP API (SMTP direct OVH bloqué par Supabase Edge Runtime sandbox).
+// Respecte les heures ouvrées : pas d'envoi le dimanche, ni avant 7h ni après 20h Paris.
+// Quand hors créneau : reprogramme l'email au prochain slot ouvré.
+//
+// Note : tant que le domaine celexia-pro.fr n'est pas vérifié dans Resend, le from
+// fallback sur onboarding@resend.dev. Action Thomas : ajouter le domaine sur
+// https://resend.com/domains (3 enregistrements DNS chez OVH).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -10,9 +15,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const RESEND_URL = 'https://api.resend.com/emails'
 const SUPABASE_FN_BASE = 'https://zsbrhftzjqqqbwbboyqe.supabase.co/functions/v1'
-const FROM_FALLBACK = 'onboarding@resend.dev'
 
 interface EmailScheduleRow {
   id: string
@@ -59,20 +62,14 @@ function professionToSector(profession: string | null | undefined): string {
 
 function sectorLabel(sector: string): string {
   const map: Record<string, string> = {
-    paysagiste: 'paysagiste',
-    pisciniste: 'pisciniste',
-    plombier: 'plombier',
-    couvreur: 'couvreur',
-    electricien: 'électricien',
-    macon: 'maçon',
-    menuisier: 'menuisier',
-    demenageur: 'déménageur',
-    autre: 'artisan',
+    paysagiste: 'paysagiste', pisciniste: 'pisciniste', plombier: 'plombier',
+    couvreur: 'couvreur', electricien: 'électricien', macon: 'maçon',
+    menuisier: 'menuisier', demenageur: 'déménageur', autre: 'artisan',
   }
   return map[sector] ?? sector
 }
 
-function formatDateFR(iso: string): { day: string; full: string; time: string; relative: string; durationLabel: string } {
+function formatDateFR(iso: string) {
   const d = new Date(iso)
   const dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi']
   const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
@@ -82,11 +79,9 @@ function formatDateFR(iso: string): { day: string; full: string; time: string; r
   const year = d.getFullYear()
   const hours = String(d.getHours()).padStart(2, '0')
   const mins = String(d.getMinutes()).padStart(2, '0')
-
   const full = `${dayName} ${dayNum} ${monthName} ${year}`
   const day = `${dayName} ${dayNum} ${monthName}`
   const time = `${hours}h${mins}`
-
   const now = new Date()
   const diffDays = Math.round((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
   let relative = 'bientôt'
@@ -95,8 +90,7 @@ function formatDateFR(iso: string): { day: string; full: string; time: string; r
   else if (diffDays === -1) relative = 'hier'
   else if (diffDays > 1 && diffDays <= 7) relative = `dans ${diffDays} jours`
   else if (diffDays > 7) relative = `dans ${Math.ceil(diffDays / 7)} semaines`
-
-  return { day, full, time, relative, durationLabel: '30 min' }
+  return { day, full, time, relative }
 }
 
 function formatMoneyShort(n: number | null | undefined): string {
@@ -106,65 +100,98 @@ function formatMoneyShort(n: number | null | undefined): string {
   return `${n}€`
 }
 
-/** Format date pour Google Calendar URL : YYYYMMDDTHHMMSSZ (UTC) */
 function toGoogleCalDate(iso: string): string {
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, '0')
-  return (
-    d.getUTCFullYear().toString() +
-    pad(d.getUTCMonth() + 1) +
-    pad(d.getUTCDate()) +
-    'T' +
-    pad(d.getUTCHours()) +
-    pad(d.getUTCMinutes()) +
-    pad(d.getUTCSeconds()) +
-    'Z'
-  )
+  return d.getUTCFullYear().toString() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) +
+    'T' + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + 'Z'
 }
 
-/** Build calendar URLs (Google + Outlook) + iCal endpoint */
 function buildCalendarUrls(opts: {
-  rdv_start_iso: string
-  rdv_duration_min: number
-  meeting_url: string | null
-  prospect_name: string
-  token: string
-}): { google: string; outlook: string; ical: string } {
+  rdv_start_iso: string; rdv_duration_min: number; meeting_url: string | null
+  prospect_name: string; token: string
+}) {
   const start = new Date(opts.rdv_start_iso)
   const end = new Date(start.getTime() + opts.rdv_duration_min * 60_000)
-
   const title = `RDV Celexia · ${opts.prospect_name}`
-  const description = `Rendez-vous visio avec Antoine Aubigeon (Celexia).${opts.meeting_url ? `\n\nLien Google Meet : ${opts.meeting_url}` : ''}\n\nContact : antoine@celexia-pro.fr · 07 69 13 61 82`
+  const description = `Rendez-vous visio avec Antoine de Celexia.${opts.meeting_url ? `\n\nLien Google Meet : ${opts.meeting_url}` : ''}\n\nContact : antoine@celexia-pro.fr · 07 69 13 61 82`
   const location = opts.meeting_url ?? 'Visio Google Meet'
-
-  // Google
   const googleParams = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: title,
+    action: 'TEMPLATE', text: title,
     dates: `${toGoogleCalDate(opts.rdv_start_iso)}/${toGoogleCalDate(end.toISOString())}`,
-    details: description,
-    location,
+    details: description, location,
   })
-  const google = `https://calendar.google.com/calendar/render?${googleParams.toString()}`
-
-  // Outlook (Live)
   const outlookParams = new URLSearchParams({
-    path: '/calendar/action/compose',
-    rru: 'addevent',
-    subject: title,
-    startdt: opts.rdv_start_iso,
-    enddt: end.toISOString(),
-    body: description,
-    location,
+    path: '/calendar/action/compose', rru: 'addevent', subject: title,
+    startdt: opts.rdv_start_iso, enddt: end.toISOString(), body: description, location,
   })
-  const outlook = `https://outlook.live.com/calendar/0/deeplink/compose?${outlookParams.toString()}`
-
-  // iCal endpoint
-  const ical = `${SUPABASE_FN_BASE}/rdv-ical?token=${encodeURIComponent(opts.token)}`
-
-  return { google, outlook, ical }
+  return {
+    google: `https://calendar.google.com/calendar/render?${googleParams.toString()}`,
+    outlook: `https://outlook.live.com/calendar/0/deeplink/compose?${outlookParams.toString()}`,
+    ical: `${SUPABASE_FN_BASE}/rdv-ical?token=${encodeURIComponent(opts.token)}`,
+  }
 }
 
+// ============================================================
+// HEURES OUVRÉES — pas d'envoi dimanche, avant 7h, après 20h Paris
+// Retourne null si OK pour envoyer maintenant, sinon la nouvelle date à laquelle reprogrammer
+// ============================================================
+function nextBusinessSlot(now: Date): Date | null {
+  // Récupère heure + jour Paris
+  const parisFmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false, weekday: 'short',
+  }).formatToParts(now)
+  const parts = Object.fromEntries(parisFmt.map(p => [p.type, p.value]))
+  const parisHour = parseInt(parts.hour)
+  const parisWeekday = parts.weekday // 'Sun', 'Mon', ...
+
+  const isSunday = parisWeekday === 'Sun'
+  const tooEarly = parisHour < 7
+  const tooLate = parisHour >= 20
+
+  if (!isSunday && !tooEarly && !tooLate) return null // OK pour envoyer
+
+  // Calcule la prochaine ouverture en Paris
+  // Stratégie : ajout de jours/heures jusqu'à trouver un créneau ouvré 7h-20h non-dimanche
+  let target = new Date(now)
+  for (let i = 0; i < 3; i++) {
+    if (isSunday) {
+      // dimanche → lundi 7h
+      target.setUTCDate(target.getUTCDate() + 1)
+    } else if (tooLate) {
+      // après 20h → lendemain
+      target.setUTCDate(target.getUTCDate() + 1)
+    }
+    // else tooEarly : on reste sur le même jour, juste set hour à 7
+
+    // Set hour to 7h Paris on target date
+    // Détermine offset Paris pour cette date (DST safe)
+    const probe = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate(), 12))
+    const probeParisHour = parseInt(new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Paris', hour: '2-digit', hour12: false,
+    }).format(probe))
+    const offset = probeParisHour - 12 // +1 hiver, +2 été
+
+    target = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate(), 7 - offset, 0, 0))
+
+    // Verify : si ce target tombe encore un dimanche, repasser
+    const targetWeekday = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', weekday: 'short' }).format(target)
+    if (targetWeekday !== 'Sun') return target
+
+    // sinon next iteration → +1 day
+  }
+  return target // fallback
+}
+
+const RESEND_URL = 'https://api.resend.com/emails'
+const FROM_FALLBACK = 'onboarding@resend.dev'
+
+// ============================================================
+// MAIN
+// ============================================================
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: corsHeaders })
@@ -172,31 +199,51 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!
-
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+  // Parse body for `force_send` flag (test mode : bypass business hours)
+  let forceSend = false
+  try {
+    const body = await req.clone().json()
+    forceSend = body?.force_send === true
+  } catch (_) { /* no body */ }
 
   // 1. Récupérer les emails dus
   const { data: due, error: dueErr } = await supabase
-    .from('email_schedule')
-    .select('*')
-    .eq('status', 'scheduled')
-    .lte('scheduled_at', new Date().toISOString())
-    .order('scheduled_at', { ascending: true })
-    .limit(50)
+    .from('email_schedule').select('*')
+    .eq('status', 'scheduled').lte('scheduled_at', new Date().toISOString())
+    .order('scheduled_at', { ascending: true }).limit(50)
 
   if (dueErr) {
     return new Response(JSON.stringify({ error: 'Failed to query', details: dueErr.message }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
-
   if (!due || due.length === 0) {
     return new Response(JSON.stringify({ ok: true, processed: 0 }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 
-  // 2. Cache templates
+  // 2. Heures ouvrées : si on est hors créneau, reprogramme tout et exit (sauf force_send=true)
+  const now = new Date()
+  const nextSlot = forceSend ? null : nextBusinessSlot(now)
+  if (nextSlot) {
+    const newScheduledAt = nextSlot.toISOString()
+    let deferred = 0
+    for (const row of due as EmailScheduleRow[]) {
+      await supabase.from('email_schedule')
+        .update({ scheduled_at: newScheduledAt })
+        .eq('id', row.id)
+      deferred++
+    }
+    return new Response(JSON.stringify({
+      ok: true, deferred, deferred_to: newScheduledAt,
+      reason: 'Outside business hours (7h-20h Paris, no Sunday)',
+    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
+  // 3. Templates cache
   const { data: tpls } = await supabase
     .from('email_templates')
     .select('slug, subject_template, html_template, from_name, from_email, reply_to')
@@ -205,11 +252,11 @@ Deno.serve(async (req) => {
   const tplBySlug = new Map<string, EmailTemplate>()
   for (const t of tpls ?? []) tplBySlug.set(t.slug, t as EmailTemplate)
 
-  const results: Array<{ id: string; status: string; error?: string; resend_id?: string }> = []
+  const results: Array<{ id: string; status: string; error?: string }> = []
 
+  // 5. Process each email
   for (const row of due as EmailScheduleRow[]) {
     try {
-      // Increment attempt
       await supabase.from('email_schedule').update({ attempt_count: row.attempt_count + 1 }).eq('id', row.id)
 
       const tpl = tplBySlug.get(row.email_type)
@@ -221,13 +268,10 @@ Deno.serve(async (req) => {
         continue
       }
 
-      // Skip if rdv_confirmation_reminder already confirmed
+      // Skip if rdv_confirmation_reminder + already confirmed
       if (row.email_type === 'rdv_confirmation_reminder' && row.rdv_id) {
         const { data: confirmRow } = await supabase
-          .from('rdv_confirmations')
-          .select('confirmed_at')
-          .eq('rdv_id', row.rdv_id)
-          .maybeSingle()
+          .from('rdv_confirmations').select('confirmed_at').eq('rdv_id', row.rdv_id).maybeSingle()
         if (confirmRow?.confirmed_at) {
           await supabase.from('email_schedule').update({
             status: 'cancelled', error_message: 'Already confirmed',
@@ -238,18 +282,15 @@ Deno.serve(async (req) => {
       }
 
       const vars: Record<string, string | number | null | undefined> = {}
-
-      // Token (du payload, set par le trigger DB)
       const token = (row.payload?.token as string) ?? ''
 
-      // Prospect
+      // Prospect data
       let sector = 'autre'
       if (row.prospect_id) {
         const { data: p } = await supabase
           .from('prospects')
           .select('contact_firstname, contact_name, company_name, profession, city, contact_email')
-          .eq('id', row.prospect_id)
-          .single()
+          .eq('id', row.prospect_id).single()
         if (p) {
           vars.prospect_firstname = p.contact_firstname || p.company_name || 'cher artisan'
           vars.prospect_lastname = p.contact_name || ''
@@ -262,15 +303,10 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Case study (only for rdv_trust_builder)
+      // Case study (only for trust_builder)
       if (row.email_type === 'rdv_trust_builder') {
         let { data: cs } = await supabase
-          .from('case_studies')
-          .select('*')
-          .eq('sector', sector)
-          .eq('is_active', true)
-          .limit(1)
-          .maybeSingle()
+          .from('case_studies').select('*').eq('sector', sector).eq('is_active', true).limit(1).maybeSingle()
         if (!cs) {
           const { data: csFb } = await supabase
             .from('case_studies').select('*').eq('sector', 'autre').eq('is_active', true).limit(1).maybeSingle()
@@ -289,7 +325,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // RDV details
+      // RDV
       let rdvDuration = 30
       let rdvStartIso = new Date().toISOString()
       let meetingUrl: string | null = null
@@ -297,8 +333,7 @@ Deno.serve(async (req) => {
         const { data: rdv } = await supabase
           .from('rendez_vous')
           .select('scheduled_at, meeting_url, duration_minutes')
-          .eq('id', row.rdv_id)
-          .single()
+          .eq('id', row.rdv_id).single()
         if (rdv) {
           rdvStartIso = rdv.scheduled_at
           rdvDuration = rdv.duration_minutes ?? 30
@@ -313,56 +348,33 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Confirm URL + Calendar URLs
+      // Calendar URLs
       if (token) {
         vars.confirm_url = `${SUPABASE_FN_BASE}/confirm-rdv-presence?token=${encodeURIComponent(token)}`
         const cal = buildCalendarUrls({
-          rdv_start_iso: rdvStartIso,
-          rdv_duration_min: rdvDuration,
+          rdv_start_iso: rdvStartIso, rdv_duration_min: rdvDuration,
           meeting_url: meetingUrl,
-          prospect_name: String(vars.prospect_firstname ?? 'Prospect'),
-          token,
+          prospect_name: String(vars.prospect_firstname ?? 'Prospect'), token,
         })
         vars.google_cal_url = cal.google
         vars.outlook_cal_url = cal.outlook
         vars.ical_url = cal.ical
       }
 
-      // Defaults Antoine
+      // Defaults
       vars.antoine_phone = '+33769136182'
       vars.antoine_phone_display = '07 69 13 61 82'
-      // Defaults Thomas
       vars.thomas_phone = '+33651725756'
       vars.thomas_phone_display = '06 51 72 57 56'
       vars.reschedule_url = 'https://cal.com/celexia/30min'
       vars.reminder_number = (row.payload?.reminder_number as number) ?? 1
       vars.portal_url = 'https://crmcelexia.vercel.app/portal/auth'
 
-      // Alias client_* depuis prospect (pour template client_welcome)
-      if (row.email_type === 'client_welcome' || row.email_type.startsWith('portal_')) {
-        vars.client_firstname = vars.prospect_firstname
-        vars.client_lastname = vars.prospect_lastname
-        vars.client_company = vars.prospect_company
-        vars.client_sector_label = vars.prospect_sector_label
-        // quote_url placeholder (pas encore implémenté côté client)
-        vars.quote_url = 'https://crmcelexia.vercel.app/portal/auth'
-      }
-
-      // Override avec payload custom si présent
-      if (row.payload) {
-        for (const [k, v] of Object.entries(row.payload)) {
-          if (v !== null && v !== undefined && k !== 'token' && k !== 'reminder_number') {
-            vars[k] = v as string | number
-          }
-        }
-      }
-
-      // Internal email types : enrichir vars avec payload data
+      // Internal types : merge payload
       if (row.email_type.startsWith('internal_')) {
         for (const [k, v] of Object.entries(row.payload ?? {})) {
           if (v !== null && v !== undefined) vars[k] = v as string | number
         }
-        // Helpers de format
         const price = Number(row.payload?.project_price ?? 0)
         const budget = Number(row.payload?.budget_pub ?? 0)
         vars.project_price_human = price > 0 ? `${price.toLocaleString('fr-FR')} €` : '—'
@@ -372,24 +384,36 @@ Deno.serve(async (req) => {
         if (!vars.city) vars.city = '—'
       }
 
+      // Aliases pour portail / client_*
+      if (row.email_type.startsWith('portal_')) {
+        vars.client_firstname = vars.prospect_firstname
+        vars.client_company = vars.prospect_company
+      }
+
+      // Override avec autres clés du payload (excluant ce qu'on a déjà géré)
+      if (row.payload) {
+        for (const [k, v] of Object.entries(row.payload)) {
+          if (v !== null && v !== undefined && k !== 'token' && k !== 'reminder_number') {
+            if (vars[k] === undefined) vars[k] = v as string | number
+          }
+        }
+      }
+
       const subject = fillTemplate(tpl.subject_template, vars)
       const html = fillTemplate(tpl.html_template, vars)
 
-      // Récupère les attachments depuis Storage (si présents)
+      // Attachments → base64 pour Resend
       const resendAttachments: Array<{ filename: string; content: string }> = []
       if (Array.isArray(row.attachments) && row.attachments.length > 0) {
         for (const att of row.attachments) {
           try {
             const { data: blob } = await supabase.storage
-              .from(att.storage_bucket)
-              .download(att.storage_path)
+              .from(att.storage_bucket).download(att.storage_path)
             if (blob) {
               const buf = new Uint8Array(await blob.arrayBuffer())
-              // base64 encode (Deno standard)
               let binary = ''
               for (let i = 0; i < buf.byteLength; i++) binary += String.fromCharCode(buf[i])
-              const b64 = btoa(binary)
-              resendAttachments.push({ filename: att.filename, content: b64 })
+              resendAttachments.push({ filename: att.filename, content: btoa(binary) })
             }
           } catch (attErr) {
             console.error(`Failed to load attachment ${att.storage_path}:`, attErr)
@@ -397,10 +421,11 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Send via Resend (avec fallback si domain pas vérifié)
+      // Send via Resend HTTP
       const fromPrimary = `${tpl.from_name} <${tpl.from_email}>`
       const resendBody: Record<string, unknown> = {
-        from: fromPrimary, to: [row.recipient_email], subject, html, reply_to: tpl.reply_to,
+        from: fromPrimary, to: [row.recipient_email],
+        subject, html, reply_to: tpl.reply_to,
       }
       if (resendAttachments.length > 0) resendBody.attachments = resendAttachments
 
@@ -411,10 +436,8 @@ Deno.serve(async (req) => {
       })
 
       if (resp.status === 403) {
-        const fallbackBody = {
-          ...resendBody,
-          from: `${tpl.from_name} <${FROM_FALLBACK}>`,
-        }
+        // Domain pas vérifié dans Resend → fallback resend.dev (à corriger : vérifier domaine)
+        const fallbackBody = { ...resendBody, from: `${tpl.from_name} <${FROM_FALLBACK}>` }
         resp = await fetch(RESEND_URL, {
           method: 'POST',
           headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
@@ -423,7 +446,6 @@ Deno.serve(async (req) => {
       }
 
       const respBody = await resp.json() as { id?: string; message?: string }
-
       if (resp.status >= 400) {
         await supabase.from('email_schedule').update({
           status: 'failed', error_message: respBody.message || `HTTP ${resp.status}`,
@@ -431,15 +453,16 @@ Deno.serve(async (req) => {
         results.push({ id: row.id, status: 'failed', error: respBody.message })
       } else {
         await supabase.from('email_schedule').update({
-          status: 'sent', sent_at: new Date().toISOString(), resend_id: respBody.id ?? null,
+          status: 'sent', sent_at: new Date().toISOString(),
         }).eq('id', row.id)
-        results.push({ id: row.id, status: 'sent', resend_id: respBody.id })
+        results.push({ id: row.id, status: 'sent' })
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
       await supabase.from('email_schedule').update({
-        status: 'failed', error_message: String(err),
+        status: 'failed', error_message: msg,
       }).eq('id', row.id)
-      results.push({ id: row.id, status: 'failed', error: String(err) })
+      results.push({ id: row.id, status: 'failed', error: msg })
     }
   }
 
