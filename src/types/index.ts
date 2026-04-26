@@ -290,8 +290,6 @@ export interface Opportunity {
   expected_close_date: string | null
   loss_reason: LossReason | null
   loss_notes: string | null
-  death_reason: string | null
-  recall_date: string | null
   notes: string | null
   created_at: string
   updated_at: string

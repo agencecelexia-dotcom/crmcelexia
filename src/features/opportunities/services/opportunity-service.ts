@@ -255,13 +255,11 @@ export async function updateOpportunity(id: string, updates: Partial<Opportunity
 export async function updateOpportunityStatus(
   id: string,
   newStatus: OpportunityStatus,
-  extra?: { loss_reason?: string; loss_notes?: string; death_reason?: string; recall_date?: string },
+  extra?: { loss_reason?: string; loss_notes?: string },
 ): Promise<Opportunity> {
   const updates: Record<string, unknown> = { status: newStatus }
   if (extra?.loss_reason) updates.loss_reason = extra.loss_reason
   if (extra?.loss_notes) updates.loss_notes = extra.loss_notes
-  if (extra?.death_reason) updates.death_reason = extra.death_reason
-  if (extra?.recall_date) updates.recall_date = extra.recall_date
 
   const { data, error } = await supabase
     .from('opportunities')

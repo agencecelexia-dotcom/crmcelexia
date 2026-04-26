@@ -99,7 +99,7 @@ export function useUpdateOpportunityStatus() {
     mutationFn: ({ id, status, extra }: {
       id: string
       status: OpportunityStatus
-      extra?: { loss_reason?: string; loss_notes?: string; death_reason?: string; recall_date?: string }
+      extra?: { loss_reason?: string; loss_notes?: string }
     }) => updateOpportunityStatus(id, status, extra),
     onMutate: async ({ id, status }) => {
       await qc.cancelQueries({ queryKey: ['opportunities', 'kanban'] })
