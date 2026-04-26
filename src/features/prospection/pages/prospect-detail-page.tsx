@@ -823,7 +823,7 @@ export function ProspectDetailPage() {
                         ? 'Planifier un suivi'
                         : 'À rappeler'}
                     </Button>
-                    {['nouveau', 'messagerie', 'appele_sans_reponse', 'a_rappeler'].includes(prospect.status) && (
+                    {['nouveau', 'messagerie', 'a_rappeler'].includes(prospect.status) && (
                       <Button
                         variant="outline"
                         className="w-full border-cyan-300 text-cyan-700 hover:bg-cyan-50"

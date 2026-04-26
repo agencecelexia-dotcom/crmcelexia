@@ -1,6 +1,5 @@
 export const PROSPECT_STATUS = {
   NOUVEAU: 'nouveau',
-  APPELE_SANS_REPONSE: 'appele_sans_reponse',
   MESSAGERIE: 'messagerie',
   SITE_EN_ATTENTE: 'site_en_attente',
   SITE_ENVOYE: 'site_envoye',
@@ -16,7 +15,6 @@ export type ProspectStatus = (typeof PROSPECT_STATUS)[keyof typeof PROSPECT_STAT
 
 export const PROSPECT_STATUS_LABELS: Record<ProspectStatus, string> = {
   nouveau: 'Nouveau',
-  appele_sans_reponse: 'Messagerie', // legacy: mapped to Messagerie
   messagerie: 'Messagerie',
   site_en_attente: 'Site en attente',
   site_envoye: 'Site envoyé',
@@ -30,7 +28,6 @@ export const PROSPECT_STATUS_LABELS: Record<ProspectStatus, string> = {
 
 export const PROSPECT_STATUS_COLORS: Record<ProspectStatus, string> = {
   nouveau: 'bg-gray-100 text-gray-800',
-  appele_sans_reponse: 'bg-orange-100 text-orange-800', // legacy: same as messagerie
   messagerie: 'bg-orange-100 text-orange-800',
   site_en_attente: 'bg-cyan-100 text-cyan-800',
   site_envoye: 'bg-blue-100 text-blue-800',
@@ -45,7 +42,6 @@ export const PROSPECT_STATUS_COLORS: Record<ProspectStatus, string> = {
 // Light row background colors for prospect list
 export const PROSPECT_STATUS_ROW_COLORS: Record<ProspectStatus, string> = {
   nouveau: 'bg-gray-50/60',
-  appele_sans_reponse: 'bg-orange-50/60',
   messagerie: 'bg-orange-50/60',
   site_en_attente: 'bg-cyan-50/60',
   site_envoye: 'bg-blue-50/60',
@@ -60,7 +56,6 @@ export const PROSPECT_STATUS_ROW_COLORS: Record<ProspectStatus, string> = {
 // Valid status transitions
 export const PROSPECT_STATUS_TRANSITIONS: Record<ProspectStatus, ProspectStatus[]> = {
   nouveau: ['messagerie', 'site_en_attente', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu', 'faux_numero'],
-  appele_sans_reponse: ['messagerie', 'site_en_attente', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu', 'faux_numero'], // legacy: treated as messagerie
   messagerie: ['messagerie', 'site_en_attente', 'negatif', 'a_rappeler', 'rdv_pris', 'perdu', 'faux_numero'],
   site_en_attente: ['site_envoye', 'a_rappeler', 'rdv_pris', 'negatif', 'perdu'],
   site_envoye: ['a_rappeler', 'rdv_pris', 'negatif', 'perdu'],

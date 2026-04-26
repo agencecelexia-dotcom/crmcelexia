@@ -67,8 +67,7 @@ import { toast } from 'sonner'
 import { ProspectGenerationModal } from '../components/prospect-generation-modal'
 
 
-const STATUS_OPTIONS = (Object.entries(PROSPECT_STATUS_LABELS) as [ProspectStatus, string][])
-  .filter(([value]) => value !== 'appele_sans_reponse') // hide legacy status
+const STATUS_OPTIONS = Object.entries(PROSPECT_STATUS_LABELS) as [ProspectStatus, string][]
 
 export function ProspectsListPage() {
   const { isFounder, profile } = useAuth()

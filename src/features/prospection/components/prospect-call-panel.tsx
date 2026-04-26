@@ -489,7 +489,7 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
           </div>
 
           {/* "Site en attente" — direct status change (not a call result) */}
-          {(['nouveau', 'appele_sans_reponse', 'messagerie', 'a_rappeler'] as ProspectStatus[]).includes(prospect.status as ProspectStatus) && (
+          {(['nouveau', 'messagerie', 'a_rappeler'] as ProspectStatus[]).includes(prospect.status as ProspectStatus) && (
             <button
               onClick={async () => {
                 if (!profile) return

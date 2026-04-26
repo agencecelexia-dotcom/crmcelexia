@@ -29,11 +29,7 @@ export async function getProspects({
   }
 
   if (filters.status && filters.status.length > 0) {
-    // Expand 'messagerie' to include legacy 'appele_sans_reponse' value
-    const expandedStatuses = filters.status.flatMap(s =>
-      s === 'messagerie' ? ['messagerie', 'appele_sans_reponse'] : [s]
-    )
-    query = query.in('status', expandedStatuses)
+    query = query.in('status', filters.status)
   }
 
   if (filters.profession && filters.profession.length > 0) {

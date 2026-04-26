@@ -3,7 +3,6 @@ import { startOfWeek } from 'date-fns'
 
 export interface FunnelStats {
   total_prospects: number
-  appele_sans_reponse: number
   messagerie: number
   site_en_attente: number
   site_envoye: number
@@ -50,8 +49,7 @@ export async function getDashboardStats(commercialId?: string): Promise<Dashboar
 
   const funnel: FunnelStats = {
     nouveau: funnelRaw.nouveau ?? 0,
-    appele_sans_reponse: 0, // legacy: merged into messagerie
-    messagerie: (funnelRaw.messagerie ?? 0) + (funnelRaw.appele_sans_reponse ?? 0),
+    messagerie: funnelRaw.messagerie ?? 0,
     site_en_attente: funnelRaw.site_en_attente ?? 0,
     site_envoye: funnelRaw.site_envoye ?? 0,
     a_rappeler: funnelRaw.a_rappeler ?? 0,
