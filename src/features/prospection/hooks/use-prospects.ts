@@ -61,6 +61,8 @@ export function useUpdateProspect() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['prospects'] })
       queryClient.invalidateQueries({ queryKey: ['prospect', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      queryClient.invalidateQueries({ queryKey: ['pipeline'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
     onError: (err: unknown) => {
@@ -93,6 +95,8 @@ export function useDeleteProspects() {
     mutationFn: (ids: string[]) => deleteProspects(ids),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prospects'] })
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      queryClient.invalidateQueries({ queryKey: ['pipeline'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('Prospects supprimés')
     },
@@ -107,6 +111,8 @@ export function useAssignProspects() {
       assignProspects(ids, commercialId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prospects'] })
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      queryClient.invalidateQueries({ queryKey: ['pipeline'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('Prospects réassignés')
     },
@@ -121,6 +127,8 @@ export function useAssignProspectsSplit() {
       assignProspectsSplit(ids, assignments),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prospects'] })
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      queryClient.invalidateQueries({ queryKey: ['pipeline'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('Prospects répartis entre les commerciaux')
     },

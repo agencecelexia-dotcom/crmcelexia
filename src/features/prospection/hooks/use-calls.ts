@@ -39,6 +39,8 @@ export function useLogCall() {
       queryClient.invalidateQueries({ queryKey: ['prospect', variables.prospect_id] })
       queryClient.invalidateQueries({ queryKey: ['calls', 'prospect', variables.prospect_id] })
       queryClient.invalidateQueries({ queryKey: ['calls', 'today'] })
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      queryClient.invalidateQueries({ queryKey: ['pipeline'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
     onError: () => toast.error('Erreur lors de l\'enregistrement de l\'appel'),
