@@ -52,6 +52,7 @@ export function useUpdateClient() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] })
       queryClient.invalidateQueries({ queryKey: ['client', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
     onError: () => toast.error('Erreur lors de la mise à jour du client'),
   })
@@ -89,6 +90,7 @@ export function useCreateProject() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project'] })
       queryClient.invalidateQueries({ queryKey: ['client'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
     onError: () => toast.error('Erreur lors de la création du projet'),
   })

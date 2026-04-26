@@ -68,6 +68,7 @@ export function useCreateOpportunity() {
       qc.invalidateQueries({ queryKey: ['pipeline'] })
       qc.invalidateQueries({ queryKey: ['prospects'] })
       qc.invalidateQueries({ queryKey: ['prospect'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('Opportunité créée')
     },
     onError: () => toast.error('Erreur lors de la création'),
@@ -82,6 +83,10 @@ export function useUpdateOpportunity() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['opportunities'] })
       qc.invalidateQueries({ queryKey: ['pipeline'] })
+      // Le trigger DB sync opportunity → prospect, on rafraîchit aussi les prospects
+      qc.invalidateQueries({ queryKey: ['prospects'] })
+      qc.invalidateQueries({ queryKey: ['prospect'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('Opportunité mise à jour')
     },
     onError: () => toast.error('Erreur lors de la mise à jour'),
@@ -119,6 +124,7 @@ export function useUpdateOpportunityStatus() {
       // Le trigger DB sync opportunity → prospect, on rafraîchit aussi les prospects
       qc.invalidateQueries({ queryKey: ['prospects'] })
       qc.invalidateQueries({ queryKey: ['prospect'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
     },
     onSuccess: () => {
       toast.success('Statut mis à jour')
