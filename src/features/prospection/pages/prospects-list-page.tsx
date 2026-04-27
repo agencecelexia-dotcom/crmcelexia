@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useProspects, useDeleteProspects, useTeamMembers, useAssignProspects } from '../hooks/use-prospects'
 import { useAuth } from '@/features/auth/hooks/use-auth'
@@ -80,13 +80,19 @@ export function ProspectsListPage() {
 
   // Persist filters dans sessionStorage : si on revient sur /prospects sans query string
   // (ex : clic sidebar), on restaure les derniers filtres utilisés.
+  // IMPORTANT : ne restaure qu'au mount initial. Sinon dès que l'utilisateur clear
+  // un filtre (URL temporairement vide), sessionStorage écraserait son action.
   const STORAGE_KEY = 'prospects-list-filters-v1'
+  const restoredRef = useRef(false)
   useEffect(() => {
-    if (searchParams.toString() === '') {
-      const saved = sessionStorage.getItem(STORAGE_KEY)
-      if (saved && saved !== '') {
-        setSearchParams(new URLSearchParams(saved), { replace: true })
-        return
+    if (!restoredRef.current) {
+      restoredRef.current = true
+      if (searchParams.toString() === '') {
+        const saved = sessionStorage.getItem(STORAGE_KEY)
+        if (saved && saved !== '') {
+          setSearchParams(new URLSearchParams(saved), { replace: true })
+          return
+        }
       }
     }
     sessionStorage.setItem(STORAGE_KEY, searchParams.toString())
