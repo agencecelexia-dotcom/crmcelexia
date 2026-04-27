@@ -136,6 +136,8 @@ export interface Client {
   city: string | null
   address: string | null
   website: string | null
+  siret: string | null
+  siren: string | null
   commercial_id: string
   source: ProspectSource
   converted_at: string
