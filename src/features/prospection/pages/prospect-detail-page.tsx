@@ -285,17 +285,10 @@ export function ProspectDetailPage() {
   }
 
   function startEditing() {
+    // Mode "Modifier" → ne couvre PLUS que les notes (les autres champs sont
+    // édités inline via <EditableField>). On capture uniquement les notes
+    // pour éviter d'écraser les changements inline déjà sauvés.
     setEditData({
-      company_name: prospect!.company_name,
-      contact_name: prospect!.contact_name ?? '',
-      contact_firstname: prospect!.contact_firstname ?? '',
-      contact_email: prospect!.contact_email ?? '',
-      phone: prospect!.phone,
-      phone_secondary: prospect!.phone_secondary ?? '',
-      website: prospect!.website ?? '',
-      profession: prospect!.profession ?? '',
-      city: prospect!.city ?? '',
-      address: prospect!.address ?? '',
       notes: prospect!.notes ?? '',
     })
     setIsEditing(true)
@@ -306,20 +299,10 @@ export function ProspectDetailPage() {
       await updateProspect.mutateAsync({
         id: prospect!.id,
         updates: {
-          company_name: editData.company_name,
-          contact_name: editData.contact_name || null,
-          contact_firstname: editData.contact_firstname || null,
-          contact_email: editData.contact_email || null,
-          phone: editData.phone,
-          phone_secondary: editData.phone_secondary || null,
-          website: editData.website || null,
-          profession: editData.profession || null,
-          city: editData.city || null,
-          address: editData.address || null,
           notes: editData.notes || null,
-        } as Record<string, unknown> as never,
+        } as never,
       })
-      toast.success('Prospect mis à jour')
+      toast.success('Notes mises à jour')
       setIsEditing(false)
     } catch {
       toast.error('Erreur lors de la mise à jour')
@@ -557,12 +540,12 @@ export function ProspectDetailPage() {
                 <X className="mr-1 h-4 w-4" /> Annuler
               </Button>
               <Button size="sm" onClick={saveEdits} disabled={updateProspect.isPending}>
-                <Save className="mr-1 h-4 w-4" /> Enregistrer
+                <Save className="mr-1 h-4 w-4" /> Enregistrer les notes
               </Button>
             </>
           ) : (
             <Button variant="outline" size="sm" onClick={startEditing}>
-              <Pencil className="mr-1 h-4 w-4" /> Modifier
+              <Pencil className="mr-1 h-4 w-4" /> Modifier les notes
             </Button>
           )}
         </div>

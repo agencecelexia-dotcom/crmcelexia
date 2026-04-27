@@ -160,15 +160,9 @@ export function ClientDetailPage() {
   }
 
   function startEditing() {
+    // Mode "Modifier" → ne couvre PLUS que les notes (les autres champs sont
+    // édités inline via <EditableField>). On capture uniquement les notes.
     setEditData({
-      company_name: client!.company_name,
-      contact_name: client!.contact_name ?? '',
-      contact_firstname: client!.contact_firstname ?? '',
-      contact_email: client!.contact_email ?? '',
-      phone: client!.phone,
-      city: client!.city ?? '',
-      address: client!.address ?? '',
-      website: client!.website ?? '',
       notes: client!.notes ?? '',
     })
     setIsEditing(true)
@@ -179,18 +173,10 @@ export function ClientDetailPage() {
       await updateClient.mutateAsync({
         id: client!.id,
         updates: {
-          company_name: editData.company_name,
-          contact_name: editData.contact_name || null,
-          contact_firstname: editData.contact_firstname || null,
-          contact_email: editData.contact_email || null,
-          phone: editData.phone,
-          city: editData.city || null,
-          address: editData.address || null,
-          website: editData.website || null,
           notes: editData.notes || null,
-        } as never,
+        },
       })
-      toast.success('Client mis à jour')
+      toast.success('Notes mises à jour')
       setIsEditing(false)
     } catch {
       toast.error('Erreur lors de la mise à jour')
@@ -224,13 +210,13 @@ export function ClientDetailPage() {
                 <X className="mr-1 h-4 w-4" /> Annuler
               </Button>
               <Button size="sm" onClick={saveEdits} disabled={updateClient.isPending}>
-                <Save className="mr-1 h-4 w-4" /> Enregistrer
+                <Save className="mr-1 h-4 w-4" /> Enregistrer les notes
               </Button>
             </>
           ) : (
             <>
               <Button variant="outline" size="sm" onClick={startEditing}>
-                <Pencil className="mr-1 h-4 w-4" /> Modifier
+                <Pencil className="mr-1 h-4 w-4" /> Modifier les notes
               </Button>
               {!client.portal_enabled && (
                 <Button
