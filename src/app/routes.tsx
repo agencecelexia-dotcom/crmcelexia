@@ -46,7 +46,6 @@ const ContractPage = lazy(() => import('@/features/portal/pages/onboarding/contr
 const PaymentPage = lazy(() => import('@/features/portal/pages/onboarding/payment-page').then(m => ({ default: m.PaymentPage })))
 const GmbPage = lazy(() => import('@/features/portal/pages/onboarding/gmb-page').then(m => ({ default: m.GmbPage })))
 const LegalPage = lazy(() => import('@/features/portal/pages/onboarding/legal-page').then(m => ({ default: m.LegalPage })))
-const TrainingPage = lazy(() => import('@/features/portal/pages/onboarding/training-page').then(m => ({ default: m.TrainingPage })))
 const PendingPage = lazy(() => import('@/features/portal/pages/onboarding/pending-page').then(m => ({ default: m.PendingPage })))
 const PortalDashboardPage = lazy(() => import('@/features/portal/pages/dashboard-page').then(m => ({ default: m.PortalDashboardPage })))
 const PortalLeadsKanbanPage = lazy(() => import('@/features/portal/pages/leads-kanban-page').then(m => ({ default: m.PortalLeadsKanbanPage })))
@@ -95,7 +94,6 @@ export const router = createBrowserRouter([
           { path: '/portal/onboarding/payment', element: <LazyPage><PaymentPage /></LazyPage> },
           { path: '/portal/onboarding/gmb', element: <LazyPage><GmbPage /></LazyPage> },
           { path: '/portal/onboarding/legal', element: <LazyPage><LegalPage /></LazyPage> },
-          { path: '/portal/onboarding/training', element: <LazyPage><TrainingPage /></LazyPage> },
           { path: '/portal/onboarding/pending', element: <LazyPage><PendingPage /></LazyPage> },
         ],
       },

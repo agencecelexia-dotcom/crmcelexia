@@ -36,7 +36,7 @@ export function PortalLoginPage() {
 
       const { data: onb } = await supabase
         .from('portal_onboardings')
-        .select('status, rejection_reason, contract_signed, payment_proof_uploaded, gmb_access_confirmed, rc_pro_uploaded, kbis_uploaded, quiz_completed_at')
+        .select('status, rejection_reason, contract_signed, payment_proof_uploaded, gmb_access_confirmed, rc_pro_uploaded, kbis_uploaded')
         .eq('client_id', client.id)
         .single()
 

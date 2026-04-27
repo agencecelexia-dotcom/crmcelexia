@@ -73,9 +73,10 @@ export function LegalPage() {
     if (!onboarding || !client || !rcReady || !kbisReady) return
     setSaving(true)
     try {
+      // Cette étape est désormais la DERNIÈRE de l'onboarding : on bascule
+      // direct vers pending_validation après upload des deux docs.
       const updates: Record<string, unknown> = { current_step: 5 }
 
-      // Upload uniquement si l'artisan a fourni un nouveau fichier
       if (rc?.raw) {
         updates.rc_pro_path = await uploadPortalDocument(client.id, rc.raw, 'rc-pro')
         updates.rc_pro_uploaded = true
@@ -85,9 +86,14 @@ export function LegalPage() {
         updates.kbis_uploaded = true
       }
 
+      // Marquer l'onboarding comme prêt à valider côté agence
+      updates.status = 'pending_validation'
+      updates.completed_at = new Date().toISOString()
+      updates.rejection_reason = null
+
       await updateOnboarding(onboarding.id, updates)
       await refreshOnboarding()
-      navigate('/portal/onboarding/training')
+      navigate('/portal/onboarding/pending')
     } catch {
       toast.error("Erreur lors de l'upload")
     } finally {
@@ -134,7 +140,7 @@ export function LegalPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <button className="btn btn-ghost" onClick={() => navigate('/portal/onboarding/gmb')}><ArrowLeft size={16} /> Retour</button>
         <button className="btn btn-primary lg" disabled={!rc || !kbis || saving} onClick={handleContinue}>
-          {saving ? 'Envoi...' : 'Continuer'} <ArrowRight size={18} />
+          {saving ? 'Envoi...' : 'Soumettre pour validation'} <ArrowRight size={18} />
         </button>
       </div>
     </div>

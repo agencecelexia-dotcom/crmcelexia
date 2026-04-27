@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch'
 import { supabase } from '@/lib/supabase/client'
 import {
   CheckCircle2, AlertCircle, Clock, FileText,
-  Shield, Globe, Play, Users, Eye, BellOff,
+  Shield, Globe, Users, Eye, BellOff,
 } from 'lucide-react'
 import { formatDate } from '@/lib/format'
 
@@ -25,7 +25,6 @@ const REJECT_STEPS: { key: OnboardingStepKey; label: string; doneKey: keyof Admi
   { key: 'gmb', label: 'Accès Google Business', doneKey: 'gmb_access_confirmed' },
   { key: 'rc_pro', label: 'RC Pro', doneKey: 'rc_pro_uploaded' },
   { key: 'kbis', label: 'Extrait Kbis', doneKey: 'kbis_uploaded' },
-  { key: 'training', label: 'Formation + QCM', doneKey: 'quiz_completed_at' },
 ]
 
 const STEPS = [
@@ -34,7 +33,6 @@ const STEPS = [
   { key: 'gmb_access_confirmed', label: 'Google Business invité', icon: Globe },
   { key: 'rc_pro_uploaded', label: 'RC Pro envoyée', icon: Shield },
   { key: 'kbis_uploaded', label: 'Kbis envoyé', icon: Shield },
-  { key: 'quiz_completed_at', label: 'Formation validée', icon: Play },
 ] as const
 
 function StepIndicator({ done, warn }: { done: boolean; warn?: boolean }) {
@@ -186,11 +184,6 @@ function OnboardingCard({ onb, onValidate, onReject, onToggleReminders }: {
                 )
               })}
             </div>
-            {onb.quiz_score !== null && (
-              <div className="border-t pt-3">
-                <span className="text-gray-500">Score QCM :</span> <strong>{onb.quiz_score}/5</strong>
-              </div>
-            )}
             {onb.payment_amount && (
               <div>
                 <span className="text-gray-500">Budget pub :</span> <strong>{onb.payment_amount} €</strong>

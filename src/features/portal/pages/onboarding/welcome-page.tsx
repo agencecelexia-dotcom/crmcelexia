@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../../hooks/use-portal-auth'
-import { FileText, Euro, Building2, Shield, Play, Clock, ArrowRight, AlertCircle, Check } from 'lucide-react'
+import { FileText, Euro, Building2, Shield, Clock, ArrowRight, AlertCircle, Check } from 'lucide-react'
 import { getNextOnboardingStep } from '../../lib/onboarding-navigation'
 
 const STEPS = [
@@ -8,7 +8,6 @@ const STEPS = [
   { num: 2, title: 'Preuve du virement de lancement', duration: '1 min', icon: <Euro size={20} />, path: '/portal/onboarding/payment', doneKey: 'payment_proof_uploaded' as const },
   { num: 3, title: 'Accès à votre fiche Google Business', duration: '5 min', icon: <Building2 size={20} />, path: '/portal/onboarding/gmb', doneKey: 'gmb_access_confirmed' as const },
   { num: 4, title: 'Assurance RC Pro + Extrait Kbis', duration: '3 min', icon: <Shield size={20} />, path: '/portal/onboarding/legal', doneKey: 'legal' as const },
-  { num: 5, title: 'Formation vidéo et QCM', duration: '4 min', icon: <Play size={20} />, path: '/portal/onboarding/training', doneKey: 'quiz_completed_at' as const },
 ]
 
 function StepCard({
@@ -62,7 +61,6 @@ export function WelcomePage() {
   const isStepDone = (doneKey: string): boolean => {
     if (!onboarding) return false
     if (doneKey === 'legal') return onboarding.rc_pro_uploaded && onboarding.kbis_uploaded
-    if (doneKey === 'quiz_completed_at') return !!onboarding.quiz_completed_at
     return !!(onboarding as unknown as Record<string, unknown>)[doneKey]
   }
 
@@ -72,7 +70,7 @@ export function WelcomePage() {
   const nextPath = onboarding ? getNextOnboardingStep(onboarding) : '/portal/onboarding/contract'
 
   // Le CTA principal pointe toujours vers la prochaine étape à compléter.
-  // En mode corrections : si tout est complet on va à training (qui montrera l'UI "Soumettre").
+  // En mode corrections : si tout est complet on va à legal (qui montrera l'UI "Soumettre").
   // Sinon, getNextOnboardingStep pointe déjà vers la bonne étape incomplète.
   const mainCtaPath = nextPath
   const mainCtaLabel = hasCorrections
