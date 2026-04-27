@@ -114,13 +114,18 @@ export function ProspectsListPage() {
 
   const [search, setSearch] = useState(sp('q'))
   const debouncedSearch = useDebounce(search, DEBOUNCE_MS)
-  // Sync debounced search to URL (skip initial empty → empty)
+  // Sync debounced search → URL (skip initial empty → empty)
   const searchSynced = useMemo(() => sp('q'), [searchParams])
   useEffect(() => {
     if (debouncedSearch !== searchSynced) {
       updateParams({ q: debouncedSearch || null })
     }
   }, [debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Sync URL → search (when URL changes via sessionStorage restore or back-nav)
+  useEffect(() => {
+    if (searchSynced !== search) setSearch(searchSynced)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchSynced])
 
   const statusFilter = (sp('status') || 'all') as ProspectStatus | 'all'
   const setStatusFilter = useCallback((v: ProspectStatus | 'all') => updateParams({ status: v }), [updateParams])
@@ -153,7 +158,13 @@ export function ProspectsListPage() {
   const lastCalledTo = sp('lct')
   const setLastCalledTo = useCallback((v: string) => updateParams({ lct: v || null }), [updateParams])
 
-  const [phonePrefixes, setPhonePrefixes] = useState<string[]>(sp('pp') ? sp('pp').split(',') : [])
+  // phonePrefixes : dérivé de l'URL (param 'pp', CSV) pour persister via sessionStorage
+  const ppParam = sp('pp')
+  const phonePrefixes = useMemo(() => (ppParam ? ppParam.split(',') : []), [ppParam])
+  const setPhonePrefixes = useCallback((next: string[] | ((prev: string[]) => string[])) => {
+    const value = typeof next === 'function' ? next(phonePrefixes) : next
+    updateParams({ pp: value.length > 0 ? value.join(',') : null })
+  }, [updateParams, phonePrefixes])
   const [phonePrefixInput, setPhonePrefixInput] = useState('')
 
   const commercialFilter = sp('com') || 'all'
