@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/shared/status-badge'
+import { EditableField } from '@/components/shared/editable-field'
 import {
   PROSPECT_STATUS_LABELS,
   PROSPECT_STATUS_COLORS,
@@ -487,20 +488,6 @@ export function ProspectDetailPage() {
     }
   }
 
-  const field = (key: string, label: string) => (
-    <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      {isEditing ? (
-        <Input
-          value={editData[key] ?? ''}
-          onChange={(e) => setEditData((d) => ({ ...d, [key]: e.target.value }))}
-          className="h-8"
-        />
-      ) : (
-        <p className="text-sm">{(prospect as unknown as Record<string, unknown>)[key] as string || '—'}</p>
-      )}
-    </div>
-  )
 
   return (
     <div className="space-y-6">
@@ -684,16 +671,66 @@ export function ProspectDetailPage() {
               <CardTitle className="text-base">Informations</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              {field('company_name', 'Entreprise')}
-              {field('phone', 'Téléphone')}
-              {field('contact_firstname', 'Prénom')}
-              {field('contact_name', 'Nom')}
-              {field('contact_email', 'Email')}
-              {field('phone_secondary', 'Tél. secondaire')}
-              {field('profession', 'Métier')}
-              {field('city', 'Ville')}
-              {field('address', 'Adresse')}
-              {field('website', 'Site web')}
+              {/* Inline edit (clic pour éditer, Enter/blur pour sauver) */}
+              <EditableField
+                label="Entreprise"
+                value={prospect.company_name}
+                onSave={async (v) => { await updateProspect.mutateAsync({ id: prospect.id, updates: { company_name: v ?? '' } as never }) }}
+                validate={(v) => (v.trim() === '' ? 'Requis' : null)}
+              />
+              <EditableField
+                label="Téléphone"
+                type="tel"
+                mono
+                value={prospect.phone}
+                onSave={async (v) => { await updateProspect.mutateAsync({ id: prospect.id, updates: { phone: v ?? '' } as never }) }}
+                validate={(v) => (v.trim() === '' ? 'Requis' : null)}
+              />
+              <EditableField
+                label="Prénom"
+                value={prospect.contact_firstname}
+                onSave={async (v) => { await updateProspect.mutateAsync({ id: prospect.id, updates: { contact_firstname: v } as never }) }}
+              />
+              <EditableField
+                label="Nom"
+                value={prospect.contact_name}
+                onSave={async (v) => { await updateProspect.mutateAsync({ id: prospect.id, updates: { contact_name: v } as never }) }}
+              />
+              <EditableField
+                label="Email"
+                type="email"
+                value={prospect.contact_email}
+                onSave={async (v) => { await updateProspect.mutateAsync({ id: prospect.id, updates: { contact_email: v } as never }) }}
+                validate={(v) => (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? 'Email invalide' : null)}
+              />
+              <EditableField
+                label="Tél. secondaire"
+                type="tel"
+                mono
+                value={prospect.phone_secondary}
+                onSave={async (v) => { await updateProspect.mutateAsync({ id: prospect.id, updates: { phone_secondary: v } as never }) }}
+              />
+              <EditableField
+                label="Métier"
+                value={prospect.profession}
+                onSave={async (v) => { await updateProspect.mutateAsync({ id: prospect.id, updates: { profession: v } as never }) }}
+              />
+              <EditableField
+                label="Ville"
+                value={prospect.city}
+                onSave={async (v) => { await updateProspect.mutateAsync({ id: prospect.id, updates: { city: v } as never }) }}
+              />
+              <EditableField
+                label="Adresse"
+                value={prospect.address}
+                onSave={async (v) => { await updateProspect.mutateAsync({ id: prospect.id, updates: { address: v } as never }) }}
+              />
+              <EditableField
+                label="Site web"
+                type="url"
+                value={prospect.website}
+                onSave={async (v) => { await updateProspect.mutateAsync({ id: prospect.id, updates: { website: v } as never }) }}
+              />
               {(prospect.siret || prospect.siren) && !isEditing && (
                 <>
                   <div className="space-y-1">

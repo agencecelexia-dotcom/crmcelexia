@@ -18,7 +18,11 @@ export function PortalProtectedRoute() {
     return <Navigate to="/portal/auth" replace />
   }
 
-  if (profile.role !== 'artisan') {
+  // Mode "view as" : les fondateurs peuvent visualiser le portail si ?as_client=<id>
+  const params = new URLSearchParams(window.location.search)
+  const isViewAs = !!params.get('as_client') && (profile.role === 'fondateur' || profile.role === 'co_fondateur')
+
+  if (profile.role !== 'artisan' && !isViewAs) {
     return <Navigate to="/dashboard" replace />
   }
 

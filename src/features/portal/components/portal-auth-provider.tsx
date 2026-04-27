@@ -22,7 +22,34 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
       if (profileErr) console.error('[portal] profile fetch:', profileErr)
       setProfile(profileData as Profile | null)
 
-      if (!profileData || profileData.role !== 'artisan') return
+      if (!profileData) return
+
+      // Mode "view as" : un fondateur ou co-fondateur peut visualiser le portail
+      // d'un artisan en passant ?as_client=<id> en URL. Permis seulement si is_founder.
+      const params = new URLSearchParams(window.location.search)
+      const asClientId = params.get('as_client')
+      const isFounder = profileData.role === 'fondateur' || profileData.role === 'co_fondateur'
+
+      if (asClientId && isFounder) {
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('id', asClientId)
+          .is('deleted_at', null)
+          .maybeSingle()
+        setClient(clientData as Client | null)
+        if (clientData) {
+          const { data: onbData } = await supabase
+            .from('portal_onboardings')
+            .select('*')
+            .eq('client_id', (clientData as Client).id)
+            .maybeSingle()
+          setOnboarding(onbData as PortalOnboarding | null)
+        }
+        return
+      }
+
+      if (profileData.role !== 'artisan') return
 
       // Fetch client linked to this user
       const { data: clientData, error: clientErr } = await supabase

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useProspects, useDeleteProspects, useTeamMembers, useProfessions, useAssignProspects } from '../hooks/use-prospects'
+import { useProspects, useDeleteProspects, useTeamMembers, useAssignProspects } from '../hooks/use-prospects'
 import { useAuth } from '@/features/auth/hooks/use-auth'
 import { useDebounce } from '@/hooks/use-debounce'
 import { DEBOUNCE_MS } from '@/lib/constants'
@@ -10,9 +10,11 @@ import {
   PROSPECT_STATUS_LABELS,
   PROSPECT_STATUS_COLORS,
   PROSPECT_STATUS_ROW_COLORS,
+  PROFESSION_CATEGORIES,
   OPPORTUNITY_STATUS_LABELS,
   OPPORTUNITY_STATUS_COLORS,
   type OpportunityStatus,
+  type ProfessionCategory,
 } from '@/types/enums'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { EmptyState } from '@/components/shared/empty-state'
@@ -76,6 +78,21 @@ export function ProspectsListPage() {
   // Persist filters in URL so they survive back-navigation
   const [searchParams, setSearchParams] = useSearchParams()
 
+  // Persist filters dans sessionStorage : si on revient sur /prospects sans query string
+  // (ex : clic sidebar), on restaure les derniers filtres utilisés.
+  const STORAGE_KEY = 'prospects-list-filters-v1'
+  useEffect(() => {
+    if (searchParams.toString() === '') {
+      const saved = sessionStorage.getItem(STORAGE_KEY)
+      if (saved && saved !== '') {
+        setSearchParams(new URLSearchParams(saved), { replace: true })
+        return
+      }
+    }
+    sessionStorage.setItem(STORAGE_KEY, searchParams.toString())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   // Helper: read a param with fallback
   const sp = (key: string, fallback = '') => searchParams.get(key) || fallback
 
@@ -111,8 +128,13 @@ export function ProspectsListPage() {
   const cityFilter = sp('city')
   const setCityFilter = useCallback((v: string) => updateParams({ city: v || null }), [updateParams])
 
-  const professionFilter = sp('profession')
-  const setProfessionFilter = useCallback((v: string) => updateParams({ profession: v || null }), [updateParams])
+  // Filtre métier : catégorie canonique (paysagiste, pisciniste, ...) qui mappe vers
+  // une liste de patterns ilike envoyée au service. Voir PROFESSION_CATEGORIES.
+  const professionCategory = sp('profession') as ProfessionCategory | ''
+  const setProfessionCategory = useCallback((v: string) => updateParams({ profession: v || null }), [updateParams])
+  const professionPatterns: string[] | undefined = professionCategory && professionCategory in PROFESSION_CATEGORIES
+    ? [...PROFESSION_CATEGORIES[professionCategory as ProfessionCategory].patterns]
+    : undefined
 
   const [showAdvanced, setShowAdvanced] = useState(false)
   const neverCalled = sp('nc') === 'true'
@@ -173,13 +195,12 @@ export function ProspectsListPage() {
   const deleteProspects = useDeleteProspects()
   const reassignProspect = useAssignProspects()
   const { data: teamMembers } = useTeamMembers()
-  const { data: professions = [] } = useProfessions()
 
   const filters: ProspectFilters = {
     search: debouncedSearch || undefined,
     status: statusFilter !== 'all' ? [statusFilter] : undefined,
     city: cityFilter ? [cityFilter] : undefined,
-    profession: professionFilter ? [professionFilter] : undefined,
+    profession: professionPatterns,
     commercial_id: commercialFilter !== 'all' ? commercialFilter : undefined,
     never_called: neverCalled || undefined,
     has_overdue_reminder: hasOverdue || undefined,
@@ -219,7 +240,7 @@ export function ProspectsListPage() {
     if (statusFilter !== 'all') c++
     if (commercialFilter !== 'all') c++
     if (cityFilter) c++
-    if (professionFilter) c++
+    if (professionCategory) c++
     if (neverCalled) c++
     if (hasOverdue) c++
     if (hasReminderToday) c++
@@ -229,12 +250,12 @@ export function ProspectsListPage() {
     if (lastCalledTo) c++
     if (phonePrefixes.length > 0) c++
     return c
-  }, [statusFilter, commercialFilter, cityFilter, professionFilter, neverCalled, hasOverdue, hasReminderToday, dateFrom, dateTo, lastCalledFrom, lastCalledTo, phonePrefixes])
+  }, [statusFilter, commercialFilter, cityFilter, professionCategory, neverCalled, hasOverdue, hasReminderToday, dateFrom, dateTo, lastCalledFrom, lastCalledTo, phonePrefixes])
 
   // Clear selection when page/filters change
   useEffect(() => {
     setSelectedIds(new Set())
-  }, [page, debouncedSearch, statusFilter, commercialFilter, cityFilter, professionFilter, neverCalled, hasOverdue])
+  }, [page, debouncedSearch, statusFilter, commercialFilter, cityFilter, professionCategory, neverCalled, hasOverdue])
 
   // Selection helpers
   const allOnPageSelected = prospects.length > 0 && prospects.every((p) => selectedIds.has(p.id))
@@ -467,14 +488,14 @@ export function ProspectsListPage() {
                     onChange={(e) => { setCityFilter(e.target.value) }}
                     className="w-[140px] h-8 text-sm"
                   />
-                  <Select value={professionFilter || 'all'} onValueChange={(v) => { setProfessionFilter(v === 'all' ? '' : v) }}>
-                    <SelectTrigger className="w-[160px] h-8 text-sm">
+                  <Select value={professionCategory || 'all'} onValueChange={(v) => { setProfessionCategory(v === 'all' ? '' : v) }}>
+                    <SelectTrigger className="w-[180px] h-8 text-sm">
                       <SelectValue placeholder="Métier..." />
                     </SelectTrigger>
                     <SelectContent className="max-h-60 overflow-y-auto">
                       <SelectItem value="all">Tous les métiers</SelectItem>
-                      {professions.map((p) => (
-                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      {Object.entries(PROFESSION_CATEGORIES).map(([key, { label }]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

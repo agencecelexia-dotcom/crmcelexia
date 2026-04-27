@@ -39,18 +39,34 @@ export const PROSPECT_STATUS_COLORS: Record<ProspectStatus, string> = {
   faux_numero: 'bg-amber-100 text-amber-800',
 }
 
-// Light row background colors for prospect list
+// Catégories métier canoniques pour les filtres (Pisciniste → "Constructeur de piscine", etc.)
+// Le mapping `patterns` est une liste de patterns SQL ilike (avec %) qui matchent les valeurs raw
+// stockées dans `prospects.profession`. Permet de regrouper les variations orthographiques.
+export const PROFESSION_CATEGORIES = {
+  paysagiste:  { label: 'Paysagiste',              patterns: ['%paysag%', '%jardin%'] },
+  pisciniste:  { label: 'Constructeur de piscine', patterns: ['%piscin%'] },
+  couvreur:    { label: 'Couvreur',                patterns: ['%couvr%', '%toitur%', '%zingu%'] },
+  plombier:    { label: 'Plombier',                patterns: ['%plomb%', '%chauffag%'] },
+  electricien: { label: 'Électricien',             patterns: ['%lectric%'] },
+  macon:       { label: 'Maçon',                   patterns: ['%maçon%', '%macon%'] },
+  menuisier:   { label: 'Menuisier',               patterns: ['%menuis%', '%charpent%'] },
+  demenageur:  { label: 'Déménageur',              patterns: ['%démén%', '%demen%'] },
+} as const
+
+export type ProfessionCategory = keyof typeof PROFESSION_CATEGORIES
+
+// Row background colors for prospect list (renforcés + bordure gauche colorée)
 export const PROSPECT_STATUS_ROW_COLORS: Record<ProspectStatus, string> = {
-  nouveau: 'bg-gray-50/60',
-  messagerie: 'bg-orange-50/60',
-  site_en_attente: 'bg-cyan-50/60',
-  site_envoye: 'bg-blue-50/60',
-  negatif: 'bg-red-50/60',
-  a_rappeler: 'bg-purple-50/60',
-  rdv_pris: 'bg-green-50/60',
-  perdu: 'bg-red-100/40',
-  converti_client: 'bg-emerald-50/60',
-  faux_numero: 'bg-amber-50/60',
+  nouveau: 'bg-gray-100/80 border-l-4 border-l-gray-400',
+  messagerie: 'bg-orange-100/80 border-l-4 border-l-orange-500',
+  site_en_attente: 'bg-cyan-100/80 border-l-4 border-l-cyan-500',
+  site_envoye: 'bg-blue-100/80 border-l-4 border-l-blue-500',
+  negatif: 'bg-red-100/80 border-l-4 border-l-red-500',
+  a_rappeler: 'bg-purple-100/80 border-l-4 border-l-purple-500',
+  rdv_pris: 'bg-green-100/80 border-l-4 border-l-green-500',
+  perdu: 'bg-red-200/70 border-l-4 border-l-red-700',
+  converti_client: 'bg-emerald-100/80 border-l-4 border-l-emerald-600',
+  faux_numero: 'bg-amber-100/80 border-l-4 border-l-amber-500',
 }
 
 // Valid status transitions

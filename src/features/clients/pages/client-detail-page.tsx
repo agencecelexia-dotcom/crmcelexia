@@ -47,6 +47,8 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { StatusBadge } from '@/components/shared/status-badge'
+import { EditableField } from '@/components/shared/editable-field'
+import { ClientDeleteDialog } from '../components/client-delete-dialog'
 import {
   Table,
   TableBody,
@@ -131,6 +133,7 @@ export function ClientDetailPage() {
   const { data: client, isLoading, error } = useClient(id)
   const updateClient = useUpdateClient()
   const [isEditing, setIsEditing] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [editData, setEditData] = useState<Record<string, string>>({})
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [stepDialogOpen, setStepDialogOpen] = useState(false)
@@ -194,21 +197,6 @@ export function ClientDetailPage() {
     }
   }
 
-  const field = (key: string, label: string) => (
-    <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      {isEditing ? (
-        <Input
-          value={editData[key] ?? ''}
-          onChange={(e) => setEditData((d) => ({ ...d, [key]: e.target.value }))}
-          className="h-8"
-        />
-      ) : (
-        <p className="text-sm">{(client as unknown as Record<string, unknown>)[key] as string || '—'}</p>
-      )}
-    </div>
-  )
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -255,12 +243,38 @@ export function ClientDetailPage() {
                 </Button>
               )}
               {client.portal_enabled && (
-                <Badge className="bg-violet-100 text-violet-700">Portail actif</Badge>
+                <>
+                  <Badge className="bg-violet-100 text-violet-700">Portail actif</Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-violet-300 text-violet-700 hover:bg-violet-50"
+                    onClick={() => window.open(`/portal/dashboard?as_client=${client.id}`, '_blank')}
+                  >
+                    <Workflow className="mr-1 h-4 w-4" /> Voir le portail
+                  </Button>
+                </>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="mr-1 h-4 w-4" /> Supprimer
+              </Button>
             </>
           )}
         </div>
       </div>
+
+      <ClientDeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        clientId={client.id}
+        companyName={client.company_name}
+        onDeleted={() => navigate('/clients')}
+      />
 
       {/* Accompagnement (5-step post-signature flow) */}
       <AccompagnementCard
@@ -300,14 +314,53 @@ export function ClientDetailPage() {
               <CardTitle className="text-base">Informations client</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              {field('company_name', 'Entreprise')}
-              {field('phone', 'Téléphone')}
-              {field('contact_firstname', 'Prénom')}
-              {field('contact_name', 'Nom')}
-              {field('contact_email', 'Email')}
-              {field('city', 'Ville')}
-              {field('address', 'Adresse')}
-              {field('website', 'Site web')}
+              <EditableField
+                label="Entreprise"
+                value={client.company_name}
+                onSave={async (v) => { await updateClient.mutateAsync({ id: client.id, updates: { company_name: v ?? '' } }) }}
+                validate={(v) => (v.trim() === '' ? 'Requis' : null)}
+              />
+              <EditableField
+                label="Téléphone"
+                type="tel"
+                mono
+                value={client.phone}
+                onSave={async (v) => { await updateClient.mutateAsync({ id: client.id, updates: { phone: v ?? '' } }) }}
+                validate={(v) => (v.trim() === '' ? 'Requis' : null)}
+              />
+              <EditableField
+                label="Prénom"
+                value={client.contact_firstname}
+                onSave={async (v) => { await updateClient.mutateAsync({ id: client.id, updates: { contact_firstname: v } }) }}
+              />
+              <EditableField
+                label="Nom"
+                value={client.contact_name}
+                onSave={async (v) => { await updateClient.mutateAsync({ id: client.id, updates: { contact_name: v } }) }}
+              />
+              <EditableField
+                label="Email"
+                type="email"
+                value={client.contact_email}
+                onSave={async (v) => { await updateClient.mutateAsync({ id: client.id, updates: { contact_email: v } }) }}
+                validate={(v) => (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? 'Email invalide' : null)}
+              />
+              <EditableField
+                label="Ville"
+                value={client.city}
+                onSave={async (v) => { await updateClient.mutateAsync({ id: client.id, updates: { city: v } }) }}
+              />
+              <EditableField
+                label="Adresse"
+                value={client.address}
+                onSave={async (v) => { await updateClient.mutateAsync({ id: client.id, updates: { address: v } }) }}
+              />
+              <EditableField
+                label="Site web"
+                type="url"
+                value={client.website}
+                onSave={async (v) => { await updateClient.mutateAsync({ id: client.id, updates: { website: v } }) }}
+              />
             </CardContent>
           </Card>
 

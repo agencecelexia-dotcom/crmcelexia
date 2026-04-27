@@ -19,9 +19,10 @@ interface Props {
   onOpenChange: (open: boolean) => void
   clientId: string
   companyName: string
+  onDeleted?: () => void
 }
 
-export function ClientDeleteDialog({ open, onOpenChange, clientId, companyName }: Props) {
+export function ClientDeleteDialog({ open, onOpenChange, clientId, companyName, onDeleted }: Props) {
   const { profile } = useAuth()
   const deleteMut = useDeleteClient()
   const [confirmText, setConfirmText] = useState('')
@@ -36,6 +37,7 @@ export function ClientDeleteDialog({ open, onOpenChange, clientId, companyName }
     if (!canDelete || !profile?.id) return
     await deleteMut.mutateAsync({ id: clientId, actorId: profile.id })
     onOpenChange(false)
+    onDeleted?.()
   }
 
   return (
