@@ -164,13 +164,10 @@ export function ProspectsListPage() {
   const lastCalledTo = sp('lct')
   const setLastCalledTo = useCallback((v: string) => updateParams({ lct: v || null }), [updateParams])
 
-  // phonePrefixes : dérivé de l'URL (param 'pp', CSV) pour persister via sessionStorage
+  // phonePrefixes : dérivé de l'URL (param 'pp', CSV) pour persister via sessionStorage.
+  // Mutations directes via updateParams({ pp: ... }) côté boutons toggle.
   const ppParam = sp('pp')
   const phonePrefixes = useMemo(() => (ppParam ? ppParam.split(',') : []), [ppParam])
-  const setPhonePrefixes = useCallback((next: string[] | ((prev: string[]) => string[])) => {
-    const value = typeof next === 'function' ? next(phonePrefixes) : next
-    updateParams({ pp: value.length > 0 ? value.join(',') : null })
-  }, [updateParams, phonePrefixes])
 
   const commercialFilter = sp('com') || 'all'
   const setCommercialFilter = useCallback((v: string) => updateParams({ com: v }), [updateParams])
@@ -322,7 +319,6 @@ export function ProspectsListPage() {
   function clearAllFilters() {
     setSearchParams({}, { replace: true })
     setSearch('')
-    setPhonePrefixes([])
   }
 
   // Keep the user on the same prospect after a call is logged
@@ -590,15 +586,15 @@ export function ProspectsListPage() {
                           key={prefix}
                           type="button"
                           onClick={() => {
-                            setPhonePrefixes(active
+                            const nextList = active
                               ? phonePrefixes.filter((p) => p !== prefix)
-                              : [...phonePrefixes, prefix])
-                            setPage(1)
+                              : [...phonePrefixes, prefix]
+                            updateParams({ pp: nextList.length > 0 ? nextList.join(',') : null })
                           }}
                           className={
                             active
-                              ? 'rounded-md bg-primary text-primary-foreground px-2.5 py-1 text-xs font-semibold border border-primary'
-                              : 'rounded-md bg-background text-foreground/70 px-2.5 py-1 text-xs font-medium border border-input hover:bg-muted hover:text-foreground'
+                              ? 'rounded-md bg-primary text-primary-foreground px-2.5 py-1 text-xs font-semibold border border-primary cursor-pointer'
+                              : 'rounded-md bg-background text-foreground/70 px-2.5 py-1 text-xs font-medium border border-input hover:bg-muted hover:text-foreground cursor-pointer'
                           }
                         >
                           {prefix}
@@ -608,8 +604,8 @@ export function ProspectsListPage() {
                     {phonePrefixes.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => { setPhonePrefixes([]); setPage(1) }}
-                        className="text-xs text-muted-foreground hover:text-destructive ml-1 underline"
+                        onClick={() => { updateParams({ pp: null }) }}
+                        className="text-xs text-muted-foreground hover:text-destructive ml-1 underline cursor-pointer"
                       >
                         Tout effacer
                       </button>
