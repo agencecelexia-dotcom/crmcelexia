@@ -441,6 +441,22 @@ async function handleBookingCreated(
     console.log(`[calcom-webhook] Match by name (${attendeeName}): ${prospectId ? 'FOUND' : 'NOT FOUND'}`)
   }
 
+  // Backfill email : si on a matché un prospect existant SANS email mais que
+  // Cal.com en fournit un (champ obligatoire au booking), on l'update.
+  // Sinon le trigger schedule_rdv_emails skip car contact_email IS NULL.
+  if (prospectId && attendeeEmail) {
+    const { data: backfilled } = await supabase
+      .from('prospects')
+      .update({ contact_email: attendeeEmail })
+      .eq('id', prospectId)
+      .is('contact_email', null) // safety : ne touche que si toujours NULL
+      .select('id')
+      .maybeSingle()
+    if (backfilled) {
+      console.log(`[calcom-webhook] Backfilled contact_email on prospect ${prospectId}: ${attendeeEmail}`)
+    }
+  }
+
   if (!prospectId) {
     console.log(`[calcom-webhook] No existing prospect found. Creating new prospect from Cal.com data.`)
 
