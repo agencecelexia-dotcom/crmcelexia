@@ -145,6 +145,7 @@ export function useTeamMembers() {
         .select('id, full_name, role, email')
         .is('deleted_at', null)
         .eq('is_active', true)
+        .neq('role', 'artisan')
         .order('full_name')
       if (error) throw error
       return data as { id: string; full_name: string; role: string; email: string }[]

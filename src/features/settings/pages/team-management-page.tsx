@@ -49,6 +49,7 @@ function useTeamMembers() {
         .from('profiles')
         .select('*')
         .is('deleted_at', null)
+        .neq('role', 'artisan')
         .order('created_at', { ascending: true })
 
       if (error) throw error
