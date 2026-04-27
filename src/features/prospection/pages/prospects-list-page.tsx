@@ -171,7 +171,6 @@ export function ProspectsListPage() {
     const value = typeof next === 'function' ? next(phonePrefixes) : next
     updateParams({ pp: value.length > 0 ? value.join(',') : null })
   }, [updateParams, phonePrefixes])
-  const [phonePrefixInput, setPhonePrefixInput] = useState('')
 
   const commercialFilter = sp('com') || 'all'
   const setCommercialFilter = useCallback((v: string) => updateParams({ com: v }), [updateParams])
@@ -324,7 +323,6 @@ export function ProspectsListPage() {
     setSearchParams({}, { replace: true })
     setSearch('')
     setPhonePrefixes([])
-    setPhonePrefixInput('')
   }
 
   // Keep the user on the same prospect after a call is logged
@@ -580,42 +578,42 @@ export function ProspectsListPage() {
                     />
                   </div>
                 </div>
-                {/* Phone prefix filter */}
+                {/* Phone prefix filter — toggles cliquables (multi-select) */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <PhoneCall className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">Préfixe tél.</span>
                   <div className="flex items-center gap-1 flex-wrap">
-                    {phonePrefixes.map((prefix) => (
-                      <span
-                        key={prefix}
-                        className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium"
-                      >
-                        {prefix}
+                    {(['06', '07', '01', '02', '03', '04', '05', '08', '09', '+33'] as const).map((prefix) => {
+                      const active = phonePrefixes.includes(prefix)
+                      return (
                         <button
-                          onClick={() => { setPhonePrefixes((p) => p.filter((x) => x !== prefix)) }}
-                          className="hover:text-destructive"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                    <Input
-                      placeholder="ex: 06, 07..."
-                      value={phonePrefixInput}
-                      onChange={(e) => setPhonePrefixInput(e.target.value.replace(/[^0-9+ ]/g, ''))}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ',') {
-                          e.preventDefault()
-                          const val = phonePrefixInput.trim().replace(/\s/g, '')
-                          if (val && !phonePrefixes.includes(val)) {
-                            setPhonePrefixes((p) => [...p, val])
-                            setPhonePrefixInput('')
+                          key={prefix}
+                          type="button"
+                          onClick={() => {
+                            setPhonePrefixes(active
+                              ? phonePrefixes.filter((p) => p !== prefix)
+                              : [...phonePrefixes, prefix])
                             setPage(1)
+                          }}
+                          className={
+                            active
+                              ? 'rounded-md bg-primary text-primary-foreground px-2.5 py-1 text-xs font-semibold border border-primary'
+                              : 'rounded-md bg-background text-foreground/70 px-2.5 py-1 text-xs font-medium border border-input hover:bg-muted hover:text-foreground'
                           }
-                        }
-                      }}
-                      className="w-[100px] h-7 text-xs"
-                    />
+                        >
+                          {prefix}
+                        </button>
+                      )
+                    })}
+                    {phonePrefixes.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => { setPhonePrefixes([]); setPage(1) }}
+                        className="text-xs text-muted-foreground hover:text-destructive ml-1 underline"
+                      >
+                        Tout effacer
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
