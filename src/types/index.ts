@@ -1,4 +1,4 @@
-import type { UserRole, ProspectStatus, ProspectPhase, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus, LossReason, PaymentStatus, OpportunityStatus, OpportunityType, ContractStatus } from './enums'
+import type { UserRole, ProspectStatus, ProspectPhase, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus, LossReason, PaymentStatus, OpportunityStatus, OpportunityType, ContractStatus, AccompagnementStep } from './enums'
 
 export interface Profile {
   id: string
@@ -112,6 +112,10 @@ export interface RendezVous {
   created_from_call_id: string | null
   external_booking_id: string | null
   booking_type: OpportunityType | null
+  recall_attempts: number
+  recall_status: 'not_needed' | 'to_do' | 'in_progress' | 'recovered' | 'abandoned' | null
+  cancelled_reason: string | null
+  rdv_index: 1 | 2 | null
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -122,7 +126,7 @@ export interface RendezVous {
 
 export interface Client {
   id: string
-  prospect_id: string
+  prospect_id: string | null
   company_name: string
   contact_name: string | null
   contact_firstname: string | null
@@ -478,4 +482,19 @@ export interface PortalLeadEvent {
   new_status: string | null
   metadata: Record<string, unknown> | null
   created_at: string
+}
+
+// ── Client Accompagnement Step ──
+export interface ClientAccompagnementStep {
+  id: string
+  client_id: string
+  step: AccompagnementStep
+  completed_at: string | null
+  validated_by: string | null
+  notes: string | null
+  resource_url: string | null
+  created_at: string
+  updated_at: string
+  // Joined
+  validator?: Pick<Profile, 'id' | 'full_name'>
 }

@@ -89,8 +89,13 @@ import {
 import { toast } from 'sonner'
 import { useOpportunitiesForClient } from '@/features/opportunities/hooks/use-opportunities'
 import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STATUS_COLORS } from '@/types/enums'
-import { Zap, UserPlus } from 'lucide-react'
+import { Zap, UserPlus, Workflow, Inbox, FileSignature, TrendingUp } from 'lucide-react'
 import { PortalInviteDialog } from '@/features/portal/components/portal-invite-dialog'
+import { AccompagnementStepper } from '@/components/shared/accompagnement-stepper'
+import { StepValidationDialog } from '@/features/accompagnement/components/step-validation-dialog'
+import { useStepsForClient, useClientKpis } from '@/features/accompagnement/hooks/use-accompagnement'
+import { StatCard } from '@/components/shared/stat-card'
+import type { ClientAccompagnementStep } from '@/types'
 
 const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
   actif: 'Actif',
@@ -128,6 +133,8 @@ export function ClientDetailPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<Record<string, string>>({})
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  const [stepDialogOpen, setStepDialogOpen] = useState(false)
+  const [selectedStep, setSelectedStep] = useState<ClientAccompagnementStep | null>(null)
 
   if (isLoading) {
     return (
@@ -254,6 +261,15 @@ export function ClientDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Accompagnement (5-step post-signature flow) */}
+      <AccompagnementCard
+        clientId={client.id}
+        onStepClick={(s) => {
+          setSelectedStep(s)
+          setStepDialogOpen(true)
+        }}
+      />
 
       <Tabs defaultValue="fiche">
         <TabsList className="flex-wrap h-auto">
@@ -399,7 +415,65 @@ export function ClientDetailPage() {
         onOpenChange={setInviteDialogOpen}
         onSuccess={() => window.location.reload()}
       />
+
+      {/* Accompagnement step validation dialog */}
+      <StepValidationDialog
+        open={stepDialogOpen}
+        onOpenChange={setStepDialogOpen}
+        step={selectedStep}
+      />
     </div>
+  )
+}
+
+function AccompagnementCard({
+  clientId,
+  onStepClick,
+}: {
+  clientId: string
+  onStepClick: (step: ClientAccompagnementStep) => void
+}) {
+  const { data: steps, isLoading } = useStepsForClient(clientId)
+  const { data: kpis } = useClientKpis(clientId)
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Workflow className="h-4 w-4 text-violet-600" />
+          Accompagnement
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading || !steps ? (
+          <Skeleton className="h-24" />
+        ) : (
+          <AccompagnementStepper
+            steps={steps}
+            variant="detailed"
+            onStepClick={onStepClick}
+          />
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
+          <StatCard
+            title="Leads reçus"
+            value={kpis?.leadsCount ?? 0}
+            icon={Inbox}
+          />
+          <StatCard
+            title="Devis signés"
+            value={kpis?.signedDealsCount ?? 0}
+            icon={FileSignature}
+          />
+          <StatCard
+            title="Commission générée"
+            value={formatCurrency(kpis?.totalCommissionReceived ?? 0)}
+            icon={TrendingUp}
+          />
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

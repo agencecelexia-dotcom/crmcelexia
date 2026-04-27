@@ -681,3 +681,49 @@ export const PORTAL_LEAD_SOURCE_LABELS: Record<PortalLeadSource, string> = {
   bao: 'Bouche à oreille',
 }
 
+// ── Accompagnement Step (5-step post-signature flow) ──
+export type AccompagnementStep =
+  | 'contract_signed'
+  | 'insurance_received'
+  | 'gmb_access_shared'
+  | 'payment_received'
+  | 'lsa_live'
+
+export const ACCOMPAGNEMENT_STEP_LABELS: Record<AccompagnementStep, string> = {
+  contract_signed: 'Contrat signé',
+  insurance_received: 'Assurance reçue',
+  gmb_access_shared: 'Accès GMB partagé',
+  payment_received: 'Virement reçu',
+  lsa_live: 'LSA en ligne',
+}
+
+export const ACCOMPAGNEMENT_STEP_DESCRIPTIONS: Record<AccompagnementStep, string> = {
+  contract_signed: 'Contrat de prestation signé par le client',
+  insurance_received: 'RC Pro ou décennale reçue',
+  gmb_access_shared: 'Accès Google My Business partagé avec Celexia',
+  payment_received: 'Premier virement reçu',
+  lsa_live: 'Campagne Local Services Ads en ligne',
+}
+
+export const ACCOMPAGNEMENT_STEPS_ORDER: AccompagnementStep[] = [
+  'contract_signed',
+  'insurance_received',
+  'gmb_access_shared',
+  'payment_received',
+  'lsa_live',
+]
+
+export type AccompagnementStatus = 'blocked' | 'on_track' | 'launched'
+
+export const ACCOMPAGNEMENT_STATUS_LABELS: Record<AccompagnementStatus, string> = {
+  blocked: 'Bloqué',
+  on_track: 'En cours',
+  launched: 'Lancé',
+}
+
+export const ACCOMPAGNEMENT_STATUS_COLORS: Record<AccompagnementStatus, string> = {
+  blocked: 'bg-red-100 text-red-700',
+  on_track: 'bg-amber-100 text-amber-700',
+  launched: 'bg-emerald-100 text-emerald-700',
+}
+

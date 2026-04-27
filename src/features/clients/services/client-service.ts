@@ -83,6 +83,66 @@ export async function updateClient(id: string, updates: Partial<Client>): Promis
   return data as unknown as Client
 }
 
+// Création manuelle d'un client (sans prospect du funnel)
+export interface CreateClientManualInput {
+  company_name: string
+  contact_firstname: string
+  contact_name: string
+  contact_email: string
+  phone: string
+  profession: string | null
+  city: string | null
+  address: string | null
+  converted_at: string  // ISO date (date de signature)
+  status: ClientStatus
+  notes: string | null
+  commercial_id: string  // current user id
+}
+
+export async function createClientManually(input: CreateClientManualInput): Promise<Client> {
+  const { data, error } = await supabase
+    .from('clients')
+    .insert({
+      ...input,
+      source: 'manual',
+      prospect_id: null,
+      custom_fields: {},
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as unknown as Client
+}
+
+// Soft delete d'un client + log dans event_log
+export async function softDeleteClient(id: string, actorId: string): Promise<void> {
+  // 1. Lire le client courant pour le log
+  const { data: current, error: readErr } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (readErr) throw readErr
+
+  // 2. Soft delete
+  const { error: deleteErr } = await supabase
+    .from('clients')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+  if (deleteErr) throw deleteErr
+
+  // 3. Log dans event_log (immutable audit trail)
+  await supabase.from('event_log').insert({
+    event_type: 'soft_delete',
+    entity_type: 'client',
+    entity_id: id,
+    actor_id: actorId,
+    old_values: current,
+    new_values: { deleted_at: new Date().toISOString() },
+  })
+}
+
 // Prospect conversion
 export async function convertProspectToClient(prospectId: string): Promise<string> {
   const { data, error } = await supabase.rpc('convert_prospect_to_client', {

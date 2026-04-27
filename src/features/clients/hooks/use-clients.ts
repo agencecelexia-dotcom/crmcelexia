@@ -4,6 +4,8 @@ import {
   getClient,
   updateClient,
   convertProspectToClient,
+  createClientManually,
+  softDeleteClient,
   getProjectForClient,
   createProject,
   updateProject,
@@ -14,6 +16,7 @@ import {
   createDevis,
   updateDevis,
   type ClientFilters,
+  type CreateClientManualInput,
 } from '../services/client-service'
 import type { Client, Project, Devis } from '@/types'
 import { STALE_TIME_LIST } from '@/lib/constants'
@@ -55,6 +58,40 @@ export function useUpdateClient() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
     onError: () => toast.error('Erreur lors de la mise à jour du client'),
+  })
+}
+
+export function useCreateClientManually() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: CreateClientManualInput) => createClientManually(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success('Client créé avec succès')
+    },
+    onError: (err: Error) => {
+      toast.error(`Erreur lors de la création : ${err.message}`)
+    },
+  })
+}
+
+export function useDeleteClient() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, actorId }: { id: string; actorId: string }) =>
+      softDeleteClient(id, actorId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      queryClient.invalidateQueries({ queryKey: ['client'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success('Client supprimé')
+    },
+    onError: (err: Error) => {
+      toast.error(`Erreur lors de la suppression : ${err.message}`)
+    },
   })
 }
 

@@ -25,8 +25,16 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Search, Users, ChevronLeft, ChevronRight, List, Map } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Search, Users, ChevronLeft, ChevronRight, List, Map, Plus, MoreVertical, Trash2 } from 'lucide-react'
 import { ClientsMap } from '../components/clients-map'
+import { ClientCreateDialog } from '../components/client-create-dialog'
+import { ClientDeleteDialog } from '../components/client-delete-dialog'
 
 const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
   actif: 'Actif',
@@ -46,6 +54,8 @@ export function ClientsListPage() {
   const [statusFilter, setStatusFilter] = useState<ClientStatus | 'all'>('all')
   const [page, setPage] = useState(1)
   const [view, setView] = useState<'list' | 'map'>('list')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
 
   const debouncedSearch = useDebounce(search, 300)
 
@@ -57,11 +67,17 @@ export function ClientsListPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Clients</h1>
-        <p className="text-sm text-muted-foreground">
-          Prospects convertis en clients
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Clients</h1>
+          <p className="text-sm text-muted-foreground">
+            Prospects convertis en clients
+          </p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Ajouter un client
+        </Button>
       </div>
 
       {/* Filters + view toggle */}
@@ -138,6 +154,7 @@ export function ClientsListPage() {
                   <TableHead>Statut</TableHead>
                   <TableHead>Commercial</TableHead>
                   <TableHead>Converti le</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -161,6 +178,24 @@ export function ClientsListPage() {
                     </TableCell>
                     <TableCell className="text-sm">{client.commercial?.full_name || '—'}</TableCell>
                     <TableCell className="text-sm">{formatDateShort(client.converted_at)}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeleteTarget({ id: client.id, name: client.company_name })}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -169,6 +204,16 @@ export function ClientsListPage() {
           )}
         </CardContent>
       </Card>}
+
+      <ClientCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {deleteTarget && (
+        <ClientDeleteDialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+          clientId={deleteTarget.id}
+          companyName={deleteTarget.name}
+        />
+      )}
 
       {/* Pagination */}
       {view === 'list' && data && data.totalPages > 1 && (

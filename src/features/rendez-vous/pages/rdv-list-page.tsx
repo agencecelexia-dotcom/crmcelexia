@@ -1,25 +1,36 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/hooks/use-auth'
-import { useRendezVous, useUpdateRdv } from '../hooks/use-rdv'
-import type { RdvFilters } from '../services/rdv-service'
+import {
+  useRdvSection,
+  useRdvKpis,
+  useUpdateRdv,
+} from '../hooks/use-rdv'
+import { useRescheduleRdv } from '@/features/calendar/hooks/use-calendar'
 import type { RendezVous } from '@/types'
-import type { RdvStatus, RdvType } from '@/types/enums'
-import { RDV_STATUS_LABELS, RDV_STATUS_COLORS, RDV_TYPE_LABELS } from '@/types/enums'
+import {
+  RDV_STATUS_LABELS,
+  RDV_STATUS_COLORS,
+  RDV_TYPE_LABELS,
+} from '@/types/enums'
 import { StatusBadge } from '@/components/shared/status-badge'
+import { StatCard } from '@/components/shared/stat-card'
+import { RdvSectionCard } from '../components/rdv-section-card'
+import { RdvCancelDialog } from '../components/rdv-cancel-dialog'
+import { RdvRecallDialog } from '../components/rdv-recall-dialog'
 import { formatPhone } from '@/lib/format'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import {
   Dialog,
   DialogContent,
@@ -29,191 +40,223 @@ import {
 } from '@/components/ui/dialog'
 import {
   CalendarDays,
+  CheckCircle2,
+  UserX,
+  XCircle,
   Phone,
   Video,
   MapPin,
-  ChevronLeft,
-  ChevronRight,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  Clock,
-  CalendarCheck,
-  UserX,
+  ExternalLink,
+  PhoneCall,
   Loader2,
+  Search,
+  RefreshCcw,
+  Activity,
+  TrendingUp,
+  CalendarCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import {
-  format,
-  isToday,
-  isTomorrow,
-  isThisWeek,
-  isPast,
-  parseISO,
-  startOfDay,
-  addDays,
-} from 'date-fns'
+import { formatDistanceToNow, parseISO, format, differenceInMilliseconds } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
-const typeIcons: Record<RdvType, typeof Phone> = {
+const TYPE_ICONS = {
   telephone: Phone,
   visio: Video,
   presentiel: MapPin,
+} as const
+
+const RECALL_STATUS_LABELS: Record<NonNullable<RendezVous['recall_status']>, string> = {
+  not_needed: 'Non requis',
+  to_do: 'À faire',
+  in_progress: 'En cours',
+  recovered: 'Récupéré',
+  abandoned: 'Abandonné',
 }
 
-type TabFilter = 'today' | 'week' | 'upcoming' | 'past' | 'all'
+const RECALL_STATUS_COLORS: Record<NonNullable<RendezVous['recall_status']>, string> = {
+  not_needed: 'bg-gray-100 text-gray-700',
+  to_do: 'bg-orange-100 text-orange-800',
+  in_progress: 'bg-amber-100 text-amber-800',
+  recovered: 'bg-emerald-100 text-emerald-800',
+  abandoned: 'bg-red-100 text-red-800',
+}
+
+type DoneFilter = 'all' | 'shown' | 'no_show' | 'cancelled'
+
+function formatPercent(value: number): string {
+  return `${Math.round(value * 100)}%`
+}
+
+function ProspectCell({ rdv, onClick }: { rdv: RendezVous; onClick: () => void }) {
+  const fullName = [rdv.prospect?.contact_firstname, rdv.prospect?.contact_name]
+    .filter(Boolean)
+    .join(' ')
+  return (
+    <div className="min-w-0">
+      <button
+        onClick={onClick}
+        className="font-medium text-left hover:text-primary hover:underline truncate block"
+      >
+        {rdv.prospect?.company_name ?? 'Prospect'}
+      </button>
+      {fullName && (
+        <p className="text-xs text-muted-foreground truncate">{fullName}</p>
+      )}
+      {rdv.prospect?.profession && (
+        <p className="text-xs text-muted-foreground truncate">{rdv.prospect.profession}</p>
+      )}
+    </div>
+  )
+}
+
+function TypeBadge({ rdv }: { rdv: RendezVous }) {
+  const Icon = TYPE_ICONS[rdv.type]
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <Icon className="h-3.5 w-3.5" />
+      {RDV_TYPE_LABELS[rdv.type]}
+    </span>
+  )
+}
+
+function RdvIndexBadge({ rdv }: { rdv: RendezVous }) {
+  if (!rdv.rdv_index) return null
+  return (
+    <Badge variant="outline" className="text-xs font-medium">
+      R{rdv.rdv_index}
+    </Badge>
+  )
+}
+
+function RelativeDate({ iso, highlightSoon = false }: { iso: string; highlightSoon?: boolean }) {
+  const date = parseISO(iso)
+  const isSoon =
+    highlightSoon && differenceInMilliseconds(date, new Date()) > 0 &&
+    differenceInMilliseconds(date, new Date()) < 2 * 60 * 60 * 1000
+  return (
+    <div className={isSoon ? 'text-red-600 font-semibold' : ''}>
+      <p className="text-sm">
+        {formatDistanceToNow(date, { addSuffix: true, locale: fr })}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {format(date, 'd MMM HH:mm', { locale: fr })}
+      </p>
+    </div>
+  )
+}
 
 export function RdvListPage() {
   const navigate = useNavigate()
   const { isFounder } = useAuth()
+
+  const upcomingQ = useRdvSection('upcoming')
+  const pendingQ = useRdvSection('pending')
+  const recallQ = useRdvSection('recall')
+  const doneQ = useRdvSection('done')
+  const kpisQ = useRdvKpis()
+
   const updateRdv = useUpdateRdv()
+  const rescheduleRdv = useRescheduleRdv()
 
-  const [tab, setTab] = useState<TabFilter>('upcoming')
-  const [typeFilter, setTypeFilter] = useState<RdvType | 'all'>('all')
-  const [page, setPage] = useState(1)
+  // Dialog states
+  const [cancelDialog, setCancelDialog] = useState<{ rdvId: string; name: string } | null>(null)
+  const [recallDialog, setRecallDialog] = useState<{ rdvId: string; name: string } | null>(null)
+  const [outcomeRdv, setOutcomeRdv] = useState<RendezVous | null>(null)
+  const [outcomeResult, setOutcomeResult] = useState('')
+  const [rescheduleRdvId, setRescheduleRdvId] = useState<string | null>(null)
+  const [rescheduleAt, setRescheduleAt] = useState('')
 
-  // Result dialog state
-  const [resultRdv, setResultRdv] = useState<RendezVous | null>(null)
-  const [resultText, setResultText] = useState('')
-  const [noShowReason, setNoShowReason] = useState('')
+  // Done section filters
+  const [doneFilter, setDoneFilter] = useState<DoneFilter>('all')
+  const [doneSearch, setDoneSearch] = useState('')
 
-  // Build filters based on active tab
-  const filters: RdvFilters = useMemo(() => {
-    const f: RdvFilters = {}
-    if (typeFilter !== 'all') f.type = [typeFilter]
+  const upcoming = upcomingQ.data ?? []
+  const pending = pendingQ.data ?? []
+  const recall = recallQ.data ?? []
+  const done = doneQ.data ?? []
+  const kpis = kpisQ.data
 
-    const now = new Date()
-    const todayStart = startOfDay(now).toISOString()
-    const tomorrowStart = startOfDay(addDays(now, 1)).toISOString()
-    const weekEnd = startOfDay(addDays(now, 7)).toISOString()
-
-    switch (tab) {
-      case 'today':
-        f.date_from = todayStart
-        f.date_to = tomorrowStart
-        f.status = ['prevu', 'confirme']
+  const filteredDone = useMemo(() => {
+    let rows = done
+    switch (doneFilter) {
+      case 'shown':
+        rows = rows.filter((r) => ['show', 'fait', 'close'].includes(r.status))
         break
-      case 'week':
-        f.date_from = todayStart
-        f.date_to = weekEnd
-        f.status = ['prevu', 'confirme']
+      case 'no_show':
+        rows = rows.filter((r) => r.status === 'no_show')
         break
-      case 'upcoming':
-        f.date_from = todayStart
-        f.status = ['prevu', 'confirme']
-        break
-      case 'past':
-        f.status = ['fait', 'show', 'no_show', 'close', 'annule', 'perdu']
-        break
-      case 'all':
+      case 'cancelled':
+        rows = rows.filter((r) => r.status === 'annule')
         break
     }
-    return f
-  }, [tab, typeFilter])
+    if (doneSearch.trim()) {
+      const q = doneSearch.trim().toLowerCase()
+      rows = rows.filter((r) => {
+        const name = [
+          r.prospect?.company_name,
+          r.prospect?.contact_firstname,
+          r.prospect?.contact_name,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return name.includes(q)
+      })
+    }
+    return rows
+  }, [done, doneFilter, doneSearch])
 
-  const { data, isLoading } = useRendezVous({
-    filters,
-    page,
-    sortBy: 'scheduled_at',
-    sortDesc: tab === 'past',
-  })
-
-  const rdvs = data?.data ?? []
-
-  // Compute stats from current data
-  const todayCount = rdvs.filter((r) => r.status === 'prevu' && isToday(parseISO(r.scheduled_at))).length
-  const overdueCount = rdvs.filter(
-    (r) => r.status === 'prevu' && isPast(parseISO(r.scheduled_at))
-  ).length
-  const thisWeekCount = rdvs.filter(
-    (r) => r.status === 'prevu' && isThisWeek(parseISO(r.scheduled_at), { weekStartsOn: 1 })
-  ).length
-
-  async function quickStatusChange(rdvId: string, newStatus: RdvStatus) {
+  async function quickStatus(rdvId: string, status: RendezVous['status']) {
     try {
-      const updates: Record<string, unknown> = { status: newStatus }
-      await updateRdv.mutateAsync({ id: rdvId, updates: updates as never })
-      toast.success(`Statut mis à jour → ${RDV_STATUS_LABELS[newStatus]}`)
+      await updateRdv.mutateAsync({ id: rdvId, updates: { status } })
+      toast.success(`Statut → ${RDV_STATUS_LABELS[status]}`)
     } catch {
-      toast.error('Erreur')
+      // toast géré par le hook
     }
   }
 
-  async function handleMarkDone() {
-    if (!resultRdv) return
+  async function handleConfirmOutcome() {
+    if (!outcomeRdv) return
     try {
       await updateRdv.mutateAsync({
-        id: resultRdv.id,
+        id: outcomeRdv.id,
         updates: {
           status: 'show',
-          result: resultText.trim() || 'Show',
-        } as never,
+          result: outcomeResult.trim() || 'Show',
+        },
       })
-      toast.success('RDV marqué comme show (effectué)')
-      setResultRdv(null)
-      setResultText('')
+      toast.success('RDV marqué comme présenté (show)')
+      setOutcomeRdv(null)
+      setOutcomeResult('')
     } catch {
-      toast.error('Erreur')
+      // toast géré par le hook
     }
   }
 
-  async function handleMarkNoShow() {
-    if (!resultRdv) return
+  async function handleConfirmReschedule() {
+    if (!rescheduleRdvId || !rescheduleAt) return
     try {
-      await updateRdv.mutateAsync({
-        id: resultRdv.id,
-        updates: {
-          status: 'no_show',
-          no_show_reason: noShowReason.trim() || null,
-        } as never,
-      })
-      toast.success('RDV marqué no-show')
-      setResultRdv(null)
-      setNoShowReason('')
+      const iso = new Date(rescheduleAt).toISOString()
+      await rescheduleRdv.mutateAsync({ rdvId: rescheduleRdvId, newScheduledAt: iso })
+      setRescheduleRdvId(null)
+      setRescheduleAt('')
     } catch {
-      toast.error('Erreur')
+      // toast géré par le hook
     }
   }
 
-  // Group RDVs by date for better readability
-  const groupedRdvs = useMemo(() => {
-    const groups: { label: string; rdvs: RendezVous[] }[] = []
-    const map = new Map<string, RendezVous[]>()
-
-    for (const rdv of rdvs) {
-      const date = parseISO(rdv.scheduled_at)
-      let key: string
-      if (isToday(date)) key = "Aujourd'hui"
-      else if (isTomorrow(date)) key = 'Demain'
-      else key = format(date, 'EEEE d MMMM', { locale: fr })
-
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(rdv)
-    }
-
-    for (const [label, rdvList] of map) {
-      groups.push({ label, rdvs: rdvList })
-    }
-
-    return groups
-  }, [rdvs])
-
-  const TABS: { value: TabFilter; label: string; count?: number }[] = [
-    { value: 'today', label: "Aujourd'hui", count: todayCount },
-    { value: 'week', label: 'Cette semaine', count: thisWeekCount },
-    { value: 'upcoming', label: 'À venir' },
-    { value: 'past', label: 'Passés' },
-    { value: 'all', label: 'Tous' },
-  ]
+  function isLoading(): boolean {
+    return upcomingQ.isLoading || pendingQ.isLoading || recallQ.isLoading || doneQ.isLoading
+  }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">Rendez-vous</h1>
           <p className="text-sm text-muted-foreground">
-            Gérez et suivez vos rendez-vous
+            Pilotage des RDV : à venir, à statuer, rappels post no-show, traités
           </p>
         </div>
         <Button variant="outline" onClick={() => navigate('/calendar')}>
@@ -222,446 +265,479 @@ export function RdvListPage() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
+      {/* KPI band */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setTab('today')}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-50">
-                <CalendarDays className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{todayCount}</p>
-                <p className="text-xs text-muted-foreground">Aujourd'hui</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setTab('week')}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-50">
-                <CalendarCheck className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{thisWeekCount}</p>
-                <p className="text-xs text-muted-foreground">Cette semaine</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-orange-50">
-                <AlertTriangle className="h-5 w-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{overdueCount}</p>
-                <p className="text-xs text-muted-foreground">En retard</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-purple-50">
-                <Clock className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{data?.count ?? 0}</p>
-                <p className="text-xs text-muted-foreground">Total affiché</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {kpisQ.isLoading || !kpis ? (
+          <>
+            <Skeleton className="h-[110px] w-full rounded-lg" />
+            <Skeleton className="h-[110px] w-full rounded-lg" />
+            <Skeleton className="h-[110px] w-full rounded-lg" />
+            <Skeleton className="h-[110px] w-full rounded-lg" />
+          </>
+        ) : (
+          <>
+            <StatCard
+              title="Taux de présence (30j)"
+              value={formatPercent(kpis.presenceRate30d)}
+              subtitle="Show vs no-show sur RDV traités"
+              icon={Activity}
+            />
+            <StatCard
+              title="Taux R1 → R2"
+              value={formatPercent(kpis.r1ToR2Rate)}
+              subtitle="rdv_index renseigné requis"
+              icon={TrendingUp}
+            />
+            <StatCard
+              title="Récupération no-shows"
+              value={formatPercent(kpis.recallRecoveryRate)}
+              subtitle="recovered / (recovered + abandoned)"
+              icon={PhoneCall}
+            />
+            <StatCard
+              title="RDV cette semaine"
+              value={kpis.weekUpcoming}
+              subtitle="prévus + confirmés (lun-dim)"
+              icon={CalendarCheck}
+            />
+          </>
+        )}
       </div>
 
-      {/* Tabs + Type filter */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex rounded-lg border bg-muted/30 p-0.5 overflow-x-auto max-w-full">
-          {TABS.map((t) => (
-            <button
-              key={t.value}
-              onClick={() => { setTab(t.value); setPage(1) }}
-              className={`px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm rounded-md transition-colors whitespace-nowrap ${
-                tab === t.value
-                  ? 'bg-background shadow-sm font-medium'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {t.label}
-              {t.count !== undefined && t.count > 0 && (
-                <span className="ml-1 sm:ml-1.5 inline-flex items-center justify-center bg-primary/10 text-primary text-xs rounded-full px-1.5 min-w-[18px]">
-                  {t.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v as RdvType | 'all'); setPage(1) }}>
-          <SelectTrigger className="w-[160px] h-9">
-            <SelectValue placeholder="Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous les types</SelectItem>
-            {(Object.entries(RDV_TYPE_LABELS) as [RdvType, string][]).map(([v, l]) => (
-              <SelectItem key={v} value={v}>{l}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* RDV List */}
-      {isLoading ? (
+      {isLoading() && (
         <div className="space-y-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-lg" />
-          ))}
-        </div>
-      ) : rdvs.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">Aucun rendez-vous</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {tab === 'today'
-                ? "Pas de RDV aujourd'hui"
-                : tab === 'week'
-                ? 'Rien de prévu cette semaine'
-                : 'Les RDV apparaîtront ici quand vous en créerez depuis les fiches prospects.'}
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {groupedRdvs.map((group) => (
-            <div key={group.label}>
-              <h3 className="text-sm font-semibold text-muted-foreground mb-2 capitalize">
-                {group.label}
-              </h3>
-              <div className="space-y-2">
-                {group.rdvs.map((rdv) => {
-                  const date = parseISO(rdv.scheduled_at)
-                  const isPastPrevu = rdv.status === 'prevu' && isPast(date)
-                  const TypeIcon = typeIcons[rdv.type]
-
-                  return (
-                    <Card
-                      key={rdv.id}
-                      className={`transition-colors hover:border-primary/30 ${
-                        isPastPrevu ? 'border-orange-300 bg-orange-50/30' : ''
-                      }`}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
-                          {/* Left: Time + Type + Prospect info */}
-                          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
-                            {/* Time block */}
-                            <div className="text-center shrink-0 w-16">
-                              <p className="text-2xl font-bold tabular-nums">
-                                {format(date, 'HH:mm')}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {rdv.duration_minutes} min
-                              </p>
-                            </div>
-
-                            {/* Type icon */}
-                            <div className={`p-2 rounded-lg shrink-0 ${
-                              rdv.type === 'telephone' ? 'bg-blue-50' :
-                              rdv.type === 'visio' ? 'bg-purple-50' : 'bg-green-50'
-                            }`}>
-                              <TypeIcon className={`h-5 w-5 ${
-                                rdv.type === 'telephone' ? 'text-blue-600' :
-                                rdv.type === 'visio' ? 'text-purple-600' : 'text-green-600'
-                              }`} />
-                            </div>
-
-                            {/* Prospect info */}
-                            <div className="min-w-0">
-                              <button
-                                onClick={() => navigate(`/prospects/${rdv.prospect_id}`)}
-                                className="font-semibold text-left hover:text-primary hover:underline truncate block"
-                              >
-                                {rdv.prospect?.company_name ?? 'Prospect'}
-                              </button>
-                              <div className="flex items-center gap-2 mt-0.5 text-sm text-muted-foreground">
-                                {(rdv.prospect?.contact_firstname || rdv.prospect?.contact_name) && (
-                                  <span>
-                                    {[rdv.prospect.contact_firstname, rdv.prospect.contact_name].filter(Boolean).join(' ')}
-                                  </span>
-                                )}
-                                {rdv.prospect?.phone && (
-                                  <a
-                                    href={`tel:${rdv.prospect.phone}`}
-                                    className="font-mono text-primary hover:underline"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {formatPhone(rdv.prospect.phone)}
-                                  </a>
-                                )}
-                              </div>
-                              {rdv.meeting_url && (
-                                <a
-                                  href={rdv.meeting_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Video className="h-3 w-3" />
-                                  Rejoindre la visio
-                                </a>
-                              )}
-                              {rdv.notes && !rdv.notes.startsWith('[cal.com') && (
-                                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{rdv.notes}</p>
-                              )}
-                              {rdv.result && ['fait', 'show', 'close', 'perdu'].includes(rdv.status) && (
-                                <p className="text-xs text-green-700 mt-1 line-clamp-1">
-                                  Résultat: {rdv.result}
-                                </p>
-                              )}
-                              {isFounder && rdv.commercial?.full_name && (
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                  {rdv.commercial.full_name}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Right: Status + Actions */}
-                          <div className="flex flex-col items-end gap-2 shrink-0">
-                            <StatusBadge
-                              label={RDV_STATUS_LABELS[rdv.status]}
-                              colorClass={RDV_STATUS_COLORS[rdv.status]}
-                            />
-                            {isPastPrevu && (
-                              <span className="text-xs text-orange-600 font-medium flex items-center gap-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                En retard
-                              </span>
-                            )}
-
-                            {/* Actions for À venir / Confirmé */}
-                            {(rdv.status === 'prevu' || rdv.status === 'confirme') && (
-                              <div className="flex gap-1">
-                                {rdv.status === 'prevu' && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-8 px-2"
-                                    disabled={updateRdv.isPending}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      quickStatusChange(rdv.id, 'confirme')
-                                    }}
-                                    title="Confirmer"
-                                  >
-                                    <CalendarCheck className="h-4 w-4 text-cyan-600 mr-1" />
-                                    <span className="text-xs">Confirmer</span>
-                                  </Button>
-                                )}
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 px-2"
-                                  disabled={updateRdv.isPending}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setResultRdv(rdv)
-                                    setResultText('')
-                                    setNoShowReason('')
-                                  }}
-                                  title="Résultat du RDV"
-                                >
-                                  <CheckCircle2 className="h-4 w-4 text-green-600 mr-1" />
-                                  <span className="text-xs">Show</span>
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 px-2"
-                                  disabled={updateRdv.isPending}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setResultRdv(rdv)
-                                    setResultText('')
-                                    setNoShowReason('')
-                                  }}
-                                  title="No-show"
-                                >
-                                  <UserX className="h-4 w-4 text-red-500" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 px-2"
-                                  disabled={updateRdv.isPending}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    quickStatusChange(rdv.id, 'annule')
-                                  }}
-                                  title="Annuler"
-                                >
-                                  {updateRdv.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 text-gray-500" />}
-                                </Button>
-                              </div>
-                            )}
-
-                            {/* Actions for Show (after RDV took place) */}
-                            {rdv.status === 'show' && (
-                              <div className="flex gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 px-2"
-                                  disabled={updateRdv.isPending}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    quickStatusChange(rdv.id, 'close')
-                                  }}
-                                  title="Closé"
-                                >
-                                  <CheckCircle2 className="h-4 w-4 text-purple-600 mr-1" />
-                                  <span className="text-xs">Closé</span>
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 px-2"
-                                  disabled={updateRdv.isPending}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    quickStatusChange(rdv.id, 'perdu')
-                                  }}
-                                  title="Perdu"
-                                >
-                                  <XCircle className="h-4 w-4 text-red-500 mr-1" />
-                                  <span className="text-xs">Perdu</span>
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
+          <Skeleton className="h-32 w-full rounded-lg" />
+          <Skeleton className="h-32 w-full rounded-lg" />
         </div>
       )}
 
-      {/* Pagination */}
-      {data && data.totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <p className="text-muted-foreground">
-            {data.count} rendez-vous — page {data.page}/{data.totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= data.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+      {/* Section 1 : RDV à venir */}
+      <RdvSectionCard title="RDV à venir" count={upcoming.length}>
+        {upcoming.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            Aucun RDV à venir.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Quand</TableHead>
+                  <TableHead>Prospect</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>R1/R2</TableHead>
+                  {isFounder && <TableHead>Commercial</TableHead>}
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {upcoming.map((rdv) => (
+                  <TableRow key={rdv.id}>
+                    <TableCell>
+                      <RelativeDate iso={rdv.scheduled_at} highlightSoon />
+                    </TableCell>
+                    <TableCell>
+                      <ProspectCell rdv={rdv} onClick={() => navigate(`/prospects/${rdv.prospect_id}`)} />
+                    </TableCell>
+                    <TableCell><TypeBadge rdv={rdv} /></TableCell>
+                    <TableCell><RdvIndexBadge rdv={rdv} /></TableCell>
+                    {isFounder && (
+                      <TableCell className="text-xs text-muted-foreground">
+                        {rdv.commercial?.full_name ?? '—'}
+                      </TableCell>
+                    )}
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1 flex-wrap">
+                        {rdv.meeting_url && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(rdv.meeting_url!, '_blank', 'noopener,noreferrer')}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                            Rejoindre
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setRescheduleRdvId(rdv.id)
+                            setRescheduleAt(format(parseISO(rdv.scheduled_at), "yyyy-MM-dd'T'HH:mm"))
+                          }}
+                        >
+                          <RefreshCcw className="h-3.5 w-3.5 mr-1" />
+                          Replanifier
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() =>
+                            setCancelDialog({
+                              rdvId: rdv.id,
+                              name: rdv.prospect?.company_name ?? 'Prospect',
+                            })
+                          }
+                        >
+                          <XCircle className="h-3.5 w-3.5 mr-1" />
+                          Annuler
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </RdvSectionCard>
+
+      {/* Section 2 : RDV à statuer */}
+      <RdvSectionCard title="RDV à statuer" count={pending.length} accent="warning">
+        {pending.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            Tous les RDV passés ont été statués.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Quand</TableHead>
+                  <TableHead>Prospect</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>R1/R2</TableHead>
+                  {isFounder && <TableHead>Commercial</TableHead>}
+                  <TableHead className="text-right">Statuer</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pending.map((rdv) => (
+                  <TableRow key={rdv.id} className="bg-orange-50/40">
+                    <TableCell>
+                      <RelativeDate iso={rdv.scheduled_at} />
+                    </TableCell>
+                    <TableCell>
+                      <ProspectCell rdv={rdv} onClick={() => navigate(`/prospects/${rdv.prospect_id}`)} />
+                    </TableCell>
+                    <TableCell><TypeBadge rdv={rdv} /></TableCell>
+                    <TableCell><RdvIndexBadge rdv={rdv} /></TableCell>
+                    {isFounder && (
+                      <TableCell className="text-xs text-muted-foreground">
+                        {rdv.commercial?.full_name ?? '—'}
+                      </TableCell>
+                    )}
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-green-700 border-green-200 hover:bg-green-50"
+                          disabled={updateRdv.isPending}
+                          onClick={() => {
+                            setOutcomeRdv(rdv)
+                            setOutcomeResult('')
+                          }}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                          Présenté
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-700 border-red-200 hover:bg-red-50"
+                          disabled={updateRdv.isPending}
+                          onClick={() => quickStatus(rdv.id, 'no_show')}
+                        >
+                          <UserX className="h-3.5 w-3.5 mr-1" />
+                          No-show
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            setCancelDialog({
+                              rdvId: rdv.id,
+                              name: rdv.prospect?.company_name ?? 'Prospect',
+                            })
+                          }
+                        >
+                          <XCircle className="h-3.5 w-3.5 mr-1" />
+                          Annulé en amont
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </RdvSectionCard>
+
+      {/* Section 3 : À rappeler */}
+      <RdvSectionCard title="À rappeler" count={recall.length} accent="destructive">
+        {recall.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            Aucun rappel à traiter.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>No-show</TableHead>
+                  <TableHead>Prospect</TableHead>
+                  <TableHead>Téléphone</TableHead>
+                  {isFounder && <TableHead>Commercial</TableHead>}
+                  <TableHead>Tentatives</TableHead>
+                  <TableHead>Statut rappel</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recall.map((rdv) => (
+                  <TableRow key={rdv.id}>
+                    <TableCell>
+                      <RelativeDate iso={rdv.scheduled_at} />
+                    </TableCell>
+                    <TableCell>
+                      <ProspectCell rdv={rdv} onClick={() => navigate(`/prospects/${rdv.prospect_id}`)} />
+                    </TableCell>
+                    <TableCell>
+                      {rdv.prospect?.phone ? (
+                        <a
+                          href={`tel:${rdv.prospect.phone}`}
+                          className="font-mono text-sm text-primary hover:underline"
+                        >
+                          {formatPhone(rdv.prospect.phone)}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    {isFounder && (
+                      <TableCell className="text-xs text-muted-foreground">
+                        {rdv.commercial?.full_name ?? '—'}
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">
+                        {rdv.recall_attempts}/3
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {rdv.recall_status && (
+                        <StatusBadge
+                          label={RECALL_STATUS_LABELS[rdv.recall_status]}
+                          colorClass={RECALL_STATUS_COLORS[rdv.recall_status]}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setRecallDialog({
+                              rdvId: rdv.id,
+                              name: rdv.prospect?.company_name ?? 'Prospect',
+                            })
+                          }
+                        >
+                          <PhoneCall className="h-3.5 w-3.5 mr-1" />
+                          Marquer rappelé
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setRescheduleRdvId(rdv.id)
+                            setRescheduleAt(format(new Date(), "yyyy-MM-dd'T'HH:mm"))
+                          }}
+                        >
+                          <RefreshCcw className="h-3.5 w-3.5 mr-1" />
+                          Replanifier
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </RdvSectionCard>
+
+      {/* Section 4 : RDV traités (30j) */}
+      <RdvSectionCard title="RDV traités (30j)" count={filteredDone.length}>
+        <div className="p-3 border-b flex items-center gap-2 flex-wrap bg-muted/20">
+          <div className="flex rounded-lg border bg-background p-0.5 text-xs">
+            {([
+              { value: 'all', label: 'Tous' },
+              { value: 'shown', label: 'Présentés' },
+              { value: 'no_show', label: 'No-shows' },
+              { value: 'cancelled', label: 'Annulés' },
+            ] satisfies { value: DoneFilter; label: string }[]).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setDoneFilter(opt.value)}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  doneFilter === opt.value
+                    ? 'bg-primary text-primary-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={doneSearch}
+              onChange={(e) => setDoneSearch(e.target.value)}
+              placeholder="Rechercher par nom..."
+              className="pl-8 h-8 text-sm"
+            />
           </div>
         </div>
-      )}
 
-      {/* Result Dialog */}
-      <Dialog open={!!resultRdv} onOpenChange={(open) => { if (!open) setResultRdv(null) }}>
+        {filteredDone.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            Aucun RDV ne correspond aux filtres.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Prospect</TableHead>
+                  <TableHead>R1/R2</TableHead>
+                  <TableHead>Statut</TableHead>
+                  {isFounder && <TableHead>Commercial</TableHead>}
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredDone.map((rdv) => (
+                  <TableRow key={rdv.id}>
+                    <TableCell>
+                      <RelativeDate iso={rdv.scheduled_at} />
+                    </TableCell>
+                    <TableCell>
+                      <ProspectCell rdv={rdv} onClick={() => navigate(`/prospects/${rdv.prospect_id}`)} />
+                    </TableCell>
+                    <TableCell><RdvIndexBadge rdv={rdv} /></TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        label={RDV_STATUS_LABELS[rdv.status]}
+                        colorClass={RDV_STATUS_COLORS[rdv.status]}
+                      />
+                    </TableCell>
+                    {isFounder && (
+                      <TableCell className="text-xs text-muted-foreground">
+                        {rdv.commercial?.full_name ?? '—'}
+                      </TableCell>
+                    )}
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => navigate(`/prospects/${rdv.prospect_id}`)}
+                      >
+                        Fiche prospect
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </RdvSectionCard>
+
+      {/* Mounted dialogs */}
+      <RdvCancelDialog
+        open={!!cancelDialog}
+        onOpenChange={(open) => { if (!open) setCancelDialog(null) }}
+        rdvId={cancelDialog?.rdvId ?? null}
+        prospectName={cancelDialog?.name ?? null}
+      />
+      <RdvRecallDialog
+        open={!!recallDialog}
+        onOpenChange={(open) => { if (!open) setRecallDialog(null) }}
+        rdvId={recallDialog?.rdvId ?? null}
+        prospectName={recallDialog?.name ?? null}
+      />
+
+      {/* Outcome (Présenté) Dialog */}
+      <Dialog open={!!outcomeRdv} onOpenChange={(open) => { if (!open) setOutcomeRdv(null) }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Résultat du RDV</DialogTitle>
+            <DialogTitle>Marquer comme présenté</DialogTitle>
           </DialogHeader>
-
-          {resultRdv && (
-            <div className="space-y-4 py-2">
-              {/* RDV info */}
+          {outcomeRdv && (
+            <div className="space-y-3 py-2">
               <div className="rounded-lg bg-muted p-3">
-                <p className="font-medium">{resultRdv.prospect?.company_name}</p>
+                <p className="font-medium">{outcomeRdv.prospect?.company_name}</p>
                 <p className="text-sm text-muted-foreground">
-                  {format(parseISO(resultRdv.scheduled_at), "EEEE d MMMM 'à' HH:mm", { locale: fr })}
-                  {' — '}
-                  {RDV_TYPE_LABELS[resultRdv.type]}
+                  {format(parseISO(outcomeRdv.scheduled_at), "EEEE d MMMM 'à' HH:mm", { locale: fr })}
                 </p>
               </div>
-
-              {/* Mark as show */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  Show (le prospect s'est présenté)
-                </h4>
-                <Textarea
-                  value={resultText}
-                  onChange={(e) => setResultText(e.target.value)}
-                  placeholder="Qu'est-ce qui a été discuté ? Prochaines étapes ?"
-                  rows={3}
-                  className="text-sm"
-                />
-                <Button onClick={handleMarkDone} disabled={updateRdv.isPending} className="w-full">
-                  {updateRdv.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Marquer Show
-                </Button>
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">ou</span>
-                </div>
-              </div>
-
-              {/* Mark as no-show */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <UserX className="h-4 w-4 text-red-500" />
-                  No-show
-                </h4>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Compte-rendu (optionnel)</label>
                 <Input
-                  value={noShowReason}
-                  onChange={(e) => setNoShowReason(e.target.value)}
-                  placeholder="Raison (optionnelle)..."
-                  className="text-sm"
+                  value={outcomeResult}
+                  onChange={(e) => setOutcomeResult(e.target.value)}
+                  placeholder="Prochaines étapes, points clés..."
                 />
-                <Button
-                  variant="outline"
-                  onClick={handleMarkNoShow}
-                  disabled={updateRdv.isPending}
-                  className="w-full text-red-600 hover:text-red-700"
-                >
-                  {updateRdv.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  <UserX className="h-4 w-4 mr-2" />
-                  Marquer no-show
-                </Button>
               </div>
             </div>
           )}
-
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setResultRdv(null)}>Fermer</Button>
+            <Button variant="ghost" onClick={() => setOutcomeRdv(null)}>Annuler</Button>
+            <Button onClick={handleConfirmOutcome} disabled={updateRdv.isPending}>
+              {updateRdv.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reschedule Dialog */}
+      <Dialog open={!!rescheduleRdvId} onOpenChange={(open) => { if (!open) { setRescheduleRdvId(null); setRescheduleAt('') } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Replanifier le RDV</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Nouvelle date / heure</label>
+              <Input
+                type="datetime-local"
+                value={rescheduleAt}
+                onChange={(e) => setRescheduleAt(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                L'ancien RDV sera marqué no-show, un nouveau RDV est créé.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setRescheduleRdvId(null); setRescheduleAt('') }}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleConfirmReschedule}
+              disabled={!rescheduleAt || rescheduleRdv.isPending}
+            >
+              {rescheduleRdv.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Confirmer
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

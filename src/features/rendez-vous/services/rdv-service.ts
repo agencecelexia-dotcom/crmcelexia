@@ -211,6 +211,189 @@ export async function getMyUpcomingRdv(commercialId: string): Promise<RendezVous
   return (data ?? []) as unknown as RendezVous[]
 }
 
+// ============================================================================
+// Sectioned RDV list (Chantier 2 — refonte page liste RDV)
+// ============================================================================
+
+export type RdvSection = 'upcoming' | 'pending' | 'recall' | 'done'
+
+const SECTION_SELECT =
+  '*, prospect:prospects!rendez_vous_prospect_id_fkey(id, company_name, phone, contact_name, contact_firstname, city, profession), commercial:profiles!rendez_vous_commercial_id_fkey(id, full_name)'
+
+export async function getRdvBySection(section: RdvSection): Promise<RendezVous[]> {
+  const nowIso = new Date().toISOString()
+
+  let query = supabase.from('rendez_vous').select(SECTION_SELECT).is('deleted_at', null)
+
+  switch (section) {
+    case 'upcoming':
+      query = query
+        .in('status', ['prevu', 'confirme'])
+        .gt('scheduled_at', nowIso)
+        .order('scheduled_at', { ascending: true })
+      break
+    case 'pending':
+      query = query
+        .in('status', ['prevu', 'confirme'])
+        .lte('scheduled_at', nowIso)
+        .order('scheduled_at', { ascending: false })
+      break
+    case 'recall':
+      query = query
+        .in('recall_status', ['to_do', 'in_progress'])
+        .order('updated_at', { ascending: false })
+      break
+    case 'done': {
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      query = query
+        .in('status', ['show', 'no_show', 'fait', 'close', 'annule', 'perdu'])
+        .gt('updated_at', since)
+        .order('updated_at', { ascending: false })
+        .limit(100)
+      break
+    }
+  }
+
+  const { data, error } = await query
+
+  if (error) throw error
+  return (data ?? []) as unknown as RendezVous[]
+}
+
+export interface RdvKpis {
+  presenceRate30d: number
+  r1ToR2Rate: number
+  recallRecoveryRate: number
+  weekUpcoming: number
+}
+
+export async function getRdvKpis(): Promise<RdvKpis> {
+  const now = new Date()
+  const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  // weekUpcoming : RDV à venir cette semaine (lundi -> dimanche prochain)
+  const startOfWeek = new Date(now)
+  startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7)) // Monday
+  startOfWeek.setHours(0, 0, 0, 0)
+  const endOfWeek = new Date(startOfWeek)
+  endOfWeek.setDate(startOfWeek.getDate() + 7)
+
+  // 1) Présence sur 30 derniers jours : show ou no_show => taux de show
+  const { data: presence30d, error: errPresence } = await supabase
+    .from('rendez_vous')
+    .select('status')
+    .is('deleted_at', null)
+    .in('status', ['show', 'no_show', 'fait', 'close'])
+    .gte('updated_at', since30d)
+
+  if (errPresence) throw errPresence
+
+  const totalPresence = presence30d?.length ?? 0
+  const presents = (presence30d ?? []).filter((r) => r.status !== 'no_show').length
+  const presenceRate30d = totalPresence === 0 ? 0 : presents / totalPresence
+
+  // 2) R1 -> R2 : sur les RDV avec rdv_index = 1 effectués (show/fait/close), proportion ayant un R2
+  const { data: r1Rows, error: errR1 } = await supabase
+    .from('rendez_vous')
+    .select('prospect_id')
+    .is('deleted_at', null)
+    .eq('rdv_index', 1)
+    .in('status', ['show', 'fait', 'close'])
+
+  if (errR1) throw errR1
+
+  const r1ProspectIds = Array.from(new Set((r1Rows ?? []).map((r) => r.prospect_id).filter(Boolean)))
+  let r1ToR2Rate = 0
+  if (r1ProspectIds.length > 0) {
+    const { data: r2Rows, error: errR2 } = await supabase
+      .from('rendez_vous')
+      .select('prospect_id')
+      .is('deleted_at', null)
+      .eq('rdv_index', 2)
+      .in('prospect_id', r1ProspectIds)
+
+    if (errR2) throw errR2
+
+    const r2ProspectIds = new Set((r2Rows ?? []).map((r) => r.prospect_id))
+    r1ToR2Rate = r2ProspectIds.size / r1ProspectIds.length
+  }
+
+  // 3) Récupération no-shows : recall_status finalisé (recovered vs abandoned)
+  const { data: recallRows, error: errRecall } = await supabase
+    .from('rendez_vous')
+    .select('recall_status')
+    .is('deleted_at', null)
+    .in('recall_status', ['recovered', 'abandoned'])
+
+  if (errRecall) throw errRecall
+
+  const totalRecallFinal = recallRows?.length ?? 0
+  const recovered = (recallRows ?? []).filter((r) => r.recall_status === 'recovered').length
+  const recallRecoveryRate = totalRecallFinal === 0 ? 0 : recovered / totalRecallFinal
+
+  // 4) RDV à venir cette semaine
+  const { count: weekUpcoming, error: errWeek } = await supabase
+    .from('rendez_vous')
+    .select('id', { count: 'exact', head: true })
+    .is('deleted_at', null)
+    .in('status', ['prevu', 'confirme'])
+    .gte('scheduled_at', startOfWeek.toISOString())
+    .lt('scheduled_at', endOfWeek.toISOString())
+
+  if (errWeek) throw errWeek
+
+  return {
+    presenceRate30d,
+    r1ToR2Rate,
+    recallRecoveryRate,
+    weekUpcoming: weekUpcoming ?? 0,
+  }
+}
+
+export type RecallResult = 'positive' | 'no_answer' | 'refusal' | 'unreachable'
+
+export async function markRecallAttempt(rdvId: string, result: RecallResult): Promise<RendezVous> {
+  const { data: current, error: fetchError } = await supabase
+    .from('rendez_vous')
+    .select('recall_attempts, recall_status')
+    .eq('id', rdvId)
+    .single()
+
+  if (fetchError || !current) throw fetchError ?? new Error('RDV introuvable')
+
+  let newAttempts = current.recall_attempts ?? 0
+  let newStatus: 'recovered' | 'abandoned' | 'in_progress'
+
+  if (result === 'positive') {
+    newStatus = 'recovered'
+  } else {
+    newAttempts += 1
+    newStatus = newAttempts >= 3 ? 'abandoned' : 'in_progress'
+  }
+
+  const { data, error } = await supabase
+    .from('rendez_vous')
+    .update({ recall_attempts: newAttempts, recall_status: newStatus })
+    .eq('id', rdvId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as unknown as RendezVous
+}
+
+export async function cancelRdvWithReason(rdvId: string, reason: string): Promise<RendezVous> {
+  const { data, error } = await supabase
+    .from('rendez_vous')
+    .update({ status: 'annule' as RdvStatus, cancelled_reason: reason })
+    .eq('id', rdvId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as unknown as RendezVous
+}
+
 export async function getMyRdvThisWeek(commercialId: string): Promise<RendezVous[]> {
   const now = new Date()
   const startOfWeek = new Date(now)

@@ -7,7 +7,13 @@ import {
   updateRdv,
   getMyUpcomingRdv,
   getMyRdvThisWeek,
+  getRdvBySection,
+  getRdvKpis,
+  markRecallAttempt,
+  cancelRdvWithReason,
   type RdvFilters,
+  type RdvSection,
+  type RecallResult,
 } from '../services/rdv-service'
 import type { RdvType } from '@/types/enums'
 import { STALE_TIME_LIST } from '@/lib/constants'
@@ -112,5 +118,56 @@ export function useUpdateRdv() {
       }
     },
     onError: () => toast.error('Erreur lors de la mise à jour du RDV'),
+  })
+}
+
+// ============================================================================
+// Hooks pour la refonte page liste RDV (Chantier 2)
+// ============================================================================
+
+export function useRdvSection(section: RdvSection) {
+  return useQuery({
+    queryKey: ['rdv', 'section', section],
+    queryFn: () => getRdvBySection(section),
+    staleTime: 30_000,
+  })
+}
+
+export function useRdvKpis() {
+  return useQuery({
+    queryKey: ['rdv', 'kpis'],
+    queryFn: () => getRdvKpis(),
+    staleTime: 60_000,
+  })
+}
+
+export function useMarkRecallAttempt() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (params: { rdvId: string; result: RecallResult }) =>
+      markRecallAttempt(params.rdvId, params.result),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rdv', 'section'] })
+      queryClient.invalidateQueries({ queryKey: ['rdv', 'kpis'] })
+      queryClient.invalidateQueries({ queryKey: ['rdv'] })
+    },
+    onError: () => toast.error('Erreur lors du marquage du rappel'),
+  })
+}
+
+export function useCancelRdvWithReason() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (params: { rdvId: string; reason: string }) =>
+      cancelRdvWithReason(params.rdvId, params.reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rdv', 'section'] })
+      queryClient.invalidateQueries({ queryKey: ['rdv', 'kpis'] })
+      queryClient.invalidateQueries({ queryKey: ['rdv'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar'] })
+    },
+    onError: () => toast.error('Erreur lors de l\'annulation du RDV'),
   })
 }
