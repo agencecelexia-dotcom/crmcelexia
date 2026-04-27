@@ -46,6 +46,10 @@ export function PortalInviteDialog({ client, open, onOpenChange, onSuccess }: Pr
   const [activite, setActivite] = useState('')
   const [titre, setTitre] = useState('Gérant')
 
+  // Commission settings (variables du contrat)
+  const [commissionRate, setCommissionRate] = useState<number>(10)
+  const [commissionBase, setCommissionBase] = useState<'HT' | 'TTC'>('HT')
+
   // Email state
   const [email, setEmail] = useState('')
   const [inviteResult, setInviteResult] = useState<{ email: string; temp_password: string } | null>(null)
@@ -117,6 +121,8 @@ export function PortalInviteDialog({ client, open, onOpenChange, onSuccess }: Pr
         client_rcs_ville: rcsVille, client_siren: siren, client_siret: siret,
         client_adresse: adresse, client_code_postal: codePostal,
         client_ville: ville, client_activite: activite, client_titre: titre,
+        client_commission_rate: commissionRate,
+        client_commission_base: commissionBase,
       }
       const result = await inviteArtisanToPortal(client.id, email, undefined, contractData)
       setInviteResult({ email: result.email, temp_password: result.temp_password })
@@ -240,6 +246,42 @@ export function PortalInviteDialog({ client, open, onOpenChange, onSuccess }: Pr
               <div className="space-y-1"><Label className="text-xs">Ville</Label><Input value={ville} onChange={(e) => setVille(e.target.value)} className="h-8 text-sm" /></div>
               <div className="space-y-1"><Label className="text-xs">RCS Ville</Label><Input value={rcsVille} onChange={(e) => setRcsVille(e.target.value)} className="h-8 text-sm" /></div>
               <div className="space-y-1"><Label className="text-xs">Activité</Label><Input value={activite} onChange={(e) => setActivite(e.target.value)} className="h-8 text-sm" /></div>
+            </div>
+
+            {/* Commission settings — variables du contrat (article 4) */}
+            <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-3 space-y-2">
+              <p className="text-xs font-semibold text-violet-900">Commission Celexia (article 4 du contrat)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Pourcentage *</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={commissionRate}
+                      onChange={(e) => setCommissionRate(Number(e.target.value))}
+                      className="h-8 text-sm pr-7"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Base de calcul *</Label>
+                  <Select value={commissionBase} onValueChange={(v) => setCommissionBase(v as 'HT' | 'TTC')}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="HT">HT (hors taxes)</SelectItem>
+                      <SelectItem value="TTC">TTC (toutes taxes comprises)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-[11px] text-violet-700">
+                Le contrat affichera : « commission équivalente à <strong>{commissionRate} %</strong>{' '}
+                {commissionBase === 'HT' ? 'hors taxes (HT)' : 'toutes taxes comprises (TTC)'} du montant total des contrats signés ».
+              </p>
             </div>
 
             <DialogFooter>

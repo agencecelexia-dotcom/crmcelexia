@@ -20,6 +20,10 @@ export interface ContractData {
   client_ville: string
   client_activite: string
   client_titre: string
+  /** Pourcentage de commission (ex: 10 pour 10%). Défaut : 10. */
+  client_commission_rate?: number
+  /** Base de calcul : HT ou TTC. Défaut : HT. */
+  client_commission_base?: 'HT' | 'TTC'
 }
 
 function formatSiren(siren: string): string {
@@ -221,19 +225,22 @@ export async function generateContract(data: ContractData, options?: { clientSig
   drawParagraph(state, `Le client règle ses factures de communication publicitaire digitale qui ne sont pas prises en charge par Agence Celexia.`)
 
   // 4. MODALITÉS FINANCIÈRES
+  const commissionRate = data.client_commission_rate ?? 10
+  const commissionBase = data.client_commission_base ?? 'HT'
+  const baseLabel = commissionBase === 'HT' ? 'hors taxes (HT)' : 'toutes taxes comprises (TTC)'
   drawHeading(state, '4. MODALITÉS FINANCIÈRES')
   drawSubHeading(state, '4.1 — Principe de rémunération à la commission')
-  drawParagraph(state, `En contrepartie des prestations réalisées, le Client s'engage à verser à Agence Celexia une commission équivalente à 10 % hors taxes (HT) du montant total des contrats signés par ses clients finaux, dès lors que ces contrats ont été conclus au moyen des dispositifs digitaux créés et gérés par Agence Celexia (dits « Leads »).`)
-  drawParagraph(state, `Cette commission est calculée et exigible sur le montant HT des contrats conclus, indépendamment des délais de règlement effectifs entre le Client et ses propres clients.`)
+  drawParagraph(state, `En contrepartie des prestations réalisées, le Client s'engage à verser à Agence Celexia une commission équivalente à ${commissionRate} % ${baseLabel} du montant total des contrats signés par ses clients finaux, dès lors que ces contrats ont été conclus au moyen des dispositifs digitaux créés et gérés par Agence Celexia (dits « Leads »).`)
+  drawParagraph(state, `Cette commission est calculée et exigible sur le montant ${commissionBase} des contrats conclus, indépendamment des délais de règlement effectifs entre le Client et ses propres clients.`)
   drawParagraph(state, `Aucune mensualité fixe ni frais de mise en place ne sont dus par le Client qui bénéficie pour les services rendus d'une rémunération uniquement au résultat.`)
 
   drawSubHeading(state, '4.2 — Suivi et attribution des Leads')
   drawParagraph(state, `Agence Celexia, au moyen du système digital qu'elle met en œuvre (visibilité), génère de nouveaux contacts pour le Client ; ces nouveaux contacts sont appelés « Leads ».`)
-  drawParagraph(state, `Le suivi des Leads repose sur un système de traçabilité des contacts entrants mis en place par Agence Celexia, que le Client s'engage à confirmer chaque fin de mois en adressant à Agence Celexia un mail avec 1/ la liste des Leads et 2/ la liste des Leads convertis (ceux avec lesquels un contrat a été signé) et le montant HT de chaque contrat signé.`)
+  drawParagraph(state, `Le suivi des Leads repose sur un système de traçabilité des contacts entrants mis en place par Agence Celexia, que le Client s'engage à confirmer chaque fin de mois en adressant à Agence Celexia un mail avec 1/ la liste des Leads et 2/ la liste des Leads convertis (ceux avec lesquels un contrat a été signé) et le montant ${commissionBase} de chaque contrat signé.`)
   drawParagraph(state, `Il s'agit pour le Client d'un engagement loyal et de bonne foi indispensable à l'économie générale du contrat puisqu'Agence Celexia n'offre ses services qu'en considération des résultats à venir que seul son Client peut lui transmettre.`)
   drawParagraph(state, `Les Parties conviennent que leur relation est fondée sur la confiance mutuelle, dans un intérêt commun de transparence et de croissance partagée.`)
   drawParagraph(state, `En tout état de cause, le Client s'engage à informer Agence Celexia, dans un délai de 5 jours ouvrés suivant la signature de tout contrat issu d'un Lead converti, des éléments suivants :`)
-  drawBullet(state, `Montant HT du devis ou de la facture concerné(e)`)
+  drawBullet(state, `Montant ${commissionBase} du devis ou de la facture concerné(e)`)
   drawBullet(state, `Nature des travaux et localisation approximative du chantier`)
   drawBullet(state, `Date de signature ou d'acceptation du devis`)
   drawParagraph(state, `Cette transmission s'effectue par tout moyen écrit (email ou SMS). En cas d'omission ou de retard répété 48 heures après une relance infructueuse, Agence Celexia est en droit de suspendre les prestations.`)
