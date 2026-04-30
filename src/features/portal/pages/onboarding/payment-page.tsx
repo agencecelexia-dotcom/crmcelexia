@@ -6,8 +6,9 @@ import { ProgressHeader } from '../../components/onboarding/progress-header'
 import { ArrowLeft, ArrowRight, Upload, FileText, Trash2, Copy, Check, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-const IBAN = 'FR76 1820 6004 4464 1939 4300 155'
-const BIC = 'AGRIFRPP882'
+const IBAN = 'FR76 1695 8000 0129 8676 6973 937'
+const BIC = 'QNTOFRP1XXX'
+const SWIFT_PARTNER = 'TRWIBEB3XXX'
 const REFERENCE = 'CELEXIA-LAUNCH'
 
 function Row({ label, value, mono, highlight }: { label: string; value: string; mono?: boolean; highlight?: boolean }) {
@@ -81,8 +82,8 @@ export function PaymentPage() {
           Coordonnées bancaires Celexia
         </div>
         <div style={{ display: 'grid', gap: 14 }}>
-          <Row label="Bénéficiaire" value="CELEXIA SASU" />
-          <Row label="Banque" value="Crédit Agricole" />
+          <Row label="Bénéficiaire" value="CELEXIA" />
+          <Row label="Banque" value="Qonto (Olinda SAS)" />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 2 }}>IBAN</div>
@@ -92,8 +93,11 @@ export function PaymentPage() {
               {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copié !' : 'Copier'}
             </button>
           </div>
-          <Row label="BIC" value={BIC} mono />
+          <Row label="BIC / SWIFT" value={BIC} mono />
           <Row label="Référence virement" value={REFERENCE} mono highlight />
+        </div>
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--gray-100)', fontSize: 12, color: 'var(--gray-500)', lineHeight: 1.5 }}>
+          Pour un virement <strong style={{ color: 'var(--gray-700)' }}>SWIFT international</strong>, votre banque pourrait demander le BIC de la banque partenaire : <span className="font-mono" style={{ color: 'var(--gray-700)' }}>{SWIFT_PARTNER}</span>.
         </div>
       </div>
 
