@@ -12,19 +12,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  PORTAL_LEAD_STATUS_LABELS,
+  PORTAL_LEAD_STATUS_VAR_COLORS,
+  PORTAL_LEAD_STATUS_ORDER,
+  type PortalLeadStatus,
+} from '@/types/enums'
 
-const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  nouveau: { label: 'Nouveau', color: 'var(--blue-600)', bg: 'var(--blue-100)' },
-  qualifie: { label: 'Qualifié', color: 'var(--violet-700)', bg: 'var(--violet-100)' },
-  devis: { label: 'Devis envoyé', color: 'var(--amber-600)', bg: 'var(--amber-100)' },
-  signe: { label: 'Signé', color: 'var(--emerald-600)', bg: 'var(--emerald-100)' },
-  perdu: { label: 'Perdu', color: 'var(--gray-500)', bg: 'var(--gray-100)' },
-}
-
-const COLS = ['nouveau', 'qualifie', 'devis', 'signe', 'perdu']
-
-// Liste utilisée par le menu "⋮" pour changer de statut depuis mobile/clavier
-const STATUS_OPTIONS = COLS
+const COLS: PortalLeadStatus[] = PORTAL_LEAD_STATUS_ORDER
 
 type StatusChangeMenuProps = {
   currentStatus: string
@@ -66,8 +61,7 @@ function StatusChangeMenu({ currentStatus, onChange, leadName }: StatusChangeMen
       >
         <DropdownMenuLabel>Changer le statut</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {STATUS_OPTIONS.map(s => {
-          const m = STATUS_META[s]
+        {PORTAL_LEAD_STATUS_ORDER.map(s => {
           const isCurrent = s === currentStatus
           return (
             <DropdownMenuItem
@@ -82,11 +76,11 @@ function StatusChangeMenu({ currentStatus, onChange, leadName }: StatusChangeMen
                   width: 8,
                   height: 8,
                   borderRadius: '50%',
-                  background: m.color,
+                  background: PORTAL_LEAD_STATUS_VAR_COLORS[s].color,
                   flexShrink: 0,
                 }}
               />
-              <span style={{ flex: 1 }}>{m.label}</span>
+              <span style={{ flex: 1 }}>{PORTAL_LEAD_STATUS_LABELS[s]}</span>
               {isCurrent && <Check size={14} style={{ color: 'var(--violet-600)' }} />}
             </DropdownMenuItem>
           )
@@ -207,7 +201,7 @@ export function PortalLeadsKanbanPage() {
           {COLS.map(col => {
             const colLeads = filtered.filter(l => l.status === col)
             const collapsed = col === 'perdu' && !perduOpen
-            const m = STATUS_META[col]
+            const m = { ...PORTAL_LEAD_STATUS_VAR_COLORS[col], label: PORTAL_LEAD_STATUS_LABELS[col] }
             return (
               <div
                 key={col}
@@ -233,11 +227,20 @@ export function PortalLeadsKanbanPage() {
                     {colLeads.map(lead => (
                       <div
                         key={lead.id}
-                        className={`kanban-card ${dragId === lead.id ? 'dragging' : ''}`}
+                        className={`kanban-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 ${dragId === lead.id ? 'dragging' : ''}`}
                         draggable
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Lead ${lead.name} — ${lead.work_type}`}
                         onDragStart={() => setDragId(lead.id)}
                         onDragEnd={() => setDragId(null)}
                         onClick={() => navigate(`/portal/leads/${lead.id}`)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            navigate(`/portal/leads/${lead.id}`)
+                          }
+                        }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
                           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)', minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.name}</div>
@@ -300,7 +303,7 @@ export function PortalLeadsKanbanPage() {
                       <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: l.source === 'lsa' ? 'var(--blue-100)' : 'var(--gray-100)', color: l.source === 'lsa' ? 'var(--blue-600)' : 'var(--gray-600)' }}>{l.source === 'lsa' ? 'Google Ads' : 'BAO'}</span>
                     </td>
                     <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: STATUS_META[l.status]?.bg, color: STATUS_META[l.status]?.color }}>{STATUS_META[l.status]?.label}</span>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: PORTAL_LEAD_STATUS_VAR_COLORS[l.status]?.bg, color: PORTAL_LEAD_STATUS_VAR_COLORS[l.status]?.color }}>{PORTAL_LEAD_STATUS_LABELS[l.status]}</span>
                     </td>
                     <td
                       style={{ padding: '8px 12px', borderBottom: '1px solid var(--gray-100)', width: 48 }}

@@ -74,12 +74,22 @@ Deno.serve(async (req) => {
     }
 
     // Create the auth user with artisan role
-    // Simple password: celexia + 4 random digits (e.g. celexia7452)
-    function generateSimplePassword(): string {
-      const digits = Math.floor(1000 + Math.random() * 9000)
-      return `celexia${digits}`
+    // Strong password: "celexia-" prefix (lisible pour le support) + 10 chars
+    // random alphanumériques tirés d'un crypto.getRandomValues. Le set exclut
+    // les caractères ambigus (0/O, 1/l/I) pour limiter les erreurs de lecture.
+    // ~10^17 combinaisons — pas brute-forçable.
+    function generateStrongPassword(): string {
+      const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+      const len = 10
+      const bytes = new Uint8Array(len)
+      crypto.getRandomValues(bytes)
+      let out = ''
+      for (let i = 0; i < len; i++) {
+        out += alphabet[bytes[i] % alphabet.length]
+      }
+      return `celexia-${out}`
     }
-    const tempPassword = password || generateSimplePassword()
+    const tempPassword = password || generateStrongPassword()
     const displayName = full_name || [client.contact_firstname, client.contact_name].filter(Boolean).join(' ') || client.company_name
 
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({

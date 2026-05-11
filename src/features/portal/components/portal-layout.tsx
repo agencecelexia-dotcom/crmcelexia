@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
+import { usePortalShortcuts } from '../hooks/use-portal-shortcuts'
 import { Home, LayoutGrid, Euro, FolderOpen, KeyRound, LogOut, Bell, Sparkles, Menu } from 'lucide-react'
 import { ChangePasswordDialog } from './change-password-dialog'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
@@ -112,6 +113,9 @@ export function PortalLayout() {
   const [pwdOpen, setPwdOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // Raccourcis clavier globaux : g+d (dashboard), g+l (leads), g+c (commission), g+f (documents)
+  usePortalShortcuts()
+
   const handleSignOut = async () => {
     setSidebarOpen(false)
     await signOut()
@@ -170,11 +174,11 @@ export function PortalLayout() {
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           {/* Topbar */}
           <div
-            className="px-4 py-3 md:px-6 md:py-4"
+            className="px-4 py-3 md:px-6 md:py-4 xl:py-2.5 min-h-16 xl:min-h-14"
             style={{
               background: 'white', borderBottom: '1px solid var(--gray-200)',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              minHeight: 64, gap: 8,
+              gap: 8,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>

@@ -671,7 +671,22 @@ export const PORTAL_LEAD_STATUS_COLORS: Record<PortalLeadStatus, string> = {
   perdu: 'bg-gray-100 text-gray-600',
 }
 
+// Couleurs CSS vars pour les badges/pastilles du portail (kanban + détail lead).
+// Distinct de PORTAL_LEAD_STATUS_COLORS qui contient des classes Tailwind :
+// le portail artisan utilise un design system custom basé sur CSS vars.
+export const PORTAL_LEAD_STATUS_VAR_COLORS: Record<PortalLeadStatus, { color: string; bg: string }> = {
+  nouveau: { color: 'var(--blue-600)', bg: 'var(--blue-100)' },
+  qualifie: { color: 'var(--violet-700)', bg: 'var(--violet-100)' },
+  devis: { color: 'var(--amber-600)', bg: 'var(--amber-100)' },
+  signe: { color: 'var(--emerald-600)', bg: 'var(--emerald-100)' },
+  perdu: { color: 'var(--gray-500)', bg: 'var(--gray-100)' },
+}
+
+// Pipeline actif (sans perdu) — utilisé pour les conversions, stats, etc.
 export const PORTAL_LEAD_PIPELINE: PortalLeadStatus[] = ['nouveau', 'qualifie', 'devis', 'signe']
+
+// Ordre complet pour le Kanban (inclut la colonne "perdu" en fin).
+export const PORTAL_LEAD_STATUS_ORDER: PortalLeadStatus[] = ['nouveau', 'qualifie', 'devis', 'signe', 'perdu']
 
 // ── Portal Onboarding Status ──
 export const PORTAL_ONBOARDING_STATUS = {

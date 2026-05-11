@@ -3,15 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { usePortalLead, usePortalLeadEvents, useUpdatePortalLeadStatus, useUpdatePortalLead, useDeletePortalLead } from '../hooks/use-portal-leads'
 import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatDate } from '@/lib/format'
-
-const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  nouveau: { label: 'Nouveau', color: 'var(--blue-600)', bg: 'var(--blue-100)' },
-  qualifie: { label: 'Qualifié', color: 'var(--violet-700)', bg: 'var(--violet-100)' },
-  devis: { label: 'Devis envoyé', color: 'var(--amber-600)', bg: 'var(--amber-100)' },
-  signe: { label: 'Signé', color: 'var(--emerald-600)', bg: 'var(--emerald-100)' },
-  perdu: { label: 'Perdu', color: 'var(--gray-500)', bg: 'var(--gray-100)' },
-}
+import { formatDate, formatDateTime } from '@/lib/format'
+import {
+  PORTAL_LEAD_STATUS_LABELS,
+  PORTAL_LEAD_STATUS_VAR_COLORS,
+} from '@/types/enums'
 
 export function PortalLeadDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -29,7 +25,8 @@ export function PortalLeadDetailPage() {
 
   if (isLoading || !lead) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>Chargement...</div>
 
-  const m = STATUS_META[lead.status] || STATUS_META.nouveau
+  const statusColors = PORTAL_LEAD_STATUS_VAR_COLORS[lead.status] || PORTAL_LEAD_STATUS_VAR_COLORS.nouveau
+  const statusLabel = PORTAL_LEAD_STATUS_LABELS[lead.status] || PORTAL_LEAD_STATUS_LABELS.nouveau
   const currentNotes = notes ?? lead.notes ?? ''
   const commission = signAmount ? (Number(signAmount) * 0.1).toLocaleString('fr-FR') : '—'
 
@@ -67,7 +64,7 @@ export function PortalLeadDetailPage() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <h1 className="font-display" style={{ fontSize: 26, fontWeight: 700 }}>{lead.name}</h1>
-            <span className="p-tag" style={{ background: m.bg, color: m.color, border: 'none' }}>{m.label}</span>
+            <span className="p-tag" style={{ background: statusColors.bg, color: statusColors.color, border: 'none' }}>{statusLabel}</span>
           </div>
           <div style={{ display: 'flex', gap: 12, fontSize: 13, color: 'var(--gray-500)', flexWrap: 'wrap' }}>
             {lead.city && <span>{lead.city}</span>}
@@ -150,9 +147,14 @@ export function PortalLeadDetailPage() {
                     <div className="timeline-dot done">
                       <CheckCircle2 size={10} />
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 2 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 2, gap: 8 }}>
                       <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--gray-900)' }}>{ev.description}</div>
-                      <div style={{ fontSize: 12, color: 'var(--gray-500)', flexShrink: 0 }}>{formatDate(ev.created_at)}</div>
+                      <div
+                        title={formatDateTime(ev.created_at)}
+                        style={{ fontSize: 12, color: 'var(--gray-500)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}
+                      >
+                        {formatDateTime(ev.created_at)}
+                      </div>
                     </div>
                   </div>
                 ))}

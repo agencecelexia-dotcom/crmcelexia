@@ -1,9 +1,17 @@
 import { usePortalAuth } from '../hooks/use-portal-auth'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
-import { FileText, Shield, Download, Building2 } from 'lucide-react'
+import { FileText, Shield, Download, Building2, Upload } from 'lucide-react'
 
-function DocCard({ title, icon: Icon, status, statusColor, subtitle, path }: {
-  title: string; icon: React.ElementType; status?: string; statusColor?: string; subtitle?: string; path?: string | null
+function DocCard({ title, icon: Icon, status, statusColor, subtitle, path, missing, onUpload }: {
+  title: string
+  icon: React.ElementType
+  status?: string
+  statusColor?: string
+  subtitle?: string
+  path?: string | null
+  missing?: boolean
+  onUpload?: () => void
 }) {
   async function handleDownload() {
     if (!path) return
@@ -11,8 +19,18 @@ function DocCard({ title, icon: Icon, status, statusColor, subtitle, path }: {
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
+  const interactive = Boolean(path) || Boolean(missing && onUpload)
+  function handleCardClick() {
+    if (path) handleDownload()
+    else if (missing && onUpload) onUpload()
+  }
+
   return (
-    <div className="p-card p-card-hoverable" style={{ padding: 20, cursor: path ? 'pointer' : 'default' }} onClick={path ? handleDownload : undefined}>
+    <div
+      className="p-card p-card-hoverable"
+      style={{ padding: 20, cursor: interactive ? 'pointer' : 'default' }}
+      onClick={interactive ? handleCardClick : undefined}
+    >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
         <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--violet-100)', color: 'var(--violet-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Icon size={22} />
@@ -29,6 +47,16 @@ function DocCard({ title, icon: Icon, status, statusColor, subtitle, path }: {
               {status}
             </span>
           )}
+          {missing && onUpload && (
+            <button
+              type="button"
+              className="btn btn-secondary mt-3"
+              style={{ padding: '6px 12px', fontSize: 12 }}
+              onClick={e => { e.stopPropagation(); onUpload() }}
+            >
+              <Upload size={13} /> Téléverser
+            </button>
+          )}
         </div>
         {path && <Download size={16} style={{ color: 'var(--gray-400)', flexShrink: 0, marginTop: 4 }} />}
       </div>
@@ -38,19 +66,23 @@ function DocCard({ title, icon: Icon, status, statusColor, subtitle, path }: {
 
 export function PortalDocumentsPage() {
   const { onboarding } = usePortalAuth()
+  const navigate = useNavigate()
+  const goToOnboarding = () => navigate('/portal/onboarding/welcome')
 
   return (
     <div>
       <h1 className="font-display" style={{ fontSize: 26, fontWeight: 700, marginBottom: 6 }}>Documents</h1>
       <p style={{ fontSize: 14, color: 'var(--gray-500)', marginBottom: 24 }}>Vos documents contractuels et légaux</p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginBottom: 28 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 mb-7">
         <DocCard
           title="Contrat Celexia"
           icon={FileText}
           status={onboarding?.contract_signed ? 'Signé' : 'Non signé'}
           statusColor={onboarding?.contract_signed ? 'emerald' : 'amber'}
           subtitle="Contrat de partenariat d'apport d'affaires"
+          missing={!onboarding?.contract_signed}
+          onUpload={goToOnboarding}
         />
         <DocCard
           title="Assurance RC Pro"
@@ -59,6 +91,8 @@ export function PortalDocumentsPage() {
           statusColor={onboarding?.rc_pro_uploaded ? 'emerald' : 'amber'}
           subtitle="Responsabilité civile professionnelle"
           path={onboarding?.rc_pro_path}
+          missing={!onboarding?.rc_pro_uploaded}
+          onUpload={goToOnboarding}
         />
         <DocCard
           title="Extrait Kbis"
@@ -67,6 +101,8 @@ export function PortalDocumentsPage() {
           statusColor={onboarding?.kbis_uploaded ? 'emerald' : 'amber'}
           subtitle="Extrait de moins de 3 mois"
           path={onboarding?.kbis_path}
+          missing={!onboarding?.kbis_uploaded}
+          onUpload={goToOnboarding}
         />
         <DocCard
           title="Preuve de paiement"
@@ -75,6 +111,8 @@ export function PortalDocumentsPage() {
           statusColor={onboarding?.payment_proof_uploaded ? 'emerald' : 'amber'}
           subtitle="Justificatif de virement du budget pub"
           path={onboarding?.payment_proof_path}
+          missing={!onboarding?.payment_proof_uploaded}
+          onUpload={goToOnboarding}
         />
       </div>
 

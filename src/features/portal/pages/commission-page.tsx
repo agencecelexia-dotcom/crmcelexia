@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLeads, usePortalLeadStats } from '../hooks/use-portal-leads'
 import { Euro, CheckCircle2, TrendingUp, Info, ChevronDown } from 'lucide-react'
-
-function formatEur(n: number) { return n.toLocaleString('fr-FR') + ' €' }
+import { PortalKpiCard } from '../components/portal-kpi-card'
+import { formatEur } from '../lib/format'
 
 export function PortalCommissionPage() {
   const { client } = usePortalAuth()
@@ -30,16 +30,18 @@ export function PortalCommissionPage() {
           <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 500 }}>À payer ce mois</div>
           <div className="font-display" style={{ fontSize: 28, fontWeight: 700, marginTop: 4 }}>{formatEur(stats?.commission_this_month || 0)} HT</div>
         </div>
-        <div className="p-card" style={{ padding: 20 }}>
-          <CheckCircle2 size={18} style={{ color: 'var(--emerald-500)', marginBottom: 8 }} />
-          <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 500 }}>Devis signés · ce mois</div>
-          <div className="font-display" style={{ fontSize: 28, fontWeight: 700, marginTop: 4, color: 'var(--gray-900)' }}>{stats?.signed_this_month || 0}</div>
-        </div>
-        <div className="p-card" style={{ padding: 20 }}>
-          <TrendingUp size={18} style={{ color: 'var(--violet-500)', marginBottom: 8 }} />
-          <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 500 }}>Cumul 2026</div>
-          <div className="font-display" style={{ fontSize: 28, fontWeight: 700, marginTop: 4, color: 'var(--gray-900)' }}>{formatEur(totalCommission)}</div>
-        </div>
+        <PortalKpiCard
+          label="Devis signés · ce mois"
+          value={String(stats?.signed_this_month || 0)}
+          icon={<CheckCircle2 size={18} />}
+          tone="emerald"
+        />
+        <PortalKpiCard
+          label="Cumul 2026"
+          value={formatEur(totalCommission)}
+          icon={<TrendingUp size={18} />}
+          tone="violet"
+        />
       </div>
 
       {/* Detail table */}

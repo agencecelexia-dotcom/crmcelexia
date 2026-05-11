@@ -2,27 +2,8 @@ import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLeads, usePortalLeadStats } from '../hooks/use-portal-leads'
 import { Users, FileText, CheckCircle2, TrendingUp, Plus, Phone, ArrowRight } from 'lucide-react'
-
-function KPI({ label, value, delta, icon, tone = 'violet' }: {
-  label: string; value: string; delta?: string; icon: React.ReactNode; tone?: string
-}) {
-  const toneBg: Record<string, string> = { violet: 'var(--violet-100)', emerald: 'var(--emerald-100)', blue: 'var(--blue-100)', amber: 'var(--amber-100)' }
-  const toneFg: Record<string, string> = { violet: 'var(--violet-600)', emerald: 'var(--emerald-600)', blue: 'var(--blue-600)', amber: 'var(--amber-600)' }
-  return (
-    <div className="p-card p-card-hoverable" style={{ padding: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: toneBg[tone], color: toneFg[tone], display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icon}</div>
-        {delta && <span style={{ fontSize: 12, fontWeight: 600, color: delta.startsWith('+') ? 'var(--emerald-600)' : 'var(--gray-500)' }}>{delta}</span>}
-      </div>
-      <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 500, marginBottom: 4, letterSpacing: '0.01em' }}>{label}</div>
-      <div className="font-display" style={{ fontSize: 28, fontWeight: 700, color: 'var(--gray-900)' }}>{value}</div>
-    </div>
-  )
-}
-
-function formatEur(n: number) {
-  return n.toLocaleString('fr-FR') + ' €'
-}
+import { PortalKpiCard } from '../components/portal-kpi-card'
+import { formatEur } from '../lib/format'
 
 export function PortalDashboardPage() {
   const navigate = useNavigate()
@@ -60,11 +41,11 @@ export function PortalDashboardPage() {
       </div>
 
       {/* KPI cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
-        <KPI label="Leads ce mois" value={String(stats?.leads_this_month || 0)} icon={<Users size={18} />} tone="blue" />
-        <KPI label="Devis envoyés" value={String(stats?.devis_envoyes || 0)} icon={<FileText size={18} />} tone="amber" />
-        <KPI label="Devis signés" value={String(stats?.signed_count || 0)} icon={<CheckCircle2 size={18} />} tone="emerald" />
-        <KPI label="CA généré" value={formatEur(totalCa)} icon={<TrendingUp size={18} />} tone="violet" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
+        <PortalKpiCard label="Leads ce mois" value={String(stats?.leads_this_month || 0)} icon={<Users size={18} />} tone="blue" />
+        <PortalKpiCard label="Devis envoyés" value={String(stats?.devis_envoyes || 0)} icon={<FileText size={18} />} tone="amber" />
+        <PortalKpiCard label="Devis signés" value={String(stats?.signed_count || 0)} icon={<CheckCircle2 size={18} />} tone="emerald" />
+        <PortalKpiCard label="CA généré" value={formatEur(totalCa)} icon={<TrendingUp size={18} />} tone="violet" />
       </div>
 
       {/* Activity + Commission card */}
@@ -97,7 +78,7 @@ export function PortalDashboardPage() {
         </div>
 
         {/* Commission card */}
-        <div style={{
+        <div className="min-h-[280px]" style={{
           background: 'linear-gradient(135deg, var(--violet-600), var(--violet-700))',
           color: 'white', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-violet)',
           padding: 24, display: 'flex', flexDirection: 'column',
