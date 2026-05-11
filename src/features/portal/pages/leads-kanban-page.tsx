@@ -151,12 +151,20 @@ export function PortalLeadsKanbanPage() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 className="font-display" style={{ fontSize: 26, fontWeight: 700 }}>Leads</h1>
-          <p style={{ fontSize: 13, color: 'var(--gray-500)', marginTop: 2 }}>{filtered.length} leads · {(leads ?? []).filter(l => l.status === 'nouveau').length} nouveaux</p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-5 sm:gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="font-display text-xl font-bold sm:text-2xl md:text-[26px]">Leads</h1>
+          <p className="mt-0.5 text-xs text-[var(--gray-500)] sm:text-[13px]">
+            {filtered.length} leads · {(leads ?? []).filter(l => l.status === 'nouveau').length} nouveaux
+          </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}><Plus size={16} /> Nouveau lead</button>
+        <button
+          className="btn btn-primary flex-shrink-0"
+          onClick={() => setShowModal(true)}
+          style={{ padding: '8px 14px', fontSize: 13 }}
+        >
+          <Plus size={16} /> <span className="hidden sm:inline">Nouveau lead</span><span className="sm:hidden">Nouveau</span>
+        </button>
       </div>
 
       {/* Toolbar */}

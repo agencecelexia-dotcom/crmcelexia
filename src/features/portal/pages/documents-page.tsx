@@ -42,30 +42,36 @@ function DocCard({ title, icon: Icon, status, statusColor, subtitle, path, missi
 
   return (
     <div
-      className="p-card p-card-hoverable"
-      style={{ padding: 20, cursor: interactive ? 'pointer' : 'default' }}
+      className={`p-card p-card-hoverable p-3.5 sm:p-5 ${interactive ? 'cursor-pointer' : ''}`}
       onClick={interactive ? handleCardClick : undefined}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--violet-100)', color: 'var(--violet-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon size={22} />
+      <div className="flex items-start gap-3 sm:gap-3.5">
+        <div
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] sm:h-11 sm:w-11 sm:rounded-xl"
+          style={{ background: 'var(--violet-100)', color: 'var(--violet-600)' }}
+        >
+          <Icon size={18} className="sm:hidden" />
+          <Icon size={22} className="hidden sm:block" />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 2 }}>{title}</div>
-          {subtitle && <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 6 }}>{subtitle}</div>}
+        <div className="min-w-0 flex-1">
+          <div className="mb-0.5 text-sm font-semibold text-[var(--gray-900)] sm:text-[15px]">{title}</div>
+          {subtitle && <div className="mb-1.5 text-[11px] text-[var(--gray-500)] sm:text-xs">{subtitle}</div>}
           {status && (
-            <span className="p-tag" style={{
-              background: statusColor?.includes('emerald') ? 'var(--emerald-100)' : statusColor?.includes('amber') ? 'var(--amber-100)' : 'var(--gray-100)',
-              color: statusColor?.includes('emerald') ? 'var(--emerald-600)' : statusColor?.includes('amber') ? 'var(--amber-600)' : 'var(--gray-600)',
-              border: 'none',
-            }}>
+            <span
+              className="p-tag"
+              style={{
+                background: statusColor?.includes('emerald') ? 'var(--emerald-100)' : statusColor?.includes('amber') ? 'var(--amber-100)' : 'var(--gray-100)',
+                color: statusColor?.includes('emerald') ? 'var(--emerald-600)' : statusColor?.includes('amber') ? 'var(--amber-600)' : 'var(--gray-600)',
+                border: 'none',
+              }}
+            >
               {status}
             </span>
           )}
           {missing && onUpload && (
             <button
               type="button"
-              className="btn btn-secondary mt-3"
+              className="btn btn-secondary mt-2.5"
               style={{ padding: '6px 12px', fontSize: 12 }}
               onClick={e => { e.stopPropagation(); onUpload() }}
             >
@@ -73,7 +79,7 @@ function DocCard({ title, icon: Icon, status, statusColor, subtitle, path, missi
             </button>
           )}
         </div>
-        {path && <Download size={16} style={{ color: 'var(--gray-400)', flexShrink: 0, marginTop: 4 }} />}
+        {path && <Download size={16} className="mt-1 flex-shrink-0 text-[var(--gray-400)]" />}
       </div>
     </div>
   )
@@ -86,10 +92,10 @@ export function PortalDocumentsPage() {
 
   return (
     <div>
-      <h1 className="font-display" style={{ fontSize: 26, fontWeight: 700, marginBottom: 6 }}>Documents</h1>
-      <p style={{ fontSize: 14, color: 'var(--gray-500)', marginBottom: 24 }}>Vos documents contractuels et légaux</p>
+      <h1 className="font-display mb-1 text-xl font-bold sm:mb-1.5 sm:text-2xl md:text-[26px]">Documents</h1>
+      <p className="mb-4 text-xs text-[var(--gray-500)] sm:mb-6 sm:text-sm">Vos documents contractuels et légaux</p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 mb-7">
+      <div className="mb-5 grid grid-cols-1 gap-2.5 sm:mb-7 sm:grid-cols-2 sm:gap-3.5 lg:grid-cols-3 xl:grid-cols-4">
         <DocCard
           title="Contrat Celexia"
           icon={FileText}

@@ -19,18 +19,21 @@ export function PortalCommissionPage() {
 
   return (
     <div>
-      <h1 className="font-display" style={{ fontSize: 26, fontWeight: 700, marginBottom: 20 }}>Commission</h1>
+      <h1 className="font-display mb-4 text-xl font-bold sm:mb-5 sm:text-2xl md:text-[26px]">Commission</h1>
 
       {/* KPI row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
+      <div className="mb-5 grid grid-cols-1 gap-2.5 sm:mb-7 sm:grid-cols-3 sm:gap-4">
         {/* Commission card — violet bg */}
-        <div style={{
-          background: 'linear-gradient(135deg, var(--violet-600), var(--violet-700))',
-          color: 'white', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-violet)', padding: 20,
-        }}>
-          <Euro size={18} style={{ opacity: 0.8, marginBottom: 8 }} />
-          <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 500 }}>À payer ce mois</div>
-          <div className="font-display" style={{ fontSize: 28, fontWeight: 700, marginTop: 4 }}>{formatEur(stats?.commission_this_month || 0)} {terms.base}</div>
+        <div
+          className="p-4 sm:p-5"
+          style={{
+            background: 'linear-gradient(135deg, var(--violet-600), var(--violet-700))',
+            color: 'white', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-violet)',
+          }}
+        >
+          <Euro size={18} className="mb-1.5 opacity-80" />
+          <div className="text-[11px] font-medium opacity-85 sm:text-xs">À payer ce mois</div>
+          <div className="font-display mt-0.5 text-2xl font-bold sm:text-[28px]">{formatEur(stats?.commission_this_month || 0)} {terms.base}</div>
         </div>
         <PortalKpiCard
           label="Devis signés · ce mois"

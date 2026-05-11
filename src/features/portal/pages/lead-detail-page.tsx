@@ -76,24 +76,25 @@ export function PortalLeadDetailPage() {
   return (
     <div>
       {/* Back button */}
-      <button className="btn btn-ghost" onClick={() => navigate('/portal/leads')} style={{ marginBottom: 16, padding: '6px 10px', fontSize: 13 }}>
-        <ArrowLeft size={14} /> Retour aux leads
+      <button
+        className="btn btn-ghost mb-3 sm:mb-4"
+        onClick={() => navigate('/portal/leads')}
+        style={{ padding: '6px 10px', fontSize: 13 }}
+      >
+        <ArrowLeft size={14} /> Retour
       </button>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <h1 className="font-display" style={{ fontSize: 26, fontWeight: 700 }}>{lead.name}</h1>
-            <span className="p-tag" style={{ background: statusColors.bg, color: statusColors.color, border: 'none' }}>{statusLabel}</span>
-          </div>
-          <div style={{ display: 'flex', gap: 12, fontSize: 13, color: 'var(--gray-500)', flexWrap: 'wrap' }}>
-            {lead.city && <span>{lead.city}</span>}
-            <span>·</span>
-            <span>{lead.work_type}</span>
-            <span>·</span>
-            <span>Créé le {formatDate(lead.created_at)}</span>
-          </div>
+      <div className="mb-4 sm:mb-6">
+        <div className="mb-1.5 flex flex-wrap items-center gap-2">
+          <h1 className="font-display text-xl font-bold leading-tight sm:text-2xl md:text-[26px]">{lead.name}</h1>
+          <span className="p-tag" style={{ background: statusColors.bg, color: statusColors.color, border: 'none' }}>{statusLabel}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--gray-500)] sm:text-[13px]">
+          {lead.city && <><span>{lead.city}</span><span>·</span></>}
+          <span>{lead.work_type}</span>
+          <span>·</span>
+          <span>Créé le {formatDate(lead.created_at)}</span>
         </div>
       </div>
 

@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 
 // Carte KPI compacte utilisée dans les pages du portail artisan
-// (dashboard, commission, …). Garde les couleurs et l'aspect visuel
-// défini par les CSS vars du design system du portail.
+// (dashboard, commission, …). Compact sur mobile, généreux sur desktop.
 export type PortalKpiTone = 'violet' | 'emerald' | 'blue' | 'amber'
 
 const TONE_BG: Record<PortalKpiTone, string> = {
@@ -30,27 +29,18 @@ interface PortalKpiCardProps {
 
 export function PortalKpiCard({ label, value, icon, tone = 'violet', delta }: PortalKpiCardProps) {
   return (
-    <div className="p-card p-card-hoverable" style={{ padding: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+    <div className="p-card p-card-hoverable p-3 sm:p-5">
+      <div className="mb-2 flex items-start justify-between sm:mb-3.5">
         <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: TONE_BG[tone],
-            color: TONE_FG[tone],
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          className="flex h-8 w-8 items-center justify-center rounded-lg sm:h-9 sm:w-9"
+          style={{ background: TONE_BG[tone], color: TONE_FG[tone] }}
         >
           {icon}
         </div>
         {delta && (
           <span
+            className="text-[11px] font-semibold sm:text-xs"
             style={{
-              fontSize: 12,
-              fontWeight: 600,
               color: delta.startsWith('+') ? 'var(--emerald-600)' : 'var(--gray-500)',
             }}
           >
@@ -58,18 +48,10 @@ export function PortalKpiCard({ label, value, icon, tone = 'violet', delta }: Po
           </span>
         )}
       </div>
-      <div
-        style={{
-          fontSize: 12,
-          color: 'var(--gray-500)',
-          fontWeight: 500,
-          marginBottom: 4,
-          letterSpacing: '0.01em',
-        }}
-      >
+      <div className="mb-0.5 text-[11px] font-medium text-[var(--gray-500)] sm:text-xs">
         {label}
       </div>
-      <div className="font-display" style={{ fontSize: 28, fontWeight: 700, color: 'var(--gray-900)' }}>
+      <div className="font-display text-xl font-bold text-[var(--gray-900)] sm:text-2xl md:text-[28px]">
         {value}
       </div>
     </div>
