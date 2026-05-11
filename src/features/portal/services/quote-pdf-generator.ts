@@ -115,7 +115,6 @@ function drawHeader(state: State, settings: QuoteSettings, logo: PDFImage | null
   if (logo) {
     const maxW = 80
     const ratio = logo.height / logo.width
-    const w = maxW
     const h = maxW * ratio
     const drawH = Math.min(h, 60)
     const drawW = drawH / ratio

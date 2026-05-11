@@ -1,5 +1,9 @@
 import type { UserRole, ProspectStatus, ProspectPhase, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus, LossReason, PaymentStatus, OpportunityStatus, OpportunityType, ContractStatus, AccompagnementStep, QuoteStatus } from './enums'
 
+// Ré-export pour les imports externes qui veulent récupérer le type sans
+// connaître l'arbo interne du module types/.
+export type { QuoteStatus }
+
 export interface Profile {
   id: string
   email: string

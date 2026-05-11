@@ -17,7 +17,7 @@ import {
 import { generateQuotePDF } from '../services/quote-pdf-generator'
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS, QUOTE_UNITS, VAT_RATES } from '@/types/enums'
 import { describeError } from '../lib/error-utils'
-import type { Quote, QuoteItemLibrary, QuoteSettings, QuoteStatus } from '@/types'
+import type { Quote, QuoteItemLibrary, QuoteStatus } from '@/types'
 import { supabase } from '@/lib/supabase/client'
 import {
   Dialog,
