@@ -77,7 +77,7 @@ function CommercialDetailPanel({ commercialId }: { commercialId: string }) {
   return (
     <div className="p-4 bg-muted/30 space-y-4">
       {/* KPI row */}
-      <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-7">
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
         <div className="text-center p-3 bg-white rounded-lg border">
           <p className="text-xs text-muted-foreground">Appels semaine</p>
           <p className="text-xl font-bold">{detail.calls_week}</p>
@@ -524,6 +524,7 @@ export function PerformancePage() {
               ) : !closingRates?.length ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">Aucune donnee</p>
               ) : (
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -558,6 +559,7 @@ export function PerformancePage() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>

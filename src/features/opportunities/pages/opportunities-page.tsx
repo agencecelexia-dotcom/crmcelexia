@@ -148,6 +148,7 @@ export function OpportunitiesPage({ opportunityType }: OpportunitiesPageProps) {
                   Aucune opportunite trouvee
                 </div>
               ) : (
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -203,6 +204,7 @@ export function OpportunitiesPage({ opportunityType }: OpportunitiesPageProps) {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>

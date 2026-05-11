@@ -262,7 +262,7 @@ function MonthView({
             return (
               <div
                 key={i}
-                className={`border-b border-r min-h-[100px] p-1.5 ${
+                className={`border-b border-r min-h-[60px] p-1 sm:min-h-[100px] sm:p-1.5 ${
                   !isCurrentMonth ? 'bg-muted/10 opacity-50' : ''
                 } ${isToday(day) ? 'bg-primary/5' : ''}`}
               >
