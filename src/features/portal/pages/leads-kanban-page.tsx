@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLeads, useCreatePortalLead, useUpdatePortalLeadStatus } from '../hooks/use-portal-leads'
-import { Plus, Search, Filter, Calendar, LayoutGrid, List, Phone, X, ChevronDown, MoreVertical, Check } from 'lucide-react'
+import { Plus, Search, LayoutGrid, List, Phone, X, ChevronDown, MoreVertical, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -172,8 +172,6 @@ export function PortalLeadsKanbanPage() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          <button className="btn btn-secondary"><Filter size={14} /> Filtres</button>
-          <button className="btn btn-secondary"><Calendar size={14} /> Ce mois</button>
           <div style={{ display: 'flex', background: 'var(--gray-100)', borderRadius: 8, padding: 3 }}>
             <button
               onClick={() => setView('kanban')}

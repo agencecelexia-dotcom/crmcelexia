@@ -54,8 +54,8 @@ function StepCard({
         {done ? <Check size={20} /> : icon}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-          ÉTAPE {num}{done ? ' · TERMINÉE' : ''}
+        <div className="mb-0.5 truncate text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+          ÉTAPE {num}{done ? ' · OK' : ''}
         </div>
         <div className="text-sm font-semibold text-gray-900 sm:text-[15px]">{title}</div>
       </div>

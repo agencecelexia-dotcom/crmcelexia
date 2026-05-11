@@ -12,8 +12,15 @@ export function PortalDashboardPage() {
   const { data: leads } = usePortalLeads(client?.id)
   const firstName = profile?.full_name?.split(' ')[0] || 'artisan'
 
-  // Build activity from recent leads
-  const activities = (leads ?? []).slice(0, 5).map(l => {
+  // Build activity from leads. Tri par updated_at desc (activité réelle)
+  // au lieu de created_at, sinon un signé récent disparaît si 5 nouveaux
+  // leads ont été créés depuis.
+  const sortedByActivity = [...(leads ?? [])].sort((a, b) => {
+    const aTime = a.updated_at ?? a.created_at ?? ''
+    const bTime = b.updated_at ?? b.created_at ?? ''
+    return bTime.localeCompare(aTime)
+  })
+  const activities = sortedByActivity.slice(0, 5).map(l => {
     if (l.status === 'signe') return { icon: <CheckCircle2 size={16} />, tone: 'emerald', text: `Devis signé avec ${l.name}`, meta: `${l.signed_amount ? formatEur(l.signed_amount) : ''} · ${l.work_type}` }
     if (l.status === 'devis') return { icon: <FileText size={16} />, tone: 'amber', text: `Devis envoyé à ${l.name}`, meta: `${l.amount_estimated ? formatEur(l.amount_estimated) : ''} · ${l.work_type}` }
     if (l.status === 'qualifie') return { icon: <Phone size={16} />, tone: 'violet', text: `Appel qualifié : ${l.name}`, meta: l.work_type }

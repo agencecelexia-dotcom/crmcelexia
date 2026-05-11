@@ -134,8 +134,13 @@ export function PortalLayout() {
   }
 
   const initials = profile?.full_name
-    ? profile.full_name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
-    : '?'
+    ?.trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w: string) => w[0] ?? '')
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || '?'
 
   const currentLabel = NAV_ITEMS.find(n => route.startsWith(n.to))?.label || 'Page'
 

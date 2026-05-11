@@ -37,7 +37,7 @@ export function PortalCommissionPage() {
           tone="emerald"
         />
         <PortalKpiCard
-          label="Cumul 2026"
+          label={`Cumul ${new Date().getFullYear()}`}
           value={formatEur(totalCommission)}
           icon={<TrendingUp size={18} />}
           tone="violet"

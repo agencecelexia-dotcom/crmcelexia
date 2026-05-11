@@ -152,20 +152,22 @@ Deno.serve(async (req) => {
         metadata: { invited_by: caller.id, temp_password: tempPassword },
       })
 
-    // Send invitation email via N8N webhook (fire-and-forget)
-    try {
-      await fetch('https://n8n.srv1241880.hstgr.cloud/webhook/portal-invitation-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          temp_password: tempPassword,
-          artisan_firstname: client.contact_firstname || displayName,
-          company_name: client.company_name,
-          portal_url: 'https://crmcelexia.vercel.app/portal/auth',
-        }),
-      })
-    } catch { /* email send failure shouldn't block invite */ }
+    // Envoi de l'email d'invitation via la pipeline DB email_schedule → Resend.
+    // Remplace l'ancien webhook n8n (fragile, fire-and-forget sans logs).
+    await supabase.from('email_schedule').insert({
+      recipient_email: email,
+      recipient_name: displayName,
+      email_type: 'portal_invitation',
+      scheduled_at: new Date().toISOString(),
+      status: 'scheduled',
+      payload: {
+        client_firstname: client.contact_firstname || displayName,
+        client_company: client.company_name,
+        portal_email: email,
+        portal_password: tempPassword,
+        portal_url: 'https://crmcelexia.vercel.app/portal/auth',
+      },
+    })
 
     return new Response(JSON.stringify({
       success: true,
