@@ -10,7 +10,6 @@ import { toast } from 'sonner'
 const IBAN = 'FR76 1695 8000 0129 8676 6973 937'
 const BIC = 'QNTOFRP1XXX'
 const SWIFT_PARTNER = 'TRWIBEB3XXX'
-const REFERENCE = 'CELEXIA-LAUNCH'
 
 function Row({ label, value, mono, highlight }: { label: string; value: string; mono?: boolean; highlight?: boolean }) {
   return (
@@ -98,7 +97,6 @@ export function PaymentPage() {
             </button>
           </div>
           <Row label="BIC / SWIFT" value={BIC} mono />
-          <Row label="Référence virement" value={REFERENCE} mono highlight />
         </div>
         <div className="mt-3.5 border-t border-gray-100 pt-3.5 text-xs leading-relaxed text-gray-500">
           Pour un virement <strong className="text-gray-700">SWIFT international</strong>, votre banque pourrait demander le BIC de la banque partenaire&nbsp;: <span className="font-mono text-gray-700">{SWIFT_PARTNER}</span>.
