@@ -225,23 +225,56 @@ export function ContractPage() {
       <div className="mb-6">
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 sm:text-[13px]">
-            <Eye size={14} /> Aperçu de votre contrat
+            <Eye size={14} /> Votre contrat
           </div>
           {previewUrl && (
             <a
               href={previewUrl}
               download={`Contrat-Celexia-${contractData.client_enseigne || 'client'}.pdf`}
-              className="flex items-center gap-1 text-[11px] font-semibold text-violet-600 no-underline hover:underline sm:text-xs"
+              className="hidden items-center gap-1 text-[11px] font-semibold text-violet-600 no-underline hover:underline sm:flex sm:text-xs"
             >
               <Download size={12} /> Télécharger
             </a>
           )}
         </div>
-        <div className="h-[50vh] min-h-[280px] overflow-hidden rounded-xl border border-gray-200 bg-gray-50 md:h-[500px]">
+
+        {/* Mobile : boutons plein écran + télécharger (iframe inutilisable sur mobile) */}
+        <div className="flex flex-col gap-2 sm:hidden">
+          {generatingPreview || !previewUrl ? (
+            <div className="flex h-32 w-full flex-col items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50">
+              <Loader2 size={24} className="animate-spin text-violet-600" />
+              <p className="text-xs text-gray-500">Génération de votre contrat…</p>
+            </div>
+          ) : (
+            <>
+              <a
+                href={previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary w-full justify-center"
+              >
+                <Eye size={16} /> Voir le contrat en plein écran
+              </a>
+              <a
+                href={previewUrl}
+                download={`Contrat-Celexia-${contractData.client_enseigne || 'client'}.pdf`}
+                className="btn btn-ghost w-full justify-center"
+              >
+                <Download size={16} /> Télécharger le PDF
+              </a>
+              <p className="mt-1 text-center text-[11px] text-gray-500">
+                Le contrat s'ouvre dans le visualiseur PDF de votre téléphone.
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Desktop : aperçu embarqué */}
+        <div className="hidden h-[500px] overflow-hidden rounded-xl border border-gray-200 bg-gray-50 sm:block">
           {generatingPreview || !previewUrl ? (
             <div className="flex h-full w-full flex-col items-center justify-center gap-3">
               <Loader2 size={32} className="animate-spin text-violet-600" />
-              <p className="text-xs text-gray-500 sm:text-[13px]">Génération de votre contrat personnalisé…</p>
+              <p className="text-[13px] text-gray-500">Génération de votre contrat personnalisé…</p>
             </div>
           ) : (
             <iframe
