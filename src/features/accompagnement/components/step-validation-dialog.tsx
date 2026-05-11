@@ -142,33 +142,37 @@ function DocsSection({ stepKey, clientId }: { stepKey: AccompagnementStep; clien
       {items.map(item => (
         <div
           key={item.path}
-          className="flex items-center gap-3 rounded-lg border border-violet-200 bg-violet-50/50 p-2.5"
+          className="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50/50 p-2.5"
         >
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-violet-100 text-violet-600">
             <FileText className="h-4 w-4" />
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-gray-900">{item.label}</div>
+          <div className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
+            {item.label}
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={opening === item.path}
-            onClick={() => openDoc(item.path)}
-          >
-            {opening === item.path ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Voir'}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={opening === item.path}
-            onClick={() => downloadDoc(item.path)}
-            title="Télécharger"
-          >
-            <Download className="h-3 w-3" />
-          </Button>
+          <div className="flex flex-shrink-0 items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5"
+              disabled={opening === item.path}
+              onClick={() => openDoc(item.path)}
+            >
+              {opening === item.path ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Voir'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              disabled={opening === item.path}
+              onClick={() => downloadDoc(item.path)}
+              title="Télécharger"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       ))}
     </div>
@@ -288,7 +292,7 @@ export function StepValidationDialog({ open, onOpenChange, step }: StepValidatio
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{ACCOMPAGNEMENT_STEP_LABELS[step.step]}</DialogTitle>
             <DialogDescription>{ACCOMPAGNEMENT_STEP_DESCRIPTIONS[step.step]}</DialogDescription>
