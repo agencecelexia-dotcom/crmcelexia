@@ -708,8 +708,8 @@ export const PORTAL_LEAD_SOURCE = {
 export type PortalLeadSource = (typeof PORTAL_LEAD_SOURCE)[keyof typeof PORTAL_LEAD_SOURCE]
 
 export const PORTAL_LEAD_SOURCE_LABELS: Record<PortalLeadSource, string> = {
-  lsa: 'Google Ads',
-  bao: 'Bouche à oreille',
+  lsa: 'Celexia',
+  bao: 'Bouche-à-oreille',
 }
 
 // ── Accompagnement Step (5-step post-signature flow) ──
@@ -725,7 +725,7 @@ export const ACCOMPAGNEMENT_STEP_LABELS: Record<AccompagnementStep, string> = {
   insurance_received: 'Assurance reçue',
   gmb_access_shared: 'Accès GMB partagé',
   payment_received: 'Virement reçu',
-  lsa_live: 'LSA en ligne',
+  lsa_live: 'Campagne en ligne',
 }
 
 export const ACCOMPAGNEMENT_STEP_DESCRIPTIONS: Record<AccompagnementStep, string> = {
@@ -733,7 +733,7 @@ export const ACCOMPAGNEMENT_STEP_DESCRIPTIONS: Record<AccompagnementStep, string
   insurance_received: 'RC Pro ou décennale reçue',
   gmb_access_shared: 'Accès Google My Business partagé avec Celexia',
   payment_received: 'Premier virement reçu',
-  lsa_live: 'Campagne Local Services Ads en ligne',
+  lsa_live: 'Campagne d\'acquisition en ligne',
 }
 
 export const ACCOMPAGNEMENT_STEPS_ORDER: AccompagnementStep[] = [

@@ -262,7 +262,7 @@ export function PortalLeadsKanbanPage() {
                         )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span className={`p-tag ${lead.source === 'lsa' ? 'p-tag-violet' : ''}`} style={{ fontSize: 10, padding: '2px 7px', background: lead.source === 'lsa' ? 'var(--blue-100)' : 'var(--gray-100)', color: lead.source === 'lsa' ? 'var(--blue-600)' : 'var(--gray-600)', border: 'none' }}>
-                            {lead.source === 'lsa' ? 'Google Ads' : 'BAO'}
+                            {lead.source === 'lsa' ? 'Celexia' : 'Bouche-à-oreille'}
                           </span>
                         </div>
                       </div>
@@ -298,7 +298,7 @@ export function PortalLeadsKanbanPage() {
                     <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', color: 'var(--gray-700)' }}>{l.work_type}</td>
                     <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', color: 'var(--gray-700)' }}>{l.amount_estimated ? l.amount_estimated.toLocaleString('fr-FR') + ' €' : '—'}</td>
                     <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: l.source === 'lsa' ? 'var(--blue-100)' : 'var(--gray-100)', color: l.source === 'lsa' ? 'var(--blue-600)' : 'var(--gray-600)' }}>{l.source === 'lsa' ? 'Google Ads' : 'BAO'}</span>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: l.source === 'lsa' ? 'var(--blue-100)' : 'var(--gray-100)', color: l.source === 'lsa' ? 'var(--blue-600)' : 'var(--gray-600)' }}>{l.source === 'lsa' ? 'Celexia' : 'Bouche-à-oreille'}</span>
                     </td>
                     <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
                       <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: PORTAL_LEAD_STATUS_VAR_COLORS[l.status]?.bg, color: PORTAL_LEAD_STATUS_VAR_COLORS[l.status]?.color }}>{PORTAL_LEAD_STATUS_LABELS[l.status]}</span>
@@ -342,7 +342,7 @@ export function PortalLeadsKanbanPage() {
                   <div><label className="label-input">Montant estimé (€)</label><input className="input" type="number" inputMode="numeric" value={formData.amount} onChange={e => setFormData(d => ({ ...d, amount: e.target.value }))} placeholder="Optionnel" style={{ fontSize: 16 }} /></div>
                   <div><label className="label-input">Source</label>
                     <select className="input" value={formData.source} onChange={e => setFormData(d => ({ ...d, source: e.target.value }))} style={{ fontSize: 16 }}>
-                      <option value="lsa">Google Ads</option>
+                      <option value="lsa">Celexia</option>
                       <option value="bao">Bouche-à-oreille</option>
                     </select>
                   </div>

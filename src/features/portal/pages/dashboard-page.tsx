@@ -24,7 +24,7 @@ export function PortalDashboardPage() {
     if (l.status === 'signe') return { icon: <CheckCircle2 size={16} />, tone: 'emerald', text: `Devis signé avec ${l.name}`, meta: `${l.signed_amount ? formatEur(l.signed_amount) : ''} · ${l.work_type}` }
     if (l.status === 'devis') return { icon: <FileText size={16} />, tone: 'amber', text: `Devis envoyé à ${l.name}`, meta: `${l.amount_estimated ? formatEur(l.amount_estimated) : ''} · ${l.work_type}` }
     if (l.status === 'qualifie') return { icon: <Phone size={16} />, tone: 'violet', text: `Appel qualifié : ${l.name}`, meta: l.work_type }
-    return { icon: <Plus size={16} />, tone: 'blue', text: `Nouveau lead : ${l.name}`, meta: `${l.source === 'lsa' ? 'Google Ads' : 'BAO'} · ${l.city || ''}` }
+    return { icon: <Plus size={16} />, tone: 'blue', text: `Nouveau lead : ${l.name}`, meta: `${l.source === 'lsa' ? 'Celexia' : 'Bouche-à-oreille'} · ${l.city || ''}` }
   })
 
   const totalCa = stats?.total_ca || 0

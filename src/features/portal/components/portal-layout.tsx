@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalShortcuts } from '../hooks/use-portal-shortcuts'
-import { Home, LayoutGrid, Euro, FolderOpen, KeyRound, LogOut, Bell, Sparkles, Menu } from 'lucide-react'
+import { Home, LayoutGrid, Euro, FolderOpen, KeyRound, LogOut, Bell, Menu } from 'lucide-react'
 import { ChangePasswordDialog } from './change-password-dialog'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import '../portal.css'
@@ -61,17 +61,6 @@ function SidebarContent({ route, initials, fullName, companyName, onSignOut, onN
             </NavLink>
           )
         })}
-
-        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--gray-400)', padding: '20px 24px 8px' }}>
-          Parcours client
-        </div>
-        <NavLink
-          to="/portal/onboarding/welcome"
-          onClick={onNavigate}
-          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', margin: '2px 10px', borderRadius: 'var(--radius-md)', color: 'var(--gray-600)', fontSize: 14, fontWeight: 500, textDecoration: 'none', minHeight: 44 }}
-        >
-          <Sparkles size={18} /><span>Onboarding (demo)</span>
-        </NavLink>
       </div>
 
       {/* User footer */}

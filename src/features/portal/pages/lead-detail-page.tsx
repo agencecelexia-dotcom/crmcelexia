@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLead, usePortalLeadEvents, useUpdatePortalLeadStatus, useUpdatePortalLead, useDeletePortalLead } from '../hooks/use-portal-leads'
 import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate, formatDateTime } from '@/lib/format'
+import { getCommissionTerms, formatCommissionTerms, calcCommission } from '../lib/format'
 import {
   PORTAL_LEAD_STATUS_LABELS,
   PORTAL_LEAD_STATUS_VAR_COLORS,
@@ -22,6 +24,7 @@ import {
 export function PortalLeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { client } = usePortalAuth()
   const { data: lead, isLoading } = usePortalLead(id)
   const { data: events } = usePortalLeadEvents(id)
   const updateStatus = useUpdatePortalLeadStatus()
@@ -39,7 +42,9 @@ export function PortalLeadDetailPage() {
   const statusColors = PORTAL_LEAD_STATUS_VAR_COLORS[lead.status] || PORTAL_LEAD_STATUS_VAR_COLORS.nouveau
   const statusLabel = PORTAL_LEAD_STATUS_LABELS[lead.status] || PORTAL_LEAD_STATUS_LABELS.nouveau
   const currentNotes = notes ?? lead.notes ?? ''
-  const commission = signAmount ? (Number(signAmount) * 0.1).toLocaleString('fr-FR') : '—'
+  const terms = getCommissionTerms(client)
+  const termsLabel = formatCommissionTerms(terms)
+  const commission = signAmount ? calcCommission(Number(signAmount), terms).toLocaleString('fr-FR') : '—'
 
   async function saveNotes() {
     if (notes === null || notes === lead?.notes) return
@@ -191,8 +196,8 @@ export function PortalLeadDetailPage() {
               </h3>
               <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
                 <div>
-                  <label className="label-input">Montant du devis (€ HT) *</label>
-                  <input className="input" type="number" value={signAmount} onChange={e => setSignAmount(e.target.value)} placeholder="5 000" />
+                  <label className="label-input">Montant du devis (€ {terms.base}) *</label>
+                  <input className="input" type="number" inputMode="numeric" value={signAmount} onChange={e => setSignAmount(e.target.value)} placeholder="5 000" style={{ fontSize: 16 }} />
                 </div>
                 <div>
                   <label className="label-input">Date de signature</label>
@@ -201,7 +206,7 @@ export function PortalLeadDetailPage() {
               </div>
               {signAmount && Number(signAmount) > 0 && (
                 <div style={{ padding: 14, background: 'var(--violet-50)', borderRadius: 'var(--radius-md)', marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, color: 'var(--gray-600)' }}>Commission Celexia (10%)</div>
+                  <div style={{ fontSize: 13, color: 'var(--gray-600)' }}>Commission Celexia ({termsLabel})</div>
                   <div className="font-display" style={{ fontSize: 20, fontWeight: 700, color: 'var(--violet-700)' }}>{commission} €</div>
                   <div style={{ fontSize: 11, color: 'var(--gray-500)', marginTop: 2 }}>Facturée le 1<sup>er</sup> du mois suivant</div>
                 </div>
@@ -220,12 +225,12 @@ export function PortalLeadDetailPage() {
                 <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--emerald-600)' }}>Devis signé</h3>
               </div>
               <div className="font-display" style={{ fontSize: 28, fontWeight: 700, color: 'var(--emerald-600)', marginBottom: 4 }}>
-                {lead.signed_amount.toLocaleString('fr-FR')} € HT
+                {lead.signed_amount.toLocaleString('fr-FR')} € {terms.base}
               </div>
               {lead.signed_at && <div style={{ fontSize: 12, color: 'var(--gray-600)' }}>Signé le {lead.signed_at}</div>}
               <div style={{ borderTop: '1px solid rgba(5,150,105,0.2)', marginTop: 12, paddingTop: 12 }}>
-                <div style={{ fontSize: 12, color: 'var(--gray-600)' }}>Commission (10%)</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--violet-700)' }}>{(lead.signed_amount * 0.10).toLocaleString('fr-FR')} €</div>
+                <div style={{ fontSize: 12, color: 'var(--gray-600)' }}>Commission ({termsLabel})</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--violet-700)' }}>{calcCommission(lead.signed_amount, terms).toLocaleString('fr-FR')} €</div>
               </div>
             </div>
           )}

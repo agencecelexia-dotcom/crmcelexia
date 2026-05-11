@@ -78,7 +78,7 @@ export function AccompagnementListPage() {
         <StatCard
           title="Lancés"
           value={counts.launched}
-          subtitle="LSA en ligne"
+          subtitle="Campagne en ligne"
           icon={Rocket}
         />
       </div>

@@ -3,7 +3,7 @@ import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLeads, usePortalLeadStats } from '../hooks/use-portal-leads'
 import { Euro, CheckCircle2, TrendingUp, Info, ChevronDown } from 'lucide-react'
 import { PortalKpiCard } from '../components/portal-kpi-card'
-import { formatEur } from '../lib/format'
+import { formatEur, getCommissionTerms, formatCommissionTerms } from '../lib/format'
 
 export function PortalCommissionPage() {
   const { client } = usePortalAuth()
@@ -14,6 +14,8 @@ export function PortalCommissionPage() {
   const signedLeads = (leads ?? []).filter(l => l.status === 'signe' && l.signed_amount)
   const totalCa = stats?.total_ca || 0
   const totalCommission = stats?.total_commission || 0
+  const terms = getCommissionTerms(client)
+  const termsLabel = formatCommissionTerms(terms)
 
   return (
     <div>
@@ -28,7 +30,7 @@ export function PortalCommissionPage() {
         }}>
           <Euro size={18} style={{ opacity: 0.8, marginBottom: 8 }} />
           <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 500 }}>À payer ce mois</div>
-          <div className="font-display" style={{ fontSize: 28, fontWeight: 700, marginTop: 4 }}>{formatEur(stats?.commission_this_month || 0)} HT</div>
+          <div className="font-display" style={{ fontSize: 28, fontWeight: 700, marginTop: 4 }}>{formatEur(stats?.commission_this_month || 0)} {terms.base}</div>
         </div>
         <PortalKpiCard
           label="Devis signés · ce mois"
@@ -50,8 +52,8 @@ export function PortalCommissionPage() {
         <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
             <tr>
-              {['Date', 'Prospect', 'Type', 'Devis HT', 'Commission 10%'].map(h => (
-                <th key={h} style={{ textAlign: h === 'Devis HT' || h === 'Commission 10%' ? 'right' : 'left', padding: '12px 16px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--gray-500)', borderBottom: '1px solid var(--gray-200)', background: 'var(--gray-50)' }}>{h}</th>
+              {['Date', 'Prospect', 'Type', `Devis ${terms.base}`, `Commission ${termsLabel}`].map(h => (
+                <th key={h} style={{ textAlign: h.startsWith('Devis') || h.startsWith('Commission') ? 'right' : 'left', padding: '12px 16px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--gray-500)', borderBottom: '1px solid var(--gray-200)', background: 'var(--gray-50)' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -93,9 +95,9 @@ export function PortalCommissionPage() {
         {explainerOpen && (
           <div style={{ padding: '0 20px 20px', display: 'grid', gap: 12 }}>
             {[
-              ['1', 'Celexia vous génère des leads qualifiés via Google Ads.'],
+              ['1', 'Celexia vous génère des leads qualifiés.'],
               ['2', 'Vous décrochez, vendez et marquez le lead comme "signé" avec le montant du devis.'],
-              ['3', 'Celexia prend 10% HT du montant signé comme commission.'],
+              ['3', `Celexia prend ${termsLabel} du montant signé comme commission (conformément à votre contrat).`],
               ['4', 'La facturation est mensuelle. Vous recevez un récap le 1er de chaque mois.'],
             ].map(([num, text]) => (
               <div key={num} style={{ display: 'flex', gap: 12 }}>
@@ -104,7 +106,7 @@ export function PortalCommissionPage() {
               </div>
             ))}
             <p style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 4 }}>
-              Note : la commission ne s'applique que sur les leads générés par Celexia (source Google Ads), pas sur les leads "bouche à oreille".
+              Note : la commission ne s'applique que sur les leads générés par Celexia, pas sur les leads "bouche à oreille".
             </p>
           </div>
         )}
