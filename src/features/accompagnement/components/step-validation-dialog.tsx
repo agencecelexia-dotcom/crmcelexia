@@ -30,8 +30,6 @@ import {
 } from '../hooks/use-accompagnement'
 import { getPortalDocSignedUrl, type PortalDocsRow } from '../services/portal-docs-service'
 import { requestCorrectionForAccompagnementStep } from '@/features/portal-admin/services/admin-onboarding-service'
-import { sendOnboardingRejectedEmail } from '@/features/portal/services/portal-email-service'
-import { supabase } from '@/lib/supabase/client'
 import type { ClientAccompagnementStep } from '@/types'
 import type { AccompagnementStep } from '@/types/enums'
 
@@ -259,25 +257,12 @@ export function StepValidationDialog({ open, onOpenChange, step }: StepValidatio
     const reason = reasonPreview
     setSendingCorrection(true)
     try {
-      // 1. Reset les flags portail + set rejection_reason + status=in_progress
+      // Reset les flags portail + set rejection_reason + status=in_progress.
+      // L'email "corrections demandées" part automatiquement via le trigger DB
+      // trg_portal_corrections_email (migration 00083) → Resend.
       await requestCorrectionForAccompagnementStep(step.client_id, step.step, reason)
 
-      // 2. Fetch les infos client pour l'email
-      const { data: client } = await supabase
-        .from('clients')
-        .select('contact_email, contact_firstname, company_name')
-        .eq('id', step.client_id)
-        .single()
-      if (client?.contact_email) {
-        sendOnboardingRejectedEmail({
-          email: client.contact_email,
-          artisan_firstname: client.contact_firstname || 'cher artisan',
-          company_name: client.company_name || '',
-          rejection_reason: reason,
-        })
-      }
-
-      // 3. Invalidate les queries (le realtime fait déjà ça, mais on force pour réactif immédiat)
+      // Invalidate les queries (le realtime fait déjà ça, mais on force pour réactif immédiat)
       queryClient.invalidateQueries({ queryKey: ['accompagnement', step.client_id] })
       queryClient.invalidateQueries({ queryKey: ['portal-docs', step.client_id] })
 

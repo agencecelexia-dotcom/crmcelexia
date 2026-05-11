@@ -16,8 +16,6 @@ export const N8N_SALE_NOTIFICATION_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud
 // n8n webhook for creating Gmail draft (conversion client)
 export const N8N_EMAIL_DRAFT_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/crm-email-draft'
 
-// n8n webhooks for portal
-export const N8N_PORTAL_VALIDATED_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/portal-onboarding-validated'
-export const N8N_PORTAL_REMINDER_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/portal-onboarding-reminder'
-export const N8N_PORTAL_ADMIN_ALERT_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/portal-admin-alert'
-export const N8N_PORTAL_REJECTED_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/portal-onboarding-rejected'
+// Note : les webhooks n8n du portail (validated, reminder, alert, rejected) ont
+// été retirés (migrations 00081 + 00083). Les emails partent désormais via
+// la pipeline DB → email_schedule → Resend (plus fiable, logs centralisés).
