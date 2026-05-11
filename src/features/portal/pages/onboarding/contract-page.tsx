@@ -28,12 +28,18 @@ export function ContractPage() {
   useEffect(() => {
     if (!hasContractData) return
     let cancelled = false
+    let createdUrl: string | null = null
     async function gen() {
       setGeneratingPreview(true)
       try {
         const blob = await generateContract(contractData as ContractData)
         const url = URL.createObjectURL(blob)
-        if (!cancelled) setPreviewUrl(url)
+        createdUrl = url
+        if (cancelled) {
+          URL.revokeObjectURL(url)
+          return
+        }
+        setPreviewUrl(url)
       } catch (err) {
         console.error('Preview generation failed:', err)
       } finally {
@@ -43,7 +49,7 @@ export function ContractPage() {
     gen()
     return () => {
       cancelled = true
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      if (createdUrl) URL.revokeObjectURL(createdUrl)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasContractData])
@@ -177,7 +183,8 @@ export function ContractPage() {
         signed_contract_path: path,
       })
 
-      await refreshOnboarding()
+      // Refresh en arrière-plan pour ne pas bloquer la navigation sur réseau lent
+      refreshOnboarding().catch(refreshErr => console.error('[refresh-onboarding]', refreshErr))
       toast.success('Contrat signé ! Un email avec le PDF arrive dans votre boîte.')
       navigate(getNextOnboardingStep(updated))
     } catch (err) {
@@ -209,11 +216,18 @@ export function ContractPage() {
           .from('portal-documents')
           .createSignedUrl(onboarding!.signed_contract_path!, 3600)
         if (error) throw error
-        if (data?.signedUrl) window.open(data.signedUrl, '_blank')
-        else throw new Error('URL signée introuvable')
+        if (!data?.signedUrl) throw new Error('URL signée introuvable')
+        // iOS Safari : un window.open après un await est bloqué (popup blocker).
+        // Workaround : click synthétique sur un <a target=_blank> qui passe.
+        const link = document.createElement('a')
+        link.href = data.signedUrl
+        link.target = '_blank'
+        link.rel = 'noopener noreferrer'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        toast.error(`Impossible d'ouvrir le contrat : ${msg}`)
+        toast.error(`Impossible d'ouvrir le contrat : ${describeError(err)}`)
       }
     }
 

@@ -8,6 +8,9 @@ export interface PortalOnboarding {
   status: string
   contract_signed: boolean
   contract_signed_at: string | null
+  contract_signature_data: string | null
+  contract_data: Record<string, string> | null
+  signed_contract_path: string | null
   payment_proof_uploaded: boolean
   payment_proof_path: string | null
   payment_amount: number | null
@@ -18,14 +21,19 @@ export interface PortalOnboarding {
   kbis_uploaded: boolean
   kbis_path: string | null
   training_video_watched: boolean
+  training_video_watched_at: string | null
   quiz_score: number | null
+  quiz_answers: Record<string, unknown> | null
   quiz_completed_at: string | null
   validated_at: string | null
-  current_step: number
-  reminder_count: number
-  contract_data: Record<string, string> | null
-  signed_contract_path: string | null
+  validated_by: string | null
   rejection_reason: string | null
+  current_step: number
+  started_at: string
+  last_activity_at: string
+  last_reminder_sent_at: string | null
+  reminder_count: number
+  reminders_disabled: boolean
   completed_at: string | null
 }
 

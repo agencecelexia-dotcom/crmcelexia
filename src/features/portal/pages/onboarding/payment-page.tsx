@@ -61,7 +61,7 @@ export function PaymentPage() {
           payment_proof_uploaded: true,
           payment_proof_path: path,
         })
-        await refreshOnboarding()
+        refreshOnboarding().catch(e => console.error('[refresh-onboarding]', e))
       }
       navigate(getNextOnboardingStep(updated))
     } catch (err) {

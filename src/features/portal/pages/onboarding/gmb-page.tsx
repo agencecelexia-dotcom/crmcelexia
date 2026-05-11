@@ -70,7 +70,7 @@ export function GmbPage() {
           gmb_access_confirmed: true,
           gmb_confirmed_at: new Date().toISOString(),
         })
-        await refreshOnboarding()
+        refreshOnboarding().catch(e => console.error('[refresh-onboarding]', e))
       }
       navigate(getNextOnboardingStep(updated))
     } catch (err) {

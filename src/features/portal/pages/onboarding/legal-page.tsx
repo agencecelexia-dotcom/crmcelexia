@@ -88,9 +88,14 @@ export function LegalPage() {
         updates.kbis_uploaded = true
       }
 
-      stage = 'db_update'
-      const updated = await updateOnboarding(onboarding.id, updates)
-      await refreshOnboarding()
+      // Skip l'UPDATE si aucun nouveau fichier (utilisateur a juste cliqué Continuer
+      // sans changer ses uploads déjà transmis)
+      let updated = onboarding
+      if (Object.keys(updates).length > 0) {
+        stage = 'db_update'
+        updated = await updateOnboarding(onboarding.id, updates)
+        refreshOnboarding().catch(e => console.error('[refresh-onboarding]', e))
+      }
       navigate(getNextOnboardingStep(updated))
     } catch (err) {
       const msg = describeError(err)
