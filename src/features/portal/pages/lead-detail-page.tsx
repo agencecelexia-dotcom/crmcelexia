@@ -79,7 +79,7 @@ export function PortalLeadDetailPage() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)', gap: 24 }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] gap-4 md:gap-6">
         {/* Left column */}
         <div style={{ display: 'grid', gap: 16 }}>
           {/* Contact */}

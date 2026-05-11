@@ -44,7 +44,8 @@ export function PortalCommissionPage() {
 
       {/* Detail table */}
       <div className="p-card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+        <div className="overflow-x-auto">
+        <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
             <tr>
               {['Date', 'Prospect', 'Type', 'Devis HT', 'Commission 10%'].map(h => (
@@ -74,6 +75,7 @@ export function PortalCommissionPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Explainer accordion */}

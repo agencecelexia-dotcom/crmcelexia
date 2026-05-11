@@ -68,7 +68,7 @@ export function PortalDashboardPage() {
       </div>
 
       {/* Activity + Commission card */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)', gap: 20 }}>
+      <div className="grid gap-5 grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         {/* Activity */}
         <div className="p-card" style={{ padding: 24 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
