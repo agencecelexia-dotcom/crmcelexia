@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Check, Loader2, Undo2, FileText, Download } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Check, Loader2, Undo2, FileText, Download, AlertCircle, Mail } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -28,8 +29,15 @@ import {
   usePortalDocsForClient,
 } from '../hooks/use-accompagnement'
 import { getPortalDocSignedUrl, type PortalDocsRow } from '../services/portal-docs-service'
+import { requestCorrectionForAccompagnementStep } from '@/features/portal-admin/services/admin-onboarding-service'
+import { sendOnboardingRejectedEmail } from '@/features/portal/services/portal-email-service'
+import { supabase } from '@/lib/supabase/client'
 import type { ClientAccompagnementStep } from '@/types'
 import type { AccompagnementStep } from '@/types/enums'
+
+const PORTAL_LINKED_STEPS: AccompagnementStep[] = [
+  'contract_signed', 'payment_received', 'gmb_access_shared', 'insurance_received',
+]
 
 interface StepValidationDialogProps {
   open: boolean
@@ -169,6 +177,7 @@ function DocsSection({ stepKey, clientId }: { stepKey: AccompagnementStep; clien
 
 export function StepValidationDialog({ open, onOpenChange, step }: StepValidationDialogProps) {
   const { profile } = useAuth()
+  const queryClient = useQueryClient()
   const markDone = useMarkStepDone()
   const markUndone = useMarkStepUndone()
   const updateNotes = useUpdateStepNotes()
@@ -176,6 +185,47 @@ export function StepValidationDialog({ open, onOpenChange, step }: StepValidatio
   const [notesDraft, setNotesDraft] = useState('')
   const [resourceUrlDraft, setResourceUrlDraft] = useState('')
   const [confirmUndoOpen, setConfirmUndoOpen] = useState(false)
+  const [correctionOpen, setCorrectionOpen] = useState(false)
+  const [correctionReason, setCorrectionReason] = useState('')
+  const [sendingCorrection, setSendingCorrection] = useState(false)
+
+  async function handleSendCorrection() {
+    if (!step || !correctionReason.trim()) return
+    setSendingCorrection(true)
+    try {
+      // 1. Reset les flags portail + set rejection_reason + status=in_progress
+      await requestCorrectionForAccompagnementStep(step.client_id, step.step, correctionReason.trim())
+
+      // 2. Fetch les infos client pour l'email
+      const { data: client } = await supabase
+        .from('clients')
+        .select('contact_email, contact_firstname, company_name')
+        .eq('id', step.client_id)
+        .single()
+      if (client?.contact_email) {
+        sendOnboardingRejectedEmail({
+          email: client.contact_email,
+          artisan_firstname: client.contact_firstname || 'cher artisan',
+          company_name: client.company_name || '',
+          rejection_reason: correctionReason.trim(),
+        })
+      }
+
+      // 3. Invalidate les queries (le realtime fait déjà ça, mais on force pour réactif immédiat)
+      queryClient.invalidateQueries({ queryKey: ['accompagnement', step.client_id] })
+      queryClient.invalidateQueries({ queryKey: ['portal-docs', step.client_id] })
+
+      toast.success('Correction demandée à l\'artisan par email.')
+      setCorrectionOpen(false)
+      setCorrectionReason('')
+      onOpenChange(false)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`Erreur : ${msg}`)
+    } finally {
+      setSendingCorrection(false)
+    }
+  }
 
   // Reset drafts when dialog opens with a new step
   useEffect(() => {
@@ -312,6 +362,16 @@ export function StepValidationDialog({ open, onOpenChange, step }: StepValidatio
           </div>
 
           <DialogFooter className="gap-2 sm:gap-2">
+            {PORTAL_LINKED_STEPS.includes(step.step) && (
+              <Button
+                variant="outline"
+                onClick={() => setCorrectionOpen(true)}
+                className="text-red-700 hover:text-red-800 border-red-300 hover:bg-red-50"
+              >
+                <AlertCircle className="mr-2 h-4 w-4" />
+                Demander une correction
+              </Button>
+            )}
             {isDone && (
               <Button
                 variant="outline"
@@ -325,6 +385,57 @@ export function StepValidationDialog({ open, onOpenChange, step }: StepValidatio
             )}
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               Fermer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sub-dialog : demander une correction sur cette étape */}
+      <Dialog open={correctionOpen} onOpenChange={setCorrectionOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              Demander une correction
+            </DialogTitle>
+            <DialogDescription>
+              L'étape <strong>{ACCOMPAGNEMENT_STEP_LABELS[step.step]}</strong> sera remise en
+              "à refaire" côté artisan, et un email lui sera envoyé avec votre motif.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Label htmlFor="correction-reason" className="text-xs text-muted-foreground">
+              Motif (sera envoyé à l'artisan)
+            </Label>
+            <Textarea
+              id="correction-reason"
+              value={correctionReason}
+              onChange={e => setCorrectionReason(e.target.value)}
+              rows={4}
+              placeholder="Ex: Le contrat signé n'est pas lisible, merci de re-signer avec une meilleure qualité d'image."
+            />
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setCorrectionOpen(false)}
+              disabled={sendingCorrection}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleSendCorrection}
+              disabled={sendingCorrection || correctionReason.trim().length < 5}
+            >
+              {sendingCorrection ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="mr-2 h-4 w-4" />
+              )}
+              Envoyer la demande
             </Button>
           </DialogFooter>
         </DialogContent>

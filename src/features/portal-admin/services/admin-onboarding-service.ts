@@ -128,6 +128,40 @@ export async function rejectOnboarding(
   if (error) throw error
 }
 
+/** Mapping accompagnement step → onboarding step keys to reset. */
+const ACCOMP_STEP_TO_PORTAL_KEYS: Record<string, OnboardingStepKey[]> = {
+  contract_signed: ['contract'],
+  payment_received: ['payment'],
+  gmb_access_shared: ['gmb'],
+  insurance_received: ['rc_pro', 'kbis'],
+  lsa_live: [], // étape interne agence : pas de reset portail possible
+}
+
+/** Demande une correction sur UNE étape spécifique d'Accompagnement.
+ *  - Reset les flags portail correspondants (artisan voit l'étape à refaire)
+ *  - Repasse status='in_progress' si on était en pending_validation
+ *  - Set rejection_reason. Le trigger 00080 propagera vers
+ *    client_accompagnement_steps automatiquement. */
+export async function requestCorrectionForAccompagnementStep(
+  clientId: string,
+  accompStepKey: string,
+  reason: string,
+): Promise<{ onboardingId: string } | null> {
+  const portalKeys = ACCOMP_STEP_TO_PORTAL_KEYS[accompStepKey] ?? []
+  if (portalKeys.length === 0) return null
+
+  const { data: onb, error: fetchErr } = await supabase
+    .from('portal_onboardings')
+    .select('id, status')
+    .eq('client_id', clientId)
+    .maybeSingle()
+  if (fetchErr) throw fetchErr
+  if (!onb) throw new Error('Aucun onboarding portail pour ce client.')
+
+  await rejectOnboarding(onb.id, reason, portalKeys)
+  return { onboardingId: onb.id }
+}
+
 export async function toggleReminders(onboardingId: string, disabled: boolean) {
   const { error } = await supabase
     .from('portal_onboardings')
