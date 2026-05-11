@@ -71,21 +71,41 @@ function sectorLabel(sector: string): string {
   return map[sector] ?? sector
 }
 
+// Edge Functions tournent en UTC : on force l'extraction des composants
+// en heure Paris (gère DST automatiquement été/hiver).
+function getParisParts(d: Date) {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', weekday: 'short',
+    hourCycle: 'h23',
+  }).formatToParts(d)
+  return Object.fromEntries(fmt.map(p => [p.type, p.value])) as Record<string, string>
+}
+
 function formatDateFR(iso: string) {
   const d = new Date(iso)
   const dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi']
   const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
-  const dayName = dayNames[d.getDay()]
-  const dayNum = d.getDate()
-  const monthName = monthNames[d.getMonth()]
-  const year = d.getFullYear()
-  const hours = String(d.getHours()).padStart(2, '0')
-  const mins = String(d.getMinutes()).padStart(2, '0')
+  const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+
+  const p = getParisParts(d)
+  const dayName = dayNames[weekdayMap[p.weekday] ?? 0]
+  const dayNum = parseInt(p.day)
+  const monthName = monthNames[parseInt(p.month) - 1]
+  const year = parseInt(p.year)
+  const hours = p.hour
+  const mins = p.minute
   const full = `${dayName} ${dayNum} ${monthName} ${year}`
   const day = `${dayName} ${dayNum} ${monthName}`
   const time = `${hours}h${mins}`
-  const now = new Date()
-  const diffDays = Math.round((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
+  // Diff en jours calendaires Paris (pas en ms : évite les décalages DST)
+  const now = getParisParts(new Date())
+  const targetDay = new Date(`${p.year}-${p.month}-${p.day}T00:00:00Z`)
+  const todayDay = new Date(`${now.year}-${now.month}-${now.day}T00:00:00Z`)
+  const diffDays = Math.round((targetDay.getTime() - todayDay.getTime()) / 86_400_000)
+
   let relative = 'bientôt'
   if (diffDays === 0) relative = "aujourd'hui"
   else if (diffDays === 1) relative = 'demain'

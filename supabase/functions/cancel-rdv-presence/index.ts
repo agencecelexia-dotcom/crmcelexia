@@ -27,9 +27,19 @@ function formatRdv(scheduledAt: string | null) {
   const d = new Date(scheduledAt)
   const dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi']
   const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+  const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+  // Edge Functions en UTC → force le formatage en heure Paris (DST safe)
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Paris',
+      month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', weekday: 'short',
+      hourCycle: 'h23',
+    }).formatToParts(d).map(part => [part.type, part.value]),
+  ) as Record<string, string>
   return {
-    rdv_date: `${dayNames[d.getDay()]} ${d.getDate()} ${monthNames[d.getMonth()]}`,
-    rdv_time: `${String(d.getHours()).padStart(2, '0')}h${String(d.getMinutes()).padStart(2, '0')}`,
+    rdv_date: `${dayNames[weekdayMap[p.weekday] ?? 0]} ${parseInt(p.day)} ${monthNames[parseInt(p.month) - 1]}`,
+    rdv_time: `${p.hour}h${p.minute}`,
   }
 }
 
