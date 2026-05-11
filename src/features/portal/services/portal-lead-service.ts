@@ -39,13 +39,9 @@ export async function createPortalLead(lead: {
     .single()
   if (error) throw error
 
-  // Log event
-  await supabase.from('portal_lead_events').insert({
-    portal_lead_id: data.id,
-    event_type: 'created',
-    description: `Lead "${lead.name}" créé`,
-    new_status: 'nouveau',
-  })
+  // L'event "created" est désormais inséré atomiquement par le trigger DB
+  // trg_portal_lead_created_event (migration 00085). Plus de double-call
+  // qui pouvait laisser un lead sans historique si le 2e échouait.
 
   return data as PortalLead
 }

@@ -8,6 +8,16 @@ import {
   PORTAL_LEAD_STATUS_LABELS,
   PORTAL_LEAD_STATUS_VAR_COLORS,
 } from '@/types/enums'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export function PortalLeadDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -22,6 +32,7 @@ export function PortalLeadDetailPage() {
   const [signAmount, setSignAmount] = useState('')
   const [signDate, setSignDate] = useState(new Date().toISOString().split('T')[0])
   const [confirming, setConfirming] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   if (isLoading || !lead) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>Chargement...</div>
 
@@ -47,9 +58,14 @@ export function PortalLeadDetailPage() {
   }
 
   async function handleDelete() {
-    if (!confirm('Supprimer ce lead ?')) return
-    await deleteLead.mutateAsync(lead!.id)
-    navigate('/portal/leads')
+    setDeleteOpen(false)
+    try {
+      await deleteLead.mutateAsync(lead!.id)
+      toast.success('Lead archivé')
+      navigate('/portal/leads')
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    }
   }
 
   return (
@@ -215,11 +231,32 @@ export function PortalLeadDetailPage() {
           )}
 
           {/* Delete */}
-          <button className="btn" style={{ width: '100%', background: 'white', color: '#DC2626', border: '1.5px solid #FECACA', padding: '10px 18px', fontSize: 14, fontWeight: 600 }} onClick={handleDelete}>
+          <button className="btn" style={{ width: '100%', background: 'white', color: '#DC2626', border: '1.5px solid #FECACA', padding: '10px 18px', fontSize: 14, fontWeight: 600 }} onClick={() => setDeleteOpen(true)}>
             <Trash2 size={16} /> Supprimer ce lead
           </button>
         </div>
       </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce lead&nbsp;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le lead <strong>{lead?.name}</strong> sera archivé et disparaîtra de votre tableau.
+              Vous pouvez contacter Celexia (<a href="mailto:agence.celexia@gmail.com" className="text-violet-600 hover:underline">agence.celexia@gmail.com</a>) pour le restaurer si besoin.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

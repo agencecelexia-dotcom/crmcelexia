@@ -113,6 +113,12 @@ export function PortalLayout() {
   const [pwdOpen, setPwdOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // Mode "view as" : un fondateur visualise le portail d'un artisan via
+  // sessionStorage portal_view_as_client. On affiche un bandeau pour éviter
+  // toute confusion (le fondateur pourrait croire qu'il agit sur SON compte).
+  const isFounder = profile?.role === 'fondateur' || profile?.role === 'co_fondateur'
+  const isViewAs = isFounder && typeof window !== 'undefined' && !!sessionStorage.getItem('portal_view_as_client')
+
   // Raccourcis clavier globaux : g+d (dashboard), g+l (leads), g+c (commission), g+f (documents)
   usePortalShortcuts()
 
@@ -120,6 +126,11 @@ export function PortalLayout() {
     setSidebarOpen(false)
     await signOut()
     navigate('/portal/auth')
+  }
+
+  function exitViewAsMode() {
+    try { sessionStorage.removeItem('portal_view_as_client') } catch { /* noop */ }
+    navigate('/dashboard')
   }
 
   const initials = profile?.full_name
@@ -236,6 +247,32 @@ export function PortalLayout() {
               </button>
             </div>
           </div>
+
+          {/* View-as banner (fondateurs uniquement) */}
+          {isViewAs && (
+            <div
+              role="region"
+              aria-label="Mode visualisation"
+              className="flex flex-col items-start justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 sm:flex-row sm:items-center sm:px-6"
+            >
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-2 w-2 rounded-full bg-amber-500" aria-hidden />
+                <span>
+                  <strong className="font-semibold">Mode visualisation</strong>
+                  {client?.company_name && (
+                    <> · vous voyez le portail de <strong className="font-semibold">{client.company_name}</strong></>
+                  )}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={exitViewAsMode}
+                className="inline-flex h-8 items-center gap-1 rounded-md bg-amber-200/60 px-3 text-xs font-semibold text-amber-900 hover:bg-amber-200"
+              >
+                Sortir du mode
+              </button>
+            </div>
+          )}
 
           {/* Page content */}
           <div className="p-4 md:p-6 lg:p-8" style={{ flex: 1, overflowX: 'hidden' }}>
