@@ -93,6 +93,7 @@ import { useOpportunitiesForClient } from '@/features/opportunities/hooks/use-op
 import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STATUS_COLORS } from '@/types/enums'
 import { Zap, UserPlus, Workflow, Inbox, FileSignature, TrendingUp } from 'lucide-react'
 import { PortalInviteDialog } from '@/features/portal/components/portal-invite-dialog'
+import { PortalOnboardingCard } from '@/features/portal-admin/components/portal-onboarding-card'
 import { AccompagnementStepper } from '@/components/shared/accompagnement-stepper'
 import { StepValidationDialog } from '@/features/accompagnement/components/step-validation-dialog'
 import { useStepsForClient, useClientKpis } from '@/features/accompagnement/hooks/use-accompagnement'
@@ -261,6 +262,9 @@ export function ClientDetailPage() {
         companyName={client.company_name}
         onDeleted={() => navigate('/clients')}
       />
+
+      {/* Portail onboarding (4 étapes du client artisan en self-service) */}
+      {client.portal_enabled && <PortalOnboardingCard clientId={client.id} />}
 
       {/* Accompagnement (5-step post-signature flow) */}
       <AccompagnementCard
