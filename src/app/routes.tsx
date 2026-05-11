@@ -52,6 +52,9 @@ const PortalLeadsKanbanPage = lazy(() => import('@/features/portal/pages/leads-k
 const PortalLeadDetailPage = lazy(() => import('@/features/portal/pages/lead-detail-page').then(m => ({ default: m.PortalLeadDetailPage })))
 const PortalCommissionPage = lazy(() => import('@/features/portal/pages/commission-page').then(m => ({ default: m.PortalCommissionPage })))
 const PortalDocumentsPage = lazy(() => import('@/features/portal/pages/documents-page').then(m => ({ default: m.PortalDocumentsPage })))
+const PortalSettingsPage = lazy(() => import('@/features/portal/pages/settings-page').then(m => ({ default: m.PortalSettingsPage })))
+const PortalQuotesListPage = lazy(() => import('@/features/portal/pages/quotes-list-page').then(m => ({ default: m.PortalQuotesListPage })))
+const PortalQuoteEditorPage = lazy(() => import('@/features/portal/pages/quote-editor-page').then(m => ({ default: m.PortalQuoteEditorPage })))
 const AdminOnboardingsPage = lazy(() => import('@/features/portal-admin/pages/admin-onboardings-page').then(m => ({ default: m.AdminOnboardingsPage })))
 
 // Public RDV action pages (token-based, no auth)
@@ -109,6 +112,10 @@ export const router = createBrowserRouter([
               { path: '/portal/leads/:id', element: <LazyPage><PortalLeadDetailPage /></LazyPage> },
               { path: '/portal/commission', element: <LazyPage><PortalCommissionPage /></LazyPage> },
               { path: '/portal/documents', element: <LazyPage><PortalDocumentsPage /></LazyPage> },
+              { path: '/portal/devis', element: <LazyPage><PortalQuotesListPage /></LazyPage> },
+              { path: '/portal/devis/nouveau', element: <LazyPage><PortalQuoteEditorPage /></LazyPage> },
+              { path: '/portal/devis/:id', element: <LazyPage><PortalQuoteEditorPage /></LazyPage> },
+              { path: '/portal/parametres', element: <LazyPage><PortalSettingsPage /></LazyPage> },
             ],
           },
         ],

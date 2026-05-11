@@ -712,6 +712,39 @@ export const PORTAL_LEAD_SOURCE_LABELS: Record<PortalLeadSource, string> = {
   bao: 'Bouche-à-oreille',
 }
 
+// ── Quote (devis artisan portail) ──
+export const QUOTE_STATUS = {
+  DRAFT: 'draft',
+  SENT: 'sent',
+  SIGNED: 'signed',
+  REFUSED: 'refused',
+  EXPIRED: 'expired',
+} as const
+
+export type QuoteStatus = (typeof QUOTE_STATUS)[keyof typeof QUOTE_STATUS]
+
+export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
+  draft: 'Brouillon',
+  sent: 'Envoyé',
+  signed: 'Signé',
+  refused: 'Refusé',
+  expired: 'Expiré',
+}
+
+export const QUOTE_STATUS_COLORS: Record<QuoteStatus, { color: string; bg: string }> = {
+  draft: { color: 'var(--gray-600)', bg: 'var(--gray-100)' },
+  sent: { color: 'var(--blue-600)', bg: 'var(--blue-100)' },
+  signed: { color: 'var(--emerald-600)', bg: 'var(--emerald-100)' },
+  refused: { color: 'var(--gray-500)', bg: 'var(--gray-100)' },
+  expired: { color: 'var(--amber-600)', bg: 'var(--amber-100)' },
+}
+
+export const QUOTE_UNITS = ['unité', 'm²', 'm³', 'ml', 'h', 'jour', 'forfait', 'pièce', 'kg', 'L'] as const
+
+export const VAT_RATES = [20, 10, 5.5, 0] as const
+
+export const COMPANY_FORMS = ['EI', 'EURL', 'SARL', 'SAS', 'SASU', 'Auto-entrepreneur', 'Micro-entreprise', 'SA'] as const
+
 // ── Accompagnement Step (5-step post-signature flow) ──
 export type AccompagnementStep =
   | 'contract_signed'

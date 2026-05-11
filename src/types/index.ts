@@ -1,4 +1,4 @@
-import type { UserRole, ProspectStatus, ProspectPhase, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus, LossReason, PaymentStatus, OpportunityStatus, OpportunityType, ContractStatus, AccompagnementStep } from './enums'
+import type { UserRole, ProspectStatus, ProspectPhase, CallResult, RdvStatus, RdvType, DevisStatus, ProjectStatus, ProspectSource, ClientStatus, LossReason, PaymentStatus, OpportunityStatus, OpportunityType, ContractStatus, AccompagnementStep, QuoteStatus } from './enums'
 
 export interface Profile {
   id: string
@@ -491,6 +491,98 @@ export interface PortalLeadEvent {
   new_status: string | null
   metadata: Record<string, unknown> | null
   created_at: string
+}
+
+// ── Quote (devis artisan portail) ──
+export interface QuoteSettings {
+  client_id: string
+  logo_path: string | null
+  company_legal_name: string | null
+  company_form: string | null
+  company_address: string | null
+  company_postal_code: string | null
+  company_city: string | null
+  company_phone: string | null
+  company_email: string | null
+  company_website: string | null
+  siret: string | null
+  siren: string | null
+  ape_code: string | null
+  rcs_city: string | null
+  vat_number: string | null
+  decennale_provider: string | null
+  decennale_policy: string | null
+  iban: string | null
+  bic: string | null
+  default_vat_rate: number
+  default_validity_days: number
+  default_payment_terms: string | null
+  default_quote_footer: string | null
+  quote_number_prefix: string
+  next_quote_number: number
+  created_at: string
+  updated_at: string
+}
+
+export interface Quote {
+  id: string
+  client_id: string
+  quote_number: string
+  portal_lead_id: string | null
+  recipient_name: string
+  recipient_address: string | null
+  recipient_postal_code: string | null
+  recipient_city: string | null
+  recipient_phone: string | null
+  recipient_email: string | null
+  issued_at: string
+  valid_until: string
+  status: QuoteStatus
+  total_ht: number
+  total_tva: number
+  total_ttc: number
+  internal_notes: string | null
+  client_message: string | null
+  payment_terms: string | null
+  footer_notes: string | null
+  signed_at: string | null
+  signed_pdf_path: string | null
+  signed_signature_data: string | null
+  sent_at: string | null
+  viewed_at: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  // Joined
+  items?: QuoteItem[]
+}
+
+export interface QuoteItem {
+  id: string
+  quote_id: string
+  position: number
+  description: string
+  quantity: number
+  unit: string
+  unit_price_ht: number
+  vat_rate: number
+  total_ht: number
+  total_tva: number
+  total_ttc: number
+  created_at: string
+}
+
+export interface QuoteItemLibrary {
+  id: string
+  client_id: string
+  label: string
+  description: string | null
+  default_unit: string
+  default_unit_price_ht: number
+  default_vat_rate: number
+  usage_count: number
+  created_at: string
+  updated_at: string
 }
 
 // ── Client Accompagnement Step ──

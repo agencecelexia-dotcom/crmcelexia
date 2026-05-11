@@ -13,7 +13,8 @@
 //   GOOGLE_OAUTH_CLIENT_ID
 //   GOOGLE_OAUTH_CLIENT_SECRET
 //   GOOGLE_OAUTH_REFRESH_TOKEN
-//   GOOGLE_LSA_MANAGER_ID  (format : 123-456-7890 ou 1234567890)
+//   GOOGLE_LSA_MANAGER_IDS  (un ou plusieurs IDs séparés par virgules,
+//                            format : 123-456-7890 ou 1234567890)
 //
 // Déclenché par cron Supabase ou pg_cron. Idempotent : tu peux l'appeler
 // autant que tu veux, les doublons sont écartés.
@@ -141,12 +142,33 @@ Deno.serve(async (req) => {
   const sinceDate = new Date(Date.now() - lookbackDays * 86_400_000)
 
   try {
-    const managerIdRaw = Deno.env.get('GOOGLE_LSA_MANAGER_ID')
-    if (!managerIdRaw) throw new Error('Missing GOOGLE_LSA_MANAGER_ID secret')
-    const managerId = normalizeManagerId(managerIdRaw)
+    // Support multi-manager : si Celexia a plusieurs comptes manager,
+    // ils sont séparés par virgule dans le secret GOOGLE_LSA_MANAGER_IDS.
+    // Fallback sur GOOGLE_LSA_MANAGER_ID (singulier) pour compat.
+    const managerIdsRaw = Deno.env.get('GOOGLE_LSA_MANAGER_IDS')
+      ?? Deno.env.get('GOOGLE_LSA_MANAGER_ID')
+    if (!managerIdsRaw) throw new Error('Missing GOOGLE_LSA_MANAGER_IDS secret')
+    const managerIds = managerIdsRaw
+      .split(',')
+      .map(s => normalizeManagerId(s))
+      .filter(Boolean)
+    if (managerIds.length === 0) throw new Error('GOOGLE_LSA_MANAGER_IDS empty after parsing')
 
     const accessToken = await getAccessToken()
-    const leads = await fetchLeads(accessToken, managerId, sinceDate)
+
+    // Récupère les leads de TOUS les managers et déduplique par leadId
+    const leadsMap = new Map<string, LSALead>()
+    for (const managerId of managerIds) {
+      try {
+        const subLeads = await fetchLeads(accessToken, managerId, sinceDate)
+        for (const l of subLeads) {
+          if (l.leadId && !leadsMap.has(l.leadId)) leadsMap.set(l.leadId, l)
+        }
+      } catch (err) {
+        console.error(`[lsa-sync] fetchLeads failed for manager ${managerId}`, err)
+      }
+    }
+    const leads = Array.from(leadsMap.values())
 
     let inserted = 0
     let updated = 0
@@ -205,6 +227,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       ok: true,
+      managers_queried: managerIds.length,
       scanned: leads.length,
       inserted,
       updated,

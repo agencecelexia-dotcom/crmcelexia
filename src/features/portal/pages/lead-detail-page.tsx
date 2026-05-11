@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLead, usePortalLeadEvents, useUpdatePortalLeadStatus, useUpdatePortalLead, useDeletePortalLead } from '../hooks/use-portal-leads'
-import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2 } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { getCommissionTerms, formatCommissionTerms, calcCommission } from '../lib/format'
@@ -234,6 +234,17 @@ export function PortalLeadDetailPage() {
                 <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--violet-700)' }}>{calcCommission(lead.signed_amount, terms).toLocaleString('fr-FR')} €</div>
               </div>
             </div>
+          )}
+
+          {/* Créer un devis (lien direct lead → devis) */}
+          {lead.status !== 'signe' && (
+            <button
+              className="btn btn-secondary"
+              style={{ width: '100%', padding: '10px 16px', fontSize: 14, fontWeight: 600 }}
+              onClick={() => navigate(`/portal/devis/nouveau?lead=${lead.id}`)}
+            >
+              <FileText size={16} /> Créer un devis
+            </button>
           )}
 
           {/* Delete — uniquement pour les leads BAO (l'artisan ne peut pas

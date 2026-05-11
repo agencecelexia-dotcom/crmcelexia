@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalShortcuts } from '../hooks/use-portal-shortcuts'
-import { Home, LayoutGrid, Euro, FolderOpen, KeyRound, LogOut, Bell, Menu } from 'lucide-react'
+import { Home, LayoutGrid, Euro, FolderOpen, KeyRound, LogOut, Bell, Menu, FileText, Settings } from 'lucide-react'
 import { ChangePasswordDialog } from './change-password-dialog'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import '../portal.css'
@@ -10,8 +10,10 @@ import '../portal.css'
 const NAV_ITEMS = [
   { to: '/portal/dashboard', label: 'Dashboard', icon: Home },
   { to: '/portal/leads', label: 'Leads', icon: LayoutGrid },
+  { to: '/portal/devis', label: 'Devis', icon: FileText },
   { to: '/portal/commission', label: 'Commission', icon: Euro },
   { to: '/portal/documents', label: 'Documents', icon: FolderOpen },
+  { to: '/portal/parametres', label: 'Paramètres', icon: Settings },
 ] as const
 
 type SidebarContentProps = {
@@ -34,7 +36,9 @@ function SidebarContent({ route, initials, fullName, companyName, onSignOut, onN
           Espace artisan
         </div>
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
-          const isActive = route === to || (to === '/portal/leads' && route.startsWith('/portal/leads/'))
+          const isActive = route === to
+            || (to === '/portal/leads' && route.startsWith('/portal/leads/'))
+            || (to === '/portal/devis' && route.startsWith('/portal/devis'))
           return (
             <NavLink
               key={to}
