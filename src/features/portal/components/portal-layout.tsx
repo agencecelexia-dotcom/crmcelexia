@@ -2,97 +2,16 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalShortcuts } from '../hooks/use-portal-shortcuts'
-import { Home, LayoutGrid, Euro, FolderOpen, KeyRound, LogOut, Bell, Menu } from 'lucide-react'
+import { Home, LayoutGrid, Euro, FolderOpen, KeyRound, LogOut, Bell } from 'lucide-react'
 import { ChangePasswordDialog } from './change-password-dialog'
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import '../portal.css'
 
 const NAV_ITEMS = [
   { to: '/portal/dashboard', label: 'Dashboard', icon: Home },
-  { to: '/portal/leads', label: 'Leads', icon: LayoutGrid, badge: true },
+  { to: '/portal/leads', label: 'Leads', icon: LayoutGrid },
   { to: '/portal/commission', label: 'Commission', icon: Euro },
   { to: '/portal/documents', label: 'Documents', icon: FolderOpen },
 ] as const
-
-type SidebarContentProps = {
-  route: string
-  initials: string
-  fullName: string | undefined
-  companyName: string | undefined
-  onSignOut: () => void
-  onNavigate?: () => void
-}
-
-function SidebarContent({ route, initials, fullName, companyName, onSignOut, onNavigate }: SidebarContentProps) {
-  return (
-    <>
-      {/* Logo */}
-      <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--gray-100)' }}>
-        <img src="/logocelexia.png" alt="Celexia" style={{ height: 28, width: 'auto' }} />
-      </div>
-
-      {/* Nav items */}
-      <div style={{ padding: '14px 0', flex: 1, overflowY: 'auto' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--gray-400)', padding: '4px 24px 8px' }}>
-          Espace artisan
-        </div>
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
-          const isActive = route === to || (to === '/portal/leads' && route.startsWith('/portal/leads/'))
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={onNavigate}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '10px 14px', margin: '2px 10px',
-                borderRadius: 'var(--radius-md)',
-                color: isActive ? 'var(--violet-700)' : 'var(--gray-600)',
-                fontSize: 14, fontWeight: isActive ? 600 : 500,
-                background: isActive ? 'var(--violet-50)' : 'transparent',
-                textDecoration: 'none',
-                transition: 'all 0.15s',
-                cursor: 'pointer',
-                minHeight: 44,
-              }}
-            >
-              <Icon size={18} style={{ color: isActive ? 'var(--violet-600)' : undefined }} />
-              <span>{label}</span>
-            </NavLink>
-          )
-        })}
-      </div>
-
-      {/* User footer */}
-      <div style={{ padding: 14, borderTop: '1px solid var(--gray-100)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8, borderRadius: 8 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: '50%',
-            background: 'linear-gradient(135deg, var(--violet-400), var(--violet-600))',
-            color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 700, fontSize: 13,
-          }}>
-            {initials}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-900)' }}>{fullName}</div>
-            <div style={{ fontSize: 11, color: 'var(--gray-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {companyName}
-            </div>
-          </div>
-          <button
-            onClick={onSignOut}
-            title="Se déconnecter"
-            aria-label="Se déconnecter"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 10, color: 'var(--gray-500)', minWidth: 40, minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <LogOut size={16} />
-          </button>
-        </div>
-      </div>
-    </>
-  )
-}
 
 export function PortalLayout() {
   const { profile, client, signOut } = usePortalAuth()
@@ -100,19 +19,14 @@ export function PortalLayout() {
   const location = useLocation()
   const route = location.pathname
   const [pwdOpen, setPwdOpen] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  // Mode "view as" : un fondateur visualise le portail d'un artisan via
-  // sessionStorage portal_view_as_client. On affiche un bandeau pour éviter
-  // toute confusion (le fondateur pourrait croire qu'il agit sur SON compte).
+  // Mode "view as" pour fondateurs
   const isFounder = profile?.role === 'fondateur' || profile?.role === 'co_fondateur'
   const isViewAs = isFounder && typeof window !== 'undefined' && !!sessionStorage.getItem('portal_view_as_client')
 
-  // Raccourcis clavier globaux : g+d (dashboard), g+l (leads), g+c (commission), g+f (documents)
   usePortalShortcuts()
 
   const handleSignOut = async () => {
-    setSidebarOpen(false)
     await signOut()
     navigate('/portal/auth')
   }
@@ -135,114 +49,121 @@ export function PortalLayout() {
 
   return (
     <div className="portal-root">
-      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--gray-50)' }}>
-        {/* Desktop sidebar (hidden on mobile) */}
+      <div className="flex min-h-screen bg-[var(--gray-50)]">
+        {/* Sidebar — toujours visible. Compact (icons only) sur mobile, large sur desktop. */}
         <aside
-          className="hidden md:flex"
-          style={{
-            width: 240, background: 'white', borderRight: '1px solid var(--gray-200)',
-            flexDirection: 'column', flexShrink: 0,
-            position: 'sticky', top: 0, height: '100vh',
-          }}
+          className="sticky top-0 flex h-screen w-[64px] shrink-0 flex-col border-r border-[var(--gray-200)] bg-white md:w-[240px]"
+          aria-label="Navigation principale"
         >
-          <SidebarContent
-            route={route}
-            initials={initials}
-            fullName={profile?.full_name}
-            companyName={client?.company_name}
-            onSignOut={handleSignOut}
-          />
-        </aside>
+          {/* Logo */}
+          <div className="flex items-center justify-center border-b border-[var(--gray-100)] px-3 py-4 md:justify-start md:px-5 md:py-[18px]">
+            <img src="/logocelexia.png" alt="Celexia" className="h-7 w-auto" />
+          </div>
 
-        {/* Mobile drawer sidebar */}
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetContent
-            side="left"
-            showCloseButton={false}
-            className="p-0 w-[280px] sm:max-w-[280px] flex flex-col bg-white"
-          >
-            <SheetTitle className="sr-only">Menu</SheetTitle>
-            <div className="portal-root flex flex-col h-full" style={{ background: 'white' }}>
-              <SidebarContent
-                route={route}
-                initials={initials}
-                fullName={profile?.full_name}
-                companyName={client?.company_name}
-                onSignOut={handleSignOut}
-                onNavigate={() => setSidebarOpen(false)}
-              />
+          {/* Nav items */}
+          <nav className="flex-1 overflow-y-auto py-3">
+            <div className="hidden px-6 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--gray-400)] md:block">
+              Espace artisan
             </div>
-          </SheetContent>
-        </Sheet>
+            {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
+              const isActive = route === to || (to === '/portal/leads' && route.startsWith('/portal/leads/'))
+              return (
+                <NavLink
+                  key={to}
+                  to={to}
+                  title={label}
+                  aria-label={label}
+                  className={`mx-2 mt-1 flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors md:mx-2.5 md:py-2 ${
+                    isActive
+                      ? 'bg-[var(--violet-50)] text-[var(--violet-700)]'
+                      : 'text-[var(--gray-600)] hover:bg-[var(--gray-100)] hover:text-[var(--gray-900)]'
+                  }`}
+                  style={isActive ? { fontWeight: 600 } : undefined}
+                >
+                  <Icon size={20} className="shrink-0" style={{ color: isActive ? 'var(--violet-600)' : undefined }} />
+                  <span className="hidden md:inline">{label}</span>
+                </NavLink>
+              )
+            })}
+          </nav>
 
-        {/* Main content */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          {/* Topbar */}
-          <div
-            className="px-4 py-3 md:px-6 md:py-4 xl:py-2.5 min-h-16 xl:min-h-14"
-            style={{
-              background: 'white', borderBottom: '1px solid var(--gray-200)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              gap: 8,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-              {/* Hamburger (mobile only) */}
+          {/* User footer */}
+          <div className="border-t border-[var(--gray-100)] p-2 md:p-3">
+            {/* Compact (mobile) : juste avatar + logout */}
+            <div className="flex flex-col items-center gap-2 md:hidden">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, var(--violet-400), var(--violet-600))' }}
+                title={profile?.full_name ?? ''}
+              >
+                {initials}
+              </div>
               <button
                 type="button"
-                className="md:hidden"
-                onClick={() => setSidebarOpen(true)}
-                aria-label="Ouvrir le menu"
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'var(--gray-700)',
-                  width: 40, height: 40, minWidth: 40, minHeight: 40,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: 'var(--radius-md)',
-                  flexShrink: 0,
-                }}
+                onClick={handleSignOut}
+                title="Se déconnecter"
+                aria-label="Se déconnecter"
+                className="flex h-9 w-9 items-center justify-center rounded-md text-[var(--gray-500)] hover:bg-[var(--gray-100)] hover:text-[var(--gray-900)]"
               >
-                <Menu size={20} />
+                <LogOut size={16} />
               </button>
-              <div style={{ fontSize: 13, color: 'var(--gray-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                <span className="hidden sm:inline">Espace artisan · </span>
-                <span style={{ fontWeight: 500, color: 'var(--gray-700)' }}>{currentLabel}</span>
-              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+
+            {/* Large (desktop) : avatar + nom + entreprise + logout */}
+            <div className="hidden items-center gap-2.5 rounded-lg p-2 md:flex">
+              <div
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, var(--violet-400), var(--violet-600))' }}
+              >
+                {initials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-semibold text-[var(--gray-900)]">{profile?.full_name}</div>
+                <div className="truncate text-[11px] text-[var(--gray-500)]">{client?.company_name}</div>
+              </div>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                title="Se déconnecter"
+                aria-label="Se déconnecter"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--gray-500)] hover:bg-[var(--gray-100)] hover:text-[var(--gray-900)]"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* Topbar */}
+          <header className="flex min-h-14 items-center justify-between gap-2 border-b border-[var(--gray-200)] bg-white px-4 py-3 md:px-6 md:py-3.5">
+            <div className="min-w-0 flex-1 truncate text-[13px] text-[var(--gray-500)]">
+              <span className="hidden sm:inline">Espace artisan · </span>
+              <span className="font-medium text-[var(--gray-700)]">{currentLabel}</span>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
                 aria-label="Notifications"
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  position: 'relative', color: 'var(--gray-600)',
-                  width: 40, height: 40, minWidth: 40, minHeight: 40,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: 'var(--radius-md)',
-                }}
+                className="relative flex h-10 w-10 items-center justify-center rounded-md text-[var(--gray-600)] hover:bg-[var(--gray-100)]"
               >
                 <Bell size={18} />
-                <span style={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: '50%', background: '#DC2626', border: '2px solid white' }} />
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-red-600" aria-hidden />
               </button>
               <button
                 type="button"
                 onClick={() => setPwdOpen(true)}
                 title="Changer mon mot de passe"
                 aria-label="Changer mon mot de passe"
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: 'var(--gray-600)',
-                  width: 40, height: 40, minWidth: 40, minHeight: 40,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: 'var(--radius-md)',
-                }}
+                className="flex h-10 w-10 items-center justify-center rounded-md text-[var(--gray-600)] hover:bg-[var(--gray-100)]"
               >
                 <KeyRound size={18} />
               </button>
             </div>
-          </div>
+          </header>
 
-          {/* View-as banner (fondateurs uniquement) */}
+          {/* View-as banner */}
           {isViewAs && (
             <div
               role="region"
@@ -269,9 +190,9 @@ export function PortalLayout() {
           )}
 
           {/* Page content */}
-          <div className="p-4 md:p-6 lg:p-8" style={{ flex: 1, overflowX: 'hidden' }}>
+          <main className="flex-1 overflow-x-hidden p-4 md:p-6 lg:p-8">
             <Outlet />
-          </div>
+          </main>
         </div>
       </div>
 

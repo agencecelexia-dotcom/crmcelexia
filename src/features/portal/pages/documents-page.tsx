@@ -2,6 +2,8 @@ import { usePortalAuth } from '../hooks/use-portal-auth'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase/client'
 import { FileText, Shield, Download, Building2, Upload } from 'lucide-react'
+import { toast } from 'sonner'
+import { describeError } from '../lib/error-utils'
 
 function DocCard({ title, icon: Icon, status, statusColor, subtitle, path, missing, onUpload }: {
   title: string
@@ -15,8 +17,21 @@ function DocCard({ title, icon: Icon, status, statusColor, subtitle, path, missi
 }) {
   async function handleDownload() {
     if (!path) return
-    const { data } = await supabase.storage.from('portal-documents').createSignedUrl(path, 3600)
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+    try {
+      const { data, error } = await supabase.storage.from('portal-documents').createSignedUrl(path, 3600)
+      if (error) throw error
+      if (!data?.signedUrl) throw new Error('URL signée introuvable')
+      // iOS Safari popup blocker workaround : <a> synthétique cliqué.
+      const link = document.createElement('a')
+      link.href = data.signedUrl
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (err) {
+      toast.error(`Impossible d'ouvrir le document : ${describeError(err)}`)
+    }
   }
 
   const interactive = Boolean(path) || Boolean(missing && onUpload)
@@ -80,7 +95,10 @@ export function PortalDocumentsPage() {
           icon={FileText}
           status={onboarding?.contract_signed ? 'Signé' : 'Non signé'}
           statusColor={onboarding?.contract_signed ? 'emerald' : 'amber'}
-          subtitle="Contrat de partenariat d'apport d'affaires"
+          subtitle={onboarding?.contract_signed_at
+            ? `Signé le ${new Date(onboarding.contract_signed_at).toLocaleDateString('fr-FR')}`
+            : "Contrat d'apport d'affaires Celexia"}
+          path={onboarding?.signed_contract_path}
           missing={!onboarding?.contract_signed}
           onUpload={goToOnboarding}
         />
