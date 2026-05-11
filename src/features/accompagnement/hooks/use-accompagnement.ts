@@ -8,9 +8,22 @@ import {
   getAllClientsAccompagnement,
   getClientKpis,
 } from '../services/accompagnement-service'
+import { getPortalDocsForClient } from '../services/portal-docs-service'
 import { STALE_TIME_LIST } from '@/lib/constants'
 import { supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+
+/** Récupère les paths des documents uploadés par l'artisan dans son portail.
+ *  Utilisé dans le dialog de validation d'étape Accompagnement pour afficher
+ *  un bouton "Voir le PDF" sur les étapes concernées. */
+export function usePortalDocsForClient(clientId: string | undefined) {
+  return useQuery({
+    queryKey: ['portal-docs', clientId],
+    queryFn: () => getPortalDocsForClient(clientId!),
+    enabled: !!clientId,
+    staleTime: 30_000,
+  })
+}
 
 export function useStepsForClient(clientId: string | undefined) {
   const queryClient = useQueryClient()
