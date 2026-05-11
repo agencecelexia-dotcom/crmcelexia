@@ -360,7 +360,7 @@ export function ContractPage() {
         <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
           <canvas
             ref={canvasRef}
-            className="block h-40 w-full cursor-crosshair touch-none rounded-lg border border-dashed border-gray-200 bg-white select-none sm:h-48 md:h-56"
+            className="block h-40 max-h-[40vh] w-full cursor-crosshair touch-none rounded-lg border border-dashed border-gray-200 bg-white select-none sm:h-48 sm:max-h-none md:h-56"
             style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
           />
         </div>

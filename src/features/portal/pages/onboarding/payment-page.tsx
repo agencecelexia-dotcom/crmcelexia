@@ -109,11 +109,14 @@ export function PaymentPage() {
               <div className="font-mono break-all text-sm font-medium text-gray-900 sm:break-normal">{IBAN}</div>
             </div>
             <button
+              type="button"
               className="btn btn-secondary self-start sm:self-auto"
               onClick={copyIban}
+              aria-label={copied ? 'IBAN copié dans le presse-papier' : "Copier l'IBAN dans le presse-papier"}
               style={{ padding: '8px 14px', fontSize: 13 }}
             >
-              {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copié !' : 'Copier'}
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              <span aria-live="polite">{copied ? 'Copié !' : 'Copier'}</span>
             </button>
           </div>
           <Row label="BIC / SWIFT" value={BIC} mono />

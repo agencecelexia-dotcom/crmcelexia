@@ -399,3 +399,16 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+/* Print : si l'artisan imprime la page contrat, l'iframe PDF (rendue via Chrome
+   PDF viewer) ne s'imprime pas bien — on cache l'aperçu et on incite à
+   imprimer depuis le PDF lui-même (lien "Télécharger" ou bouton "Voir le
+   contrat en plein écran"). */
+@media print {
+  .portal-root iframe[title="Contrat Celexia"] {
+    display: none !important;
+  }
+  .portal-root iframe[title="Contrat Celexia"]::after {
+    content: "Téléchargez le PDF pour imprimer le contrat.";
+  }
+}

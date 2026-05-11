@@ -466,6 +466,8 @@ export interface PortalLead {
   source: 'lsa' | 'bao'
   status: 'nouveau' | 'qualifie' | 'devis' | 'signe' | 'perdu'
   signed_amount: number | null
+  /** Date de signature (DATE, format "YYYY-MM-DD", pas un timestamp). Pas
+   *  de fuseau horaire — interpréter comme jour calendaire Paris. */
   signed_at: string | null
   signed_pdf_path: string | null
   commission_rate: number

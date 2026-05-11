@@ -4,6 +4,9 @@ export const STALE_TIME_DASHBOARD = 30 * 1000 // 30 seconds
 export const STALE_TIME_LIST = 60 * 1000 // 60 seconds
 export const DEBOUNCE_MS = 300
 
+// Email de support agence (utilisé dans tous les écrans côté client & RDV publics)
+export const AGENCE_CELEXIA_EMAIL = 'agence.celexia@gmail.com'
+
 // n8n webhook for automatic site deployment
 export const N8N_SITE_DEPLOY_WEBHOOK = 'https://n8n.srv1241880.hstgr.cloud/webhook/crm-site-deploy'
 

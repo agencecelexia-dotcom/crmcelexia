@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase/client'
 import { Loader2, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { getNextOnboardingStep } from '../lib/onboarding-navigation'
+import { describeError } from '../lib/error-utils'
+import { AGENCE_CELEXIA_EMAIL } from '@/lib/constants'
 import '../portal.css'
 
 export function PortalLoginPage() {
@@ -17,7 +19,6 @@ export function PortalLoginPage() {
     setLoading(true)
     let stage = 'signin'
     try {
-      // 1. Sign in
       const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
       if (signInErr) {
         toast.error('Email ou mot de passe incorrect')
@@ -26,7 +27,6 @@ export function PortalLoginPage() {
       const user = signInData.user
       if (!user) throw new Error('Aucun utilisateur retourné après login')
 
-      // 2. Profile
       stage = 'profile'
       const { data: profile, error: profileErr } = await supabase
         .from('profiles').select('role').eq('id', user.id).single()
@@ -36,14 +36,12 @@ export function PortalLoginPage() {
         return
       }
 
-      // 3. Client
       stage = 'client'
       const { data: client, error: clientErr } = await supabase
         .from('clients').select('id').eq('user_id', user.id).maybeSingle()
       if (clientErr) throw clientErr
       if (!client) { navigate('/portal/onboarding/welcome'); return }
 
-      // 4. Onboarding
       stage = 'onboarding'
       const { data: onb, error: onbErr } = await supabase
         .from('portal_onboardings')
@@ -53,7 +51,6 @@ export function PortalLoginPage() {
       if (onbErr) throw onbErr
       if (!onb) { navigate('/portal/onboarding/welcome'); return }
 
-      // 5. Route based on status
       if (onb.status === 'validated') {
         navigate('/portal/dashboard')
       } else if (onb.status === 'pending_validation') {
@@ -64,7 +61,7 @@ export function PortalLoginPage() {
         navigate(getNextOnboardingStep(onb))
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = describeError(err)
       console.error(`[portal-login] stage=${stage} err=`, err)
       toast.error(`Erreur ${stage} : ${msg}`)
     } finally {
@@ -73,51 +70,68 @@ export function PortalLoginPage() {
   }
 
   return (
-    <div className="portal-root" style={{ minHeight: '100vh', background: 'var(--gray-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ width: '100%', maxWidth: 400 }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <img src="/logocelexia.png" alt="Celexia" style={{ height: 40, margin: '0 auto 16px', display: 'block' }} />
-          <h1 className="font-display" style={{ fontSize: 28, fontWeight: 700, color: 'var(--gray-900)', marginBottom: 6 }}>
+    <div className="portal-root flex min-h-screen items-center justify-center bg-[var(--gray-50)] p-4 sm:p-5">
+      <div className="w-full max-w-[400px]">
+        <div className="mb-6 text-center sm:mb-8">
+          <img src="/logocelexia.png" alt="Celexia" className="mx-auto mb-3 block h-10 w-auto sm:mb-4" />
+          <h1 className="font-display mb-1.5 text-2xl font-bold text-[var(--gray-900)] sm:text-[28px]">
             Portail Client
           </h1>
-          <p style={{ fontSize: 15, color: 'var(--gray-500)' }}>Connectez-vous à votre espace artisan</p>
+          <p className="text-sm text-[var(--gray-500)] sm:text-[15px]">
+            Connectez-vous à votre espace artisan
+          </p>
         </div>
 
-        <div className="p-card" style={{ padding: 28 }}>
-          <form onSubmit={handleLogin} style={{ display: 'grid', gap: 16 }}>
+        <div className="p-card p-6 sm:p-7">
+          <form onSubmit={handleLogin} className="grid gap-4">
             <div>
-              <label className="label-input">Email</label>
+              <label className="label-input" htmlFor="portal-login-email">Email</label>
               <input
+                id="portal-login-email"
                 type="email"
                 className="input"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="votre@email.com"
+                style={{ fontSize: 16 }}
                 required
                 autoFocus
+                autoComplete="email"
               />
             </div>
             <div>
-              <label className="label-input">Mot de passe</label>
+              <label className="label-input" htmlFor="portal-login-password">Mot de passe</label>
               <input
+                id="portal-login-password"
                 type="password"
                 className="input"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
+                style={{ fontSize: 16 }}
                 required
+                autoComplete="current-password"
               />
             </div>
-            <button type="submit" className="btn btn-primary lg" disabled={loading} style={{ width: '100%' }}>
+            <button
+              type="submit"
+              className="btn btn-primary lg w-full"
+              disabled={loading}
+            >
               {loading ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
               Se connecter
             </button>
           </form>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--gray-400)', marginTop: 20 }}>
+        <p className="mt-5 text-center text-[13px] text-[var(--gray-400)]">
           Pas encore de compte ? Contactez{' '}
-          <a href="mailto:agence.celexia@gmail.com" style={{ color: 'var(--violet-600)', fontWeight: 600, textDecoration: 'none' }}>agence.celexia@gmail.com</a>
+          <a
+            href={`mailto:${AGENCE_CELEXIA_EMAIL}`}
+            className="font-semibold text-[var(--violet-600)] no-underline hover:underline"
+          >
+            {AGENCE_CELEXIA_EMAIL}
+          </a>
         </p>
       </div>
     </div>

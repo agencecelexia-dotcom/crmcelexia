@@ -214,7 +214,7 @@ function ContractInfoStep(props: ContractInfoStepProps) {
         </p>
       </div>
 
-      <DialogFooter>
+      <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 mt-4 border-t bg-background px-6 py-3">
         <Button variant="ghost" onClick={onCancel}>Annuler</Button>
         <Button
           className="bg-violet-600 hover:bg-violet-700"
@@ -264,7 +264,7 @@ function EmailStep({ enseigne, email, setEmail, processing, onBack, onInvite }: 
           L'artisan le signera directement dans l'onboarding.
         </div>
       </div>
-      <DialogFooter>
+      <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 mt-4 border-t bg-background px-6 py-3">
         <Button variant="ghost" onClick={onBack}>Retour</Button>
         <Button
           className="bg-violet-600 hover:bg-violet-700"
@@ -314,7 +314,7 @@ function ResultStep({ inviteResult, copied, onCopy, onClose }: ResultStepProps) 
           Lien de connexion : <strong>{window.location.origin}/portal/auth</strong>
         </p>
       </div>
-      <DialogFooter>
+      <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 mt-4 border-t bg-background px-6 py-3">
         <Button variant="outline" onClick={onCopy}>
           {copied ? <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-600" /> : <Copy className="mr-2 h-4 w-4" />}
           {copied ? 'Copié !' : 'Copier les identifiants'}
