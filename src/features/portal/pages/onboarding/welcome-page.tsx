@@ -5,6 +5,7 @@ import { FileText, Euro, Building2, Shield, Clock, ArrowRight, AlertCircle, Chec
 import { getNextOnboardingStep, isOnboardingComplete } from '../../lib/onboarding-navigation'
 import { getOnboardingById, submitOnboardingForValidation } from '../../services/onboarding-service'
 import { toast } from 'sonner'
+import { describeError } from '../../lib/error-utils'
 
 type DoneKey = 'contract_signed' | 'payment_proof_uploaded' | 'gmb_access_confirmed' | 'legal'
 
@@ -94,7 +95,7 @@ export function WelcomePage() {
       await refreshOnboarding()
       navigate('/portal/onboarding/pending')
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = describeError(err)
       console.error('[submit-onboarding] err=', err)
       toast.error(`Soumission impossible : ${msg}`)
     } finally {

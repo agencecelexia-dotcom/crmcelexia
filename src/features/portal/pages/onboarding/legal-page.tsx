@@ -6,6 +6,7 @@ import { ProgressHeader } from '../../components/onboarding/progress-header'
 import { getNextOnboardingStep } from '../../lib/onboarding-navigation'
 import { ArrowLeft, ArrowRight, Upload, CheckCircle2, X, Check, Lock } from 'lucide-react'
 import { toast } from 'sonner'
+import { describeError } from '../../lib/error-utils'
 
 function DocUploadCard({ title, subtitle, file, setFile, criteria }: {
   title: string; subtitle: string; file: { name: string; raw?: File } | null
@@ -92,7 +93,7 @@ export function LegalPage() {
       await refreshOnboarding()
       navigate(getNextOnboardingStep(updated))
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = describeError(err)
       console.error(`[legal] stage=${stage} err=`, err)
       toast.error(`Erreur ${stage} : ${msg}`)
     } finally {

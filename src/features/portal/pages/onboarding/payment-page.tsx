@@ -6,6 +6,7 @@ import { ProgressHeader } from '../../components/onboarding/progress-header'
 import { getNextOnboardingStep } from '../../lib/onboarding-navigation'
 import { ArrowLeft, ArrowRight, Upload, FileText, Trash2, Copy, Check, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { describeError } from '../../lib/error-utils'
 
 const IBAN = 'FR76 1695 8000 0129 8676 6973 937'
 const BIC = 'QNTOFRP1XXX'
@@ -64,7 +65,7 @@ export function PaymentPage() {
       }
       navigate(getNextOnboardingStep(updated))
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = describeError(err)
       console.error(`[payment] stage=${stage} err=`, err)
       toast.error(`Erreur ${stage} : ${msg}`)
     } finally {

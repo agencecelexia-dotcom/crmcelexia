@@ -6,6 +6,7 @@ import { ProgressHeader } from '../../components/onboarding/progress-header'
 import { getNextOnboardingStep } from '../../lib/onboarding-navigation'
 import { ArrowLeft, ArrowRight, Info } from 'lucide-react'
 import { toast } from 'sonner'
+import { describeError } from '../../lib/error-utils'
 
 function GmbMock({ kind }: { kind: string }) {
   const boxClass = 'flex h-16 flex-col justify-center gap-1 rounded-lg border border-gray-200 bg-gray-50 p-2 sm:h-[72px]'
@@ -73,7 +74,7 @@ export function GmbPage() {
       }
       navigate(getNextOnboardingStep(updated))
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = describeError(err)
       console.error('[gmb] err=', err)
       toast.error(`Erreur : ${msg}`)
     } finally {

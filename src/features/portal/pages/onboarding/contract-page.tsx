@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-// @ts-expect-error no types for file-saver
-import { saveAs } from 'file-saver'
 import { usePortalAuth } from '../../hooks/use-portal-auth'
 import { updateOnboarding, uploadPortalDocument } from '../../services/onboarding-service'
 import { ProgressHeader } from '../../components/onboarding/progress-header'
@@ -10,6 +8,7 @@ import { generateContract, type ContractData } from '@/features/contracts/servic
 import { ArrowLeft, ArrowRight, FileText, Download, Eye, Loader2, CheckCircle2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { describeError } from '../../lib/error-utils'
 
 export function ContractPage() {
   const { onboarding, client, isLoading, refreshOnboarding } = usePortalAuth()
@@ -167,17 +166,11 @@ export function ContractPage() {
       stage = 'storage_upload'
       const path = await uploadPortalDocument(client.id, signedFile, 'contract-signed')
 
-      // Téléchargement local : best-effort, ne pas bloquer le flow si ça échoue
-      // (iOS Safari peut refuser l'activation utilisateur après une attente async)
-      try {
-        saveAs(signedBlob, fileName)
-      } catch (downloadErr) {
-        console.warn('Auto-download échoué (non bloquant) :', downloadErr)
-      }
-
       stage = 'db_update'
-      // Ne PAS stocker contract_signature_data en clair en DB :
-      // le PDF signé est la preuve légale (déjà uploadée dans storage).
+      // Le PDF signé est stocké dans Supabase Storage (preuve légale).
+      // Le trigger DB `trg_portal_contract_signed_email` (migration 00076)
+      // déclenche automatiquement l'envoi du contrat par Resend au client,
+      // avec le PDF en pièce jointe. Pas de téléchargement local.
       const updated = await updateOnboarding(onboarding.id, {
         contract_signed: true,
         contract_signed_at: new Date().toISOString(),
@@ -185,10 +178,10 @@ export function ContractPage() {
       })
 
       await refreshOnboarding()
-      toast.success('Contrat signé !')
+      toast.success('Contrat signé ! Un email avec le PDF arrive dans votre boîte.')
       navigate(getNextOnboardingStep(updated))
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = describeError(err)
       console.error(`[contract-sign] stage=${stage} err=`, err)
       toast.error(`Erreur ${stage} : ${msg}`)
     } finally {
