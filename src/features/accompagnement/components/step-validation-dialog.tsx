@@ -39,6 +39,41 @@ const PORTAL_LINKED_STEPS: AccompagnementStep[] = [
   'contract_signed', 'payment_received', 'gmb_access_shared', 'insurance_received',
 ]
 
+/** Motifs de correction pré-rédigés par étape — cohérents avec ce que l'artisan
+ *  peut effectivement corriger côté portail. Le fondateur en coche un ou plusieurs
+ *  et peut ajouter un commentaire libre. */
+const CORRECTION_PRESETS: Record<AccompagnementStep, string[]> = {
+  contract_signed: [
+    'Signature illisible',
+    'Date de signature manquante ou incorrecte',
+    'Contrat non signé sur toutes les pages requises',
+    'Informations société (SIREN, raison sociale) erronées',
+    'Fichier PDF corrompu / impossible à ouvrir',
+  ],
+  payment_received: [
+    'Montant du virement incorrect par rapport au budget convenu',
+    'Référence du virement manquante',
+    'Preuve de virement illisible',
+    'Virement non reçu sur notre compte Celexia',
+    'Capture d\'écran / PDF non conforme',
+  ],
+  gmb_access_shared: [
+    'Aucune invitation reçue sur agence.celexia@gmail.com',
+    'Rôle attribué incorrect (doit être « Propriétaire »)',
+    'Fiche Google Business non trouvée à votre nom',
+    'Invitation envoyée vers une mauvaise adresse',
+  ],
+  insurance_received: [
+    'Attestation RC Pro expirée (échéance < 90 jours)',
+    'RC Pro pas au nom de votre entreprise',
+    'Kbis daté de plus de 3 mois',
+    'SIREN / SIRET illisible sur le Kbis',
+    'Document corrompu ou illisible',
+    'Activité mentionnée ne correspond pas au bâtiment / artisanat',
+  ],
+  lsa_live: [],
+}
+
 interface StepValidationDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -190,15 +225,42 @@ export function StepValidationDialog({ open, onOpenChange, step }: StepValidatio
   const [resourceUrlDraft, setResourceUrlDraft] = useState('')
   const [confirmUndoOpen, setConfirmUndoOpen] = useState(false)
   const [correctionOpen, setCorrectionOpen] = useState(false)
-  const [correctionReason, setCorrectionReason] = useState('')
+  const [selectedPresets, setSelectedPresets] = useState<string[]>([])
+  const [extraComment, setExtraComment] = useState('')
   const [sendingCorrection, setSendingCorrection] = useState(false)
 
+  const presets = step ? CORRECTION_PRESETS[step.step] ?? [] : []
+
+  function togglePreset(preset: string) {
+    setSelectedPresets(prev =>
+      prev.includes(preset) ? prev.filter(p => p !== preset) : [...prev, preset],
+    )
+  }
+
+  function buildReason(): string {
+    const lines: string[] = []
+    if (selectedPresets.length > 0) {
+      // Liste à puces (lisible dans l'email)
+      lines.push(...selectedPresets.map(p => `• ${p}`))
+    }
+    const extra = extraComment.trim()
+    if (extra) {
+      if (lines.length > 0) lines.push('')
+      lines.push(extra)
+    }
+    return lines.join('\n')
+  }
+
+  const reasonPreview = buildReason()
+  const canSend = reasonPreview.length >= 5
+
   async function handleSendCorrection() {
-    if (!step || !correctionReason.trim()) return
+    if (!step || !canSend) return
+    const reason = reasonPreview
     setSendingCorrection(true)
     try {
       // 1. Reset les flags portail + set rejection_reason + status=in_progress
-      await requestCorrectionForAccompagnementStep(step.client_id, step.step, correctionReason.trim())
+      await requestCorrectionForAccompagnementStep(step.client_id, step.step, reason)
 
       // 2. Fetch les infos client pour l'email
       const { data: client } = await supabase
@@ -211,7 +273,7 @@ export function StepValidationDialog({ open, onOpenChange, step }: StepValidatio
           email: client.contact_email,
           artisan_firstname: client.contact_firstname || 'cher artisan',
           company_name: client.company_name || '',
-          rejection_reason: correctionReason.trim(),
+          rejection_reason: reason,
         })
       }
 
@@ -221,7 +283,8 @@ export function StepValidationDialog({ open, onOpenChange, step }: StepValidatio
 
       toast.success('Correction demandée à l\'artisan par email.')
       setCorrectionOpen(false)
-      setCorrectionReason('')
+      setSelectedPresets([])
+      setExtraComment('')
       onOpenChange(false)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -238,6 +301,14 @@ export function StepValidationDialog({ open, onOpenChange, step }: StepValidatio
       setResourceUrlDraft(step.resource_url ?? '')
     }
   }, [open, step?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset correction draft quand on ouvre le sub-dialog (motifs vides à chaque fois)
+  useEffect(() => {
+    if (correctionOpen) {
+      setSelectedPresets([])
+      setExtraComment('')
+    }
+  }, [correctionOpen])
 
   if (!step) return null
 
@@ -396,7 +467,7 @@ export function StepValidationDialog({ open, onOpenChange, step }: StepValidatio
 
       {/* Sub-dialog : demander une correction sur cette étape */}
       <Dialog open={correctionOpen} onOpenChange={setCorrectionOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-600" />
@@ -404,21 +475,65 @@ export function StepValidationDialog({ open, onOpenChange, step }: StepValidatio
             </DialogTitle>
             <DialogDescription>
               L'étape <strong>{ACCOMPAGNEMENT_STEP_LABELS[step.step]}</strong> sera remise en
-              "à refaire" côté artisan, et un email lui sera envoyé avec votre motif.
+              "à refaire" côté artisan, et un email lui sera envoyé avec le motif.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <Label htmlFor="correction-reason" className="text-xs text-muted-foreground">
-              Motif (sera envoyé à l'artisan)
-            </Label>
-            <Textarea
-              id="correction-reason"
-              value={correctionReason}
-              onChange={e => setCorrectionReason(e.target.value)}
-              rows={4}
-              placeholder="Ex: Le contrat signé n'est pas lisible, merci de re-signer avec une meilleure qualité d'image."
-            />
+          <div className="space-y-4">
+            {/* Presets : motifs cliquables, multi-sélection */}
+            {presets.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">
+                  Sélectionnez le(s) motif(s) — coche ce qui s'applique
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {presets.map(preset => {
+                    const selected = selectedPresets.includes(preset)
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => togglePreset(preset)}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                          selected
+                            ? 'border-red-300 bg-red-50 text-red-800'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-red-200 hover:bg-red-50/50'
+                        }`}
+                      >
+                        {selected && <Check className="h-3 w-3" />}
+                        {preset}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Commentaire libre additionnel */}
+            <div className="space-y-1.5">
+              <Label htmlFor="correction-comment" className="text-xs text-muted-foreground">
+                Précisions / commentaire (optionnel)
+              </Label>
+              <Textarea
+                id="correction-comment"
+                value={extraComment}
+                onChange={e => setExtraComment(e.target.value)}
+                rows={3}
+                placeholder="Ex: La signature est trop pâle, refaites avec un trait plus marqué."
+              />
+            </div>
+
+            {/* Aperçu de ce qui sera envoyé */}
+            {reasonPreview && (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                  Aperçu du message envoyé
+                </div>
+                <pre className="whitespace-pre-wrap text-xs text-gray-700 font-sans">
+                  {reasonPreview}
+                </pre>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-2">
@@ -432,7 +547,7 @@ export function StepValidationDialog({ open, onOpenChange, step }: StepValidatio
             <Button
               variant="destructive"
               onClick={handleSendCorrection}
-              disabled={sendingCorrection || correctionReason.trim().length < 5}
+              disabled={sendingCorrection || !canSend}
             >
               {sendingCorrection ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
