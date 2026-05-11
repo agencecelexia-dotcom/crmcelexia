@@ -68,13 +68,14 @@ export function GmbPage() {
         updated = await updateOnboarding(onboarding.id, {
           gmb_access_confirmed: true,
           gmb_confirmed_at: new Date().toISOString(),
-          current_step: 4,
-        } as Record<string, unknown>)
+        })
         await refreshOnboarding()
       }
       navigate(getNextOnboardingStep(updated))
-    } catch {
-      toast.error('Erreur')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[gmb] err=', err)
+      toast.error(`Erreur : ${msg}`)
     } finally {
       setSaving(false)
     }

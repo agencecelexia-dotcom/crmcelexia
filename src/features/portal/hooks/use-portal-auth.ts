@@ -12,6 +12,7 @@ export interface PortalOnboarding {
   payment_proof_path: string | null
   payment_amount: number | null
   gmb_access_confirmed: boolean
+  gmb_confirmed_at: string | null
   rc_pro_uploaded: boolean
   rc_pro_path: string | null
   kbis_uploaded: boolean

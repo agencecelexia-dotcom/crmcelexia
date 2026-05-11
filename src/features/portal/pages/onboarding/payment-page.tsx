@@ -49,20 +49,24 @@ export function PaymentPage() {
   async function handleContinue() {
     if (!onboarding || !file || !client) return
     setSaving(true)
+    let stage = 'init'
     try {
       let updated = onboarding
       if (file.raw) {
+        stage = 'storage_upload'
         const path = await uploadPortalDocument(client.id, file.raw, 'payment-proof')
+        stage = 'db_update'
         updated = await updateOnboarding(onboarding.id, {
           payment_proof_uploaded: true,
           payment_proof_path: path,
-          current_step: 3,
-        } as Record<string, unknown>)
+        })
         await refreshOnboarding()
       }
       navigate(getNextOnboardingStep(updated))
-    } catch {
-      toast.error("Erreur lors de l'upload")
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[payment] stage=${stage} err=`, err)
+      toast.error(`Erreur ${stage} : ${msg}`)
     } finally {
       setSaving(false)
     }

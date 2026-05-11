@@ -154,8 +154,10 @@ export function ContractPage() {
         clientSignedDate: signedDate,
       })
 
-      // Sanitise le nom de fichier : enlève /, \, ?, *, : et caractères spéciaux
+      // Le filename est aussi sanitisé côté service (uploadPortalDocument),
+      // mais on en construit un lisible ici pour le téléchargement local.
       const safeEnseigne = (contractData.client_enseigne || 'client')
+        .normalize('NFD').replace(/\p{Diacritic}/gu, '')
         .replace(/[^a-zA-Z0-9-_]/g, '-')
         .replace(/-+/g, '-')
         .slice(0, 50)
@@ -174,13 +176,13 @@ export function ContractPage() {
       }
 
       stage = 'db_update'
+      // Ne PAS stocker contract_signature_data en clair en DB :
+      // le PDF signé est la preuve légale (déjà uploadée dans storage).
       const updated = await updateOnboarding(onboarding.id, {
         contract_signed: true,
-        contract_signature_data: signatureData,
         contract_signed_at: new Date().toISOString(),
         signed_contract_path: path,
-        current_step: 2,
-      } as Record<string, unknown>)
+      })
 
       await refreshOnboarding()
       toast.success('Contrat signé !')
@@ -209,10 +211,17 @@ export function ContractPage() {
 
   if (onboarding.contract_signed && onboarding.signed_contract_path) {
     async function viewSignedPdf() {
-      const { data } = await supabase.storage
-        .from('portal-documents')
-        .createSignedUrl(onboarding!.signed_contract_path!, 3600)
-      if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+      try {
+        const { data, error } = await supabase.storage
+          .from('portal-documents')
+          .createSignedUrl(onboarding!.signed_contract_path!, 3600)
+        if (error) throw error
+        if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+        else throw new Error('URL signée introuvable')
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        toast.error(`Impossible d'ouvrir le contrat : ${msg}`)
+      }
     }
 
     return (
@@ -344,7 +353,8 @@ export function ContractPage() {
         <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
           <canvas
             ref={canvasRef}
-            className="block h-40 w-full cursor-crosshair touch-none rounded-lg border border-dashed border-gray-200 bg-white sm:h-48"
+            className="block h-40 w-full cursor-crosshair touch-none rounded-lg border border-dashed border-gray-200 bg-white select-none sm:h-48 md:h-56"
+            style={{ WebkitUserSelect: 'none', userSelect: 'none' }}
           />
         </div>
         <div className="mt-2.5 flex flex-col-reverse items-start justify-between gap-2 sm:flex-row sm:items-center">

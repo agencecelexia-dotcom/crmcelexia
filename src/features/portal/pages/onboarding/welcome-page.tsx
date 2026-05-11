@@ -1,17 +1,37 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { usePortalAuth } from '../../hooks/use-portal-auth'
+import { usePortalAuth, type PortalOnboarding } from '../../hooks/use-portal-auth'
 import { FileText, Euro, Building2, Shield, Clock, ArrowRight, AlertCircle, Check, Send } from 'lucide-react'
 import { getNextOnboardingStep, isOnboardingComplete } from '../../lib/onboarding-navigation'
-import { submitOnboardingForValidation } from '../../services/onboarding-service'
+import { getOnboardingById, submitOnboardingForValidation } from '../../services/onboarding-service'
 import { toast } from 'sonner'
 
-const STEPS = [
-  { num: 1, title: "Signature du contrat d'apport d'affaires", duration: '2 min', icon: <FileText size={20} />, path: '/portal/onboarding/contract', doneKey: 'contract_signed' as const },
-  { num: 2, title: 'Preuve du virement de lancement', duration: '1 min', icon: <Euro size={20} />, path: '/portal/onboarding/payment', doneKey: 'payment_proof_uploaded' as const },
-  { num: 3, title: 'Accès à votre fiche Google Business', duration: '5 min', icon: <Building2 size={20} />, path: '/portal/onboarding/gmb', doneKey: 'gmb_access_confirmed' as const },
-  { num: 4, title: 'Assurance RC Pro + Extrait Kbis', duration: '3 min', icon: <Shield size={20} />, path: '/portal/onboarding/legal', doneKey: 'legal' as const },
+type DoneKey = 'contract_signed' | 'payment_proof_uploaded' | 'gmb_access_confirmed' | 'legal'
+
+interface Step {
+  num: number
+  title: string
+  duration: string
+  icon: React.ReactNode
+  path: string
+  doneKey: DoneKey
+}
+
+const STEPS: Step[] = [
+  { num: 1, title: "Signature du contrat d'apport d'affaires", duration: '2 min', icon: <FileText size={20} />, path: '/portal/onboarding/contract', doneKey: 'contract_signed' },
+  { num: 2, title: 'Preuve du virement de lancement', duration: '1 min', icon: <Euro size={20} />, path: '/portal/onboarding/payment', doneKey: 'payment_proof_uploaded' },
+  { num: 3, title: 'Accès à votre fiche Google Business', duration: '5 min', icon: <Building2 size={20} />, path: '/portal/onboarding/gmb', doneKey: 'gmb_access_confirmed' },
+  { num: 4, title: 'Assurance RC Pro + Extrait Kbis', duration: '3 min', icon: <Shield size={20} />, path: '/portal/onboarding/legal', doneKey: 'legal' },
 ]
+
+function isDone(onb: PortalOnboarding, key: DoneKey): boolean {
+  switch (key) {
+    case 'contract_signed': return onb.contract_signed
+    case 'payment_proof_uploaded': return onb.payment_proof_uploaded
+    case 'gmb_access_confirmed': return onb.gmb_access_confirmed
+    case 'legal': return onb.rc_pro_uploaded && onb.kbis_uploaded
+  }
+}
 
 function StepCard({
   num, title, duration, icon, done, onClick,
@@ -52,27 +72,31 @@ export function WelcomePage() {
   const firstName = profile?.full_name?.split(' ')[0] || 'artisan'
   const hasCorrections = !!onboarding?.rejection_reason
 
-  const isStepDone = (doneKey: string): boolean => {
-    if (!onboarding) return false
-    if (doneKey === 'legal') return onboarding.rc_pro_uploaded && onboarding.kbis_uploaded
-    return !!(onboarding as unknown as Record<string, unknown>)[doneKey]
-  }
-
-  const stepsDone = STEPS.filter(s => isStepDone(s.doneKey)).length
+  const stepsDone = onboarding ? STEPS.filter(s => isDone(onboarding, s.doneKey)).length : 0
   const allDone = onboarding ? isOnboardingComplete(onboarding) : false
-  const firstIncomplete = STEPS.find(s => !isStepDone(s.doneKey))
+  const firstIncomplete = onboarding ? STEPS.find(s => !isDone(onboarding, s.doneKey)) : STEPS[0]
   const nextPath = onboarding ? getNextOnboardingStep(onboarding) : '/portal/onboarding/contract'
 
   async function handleSubmit() {
     if (!onboarding || !allDone || submitting) return
     setSubmitting(true)
     try {
+      // Re-fetch avant submit : évite la race condition si la DB a changé
+      // (ex : admin a vidé une étape entre temps). Le trigger DB est notre
+      // filet final, mais ça donne un meilleur message d'erreur ici.
+      const fresh = await getOnboardingById(onboarding.id)
+      if (!fresh) throw new Error('Onboarding introuvable')
+      if (!isOnboardingComplete(fresh)) {
+        await refreshOnboarding()
+        throw new Error('Une étape a été modifiée. Vérifiez ci-dessous avant de re-soumettre.')
+      }
       await submitOnboardingForValidation(onboarding.id)
       await refreshOnboarding()
       navigate('/portal/onboarding/pending')
     } catch (err) {
-      console.error(err)
-      toast.error("Erreur lors de la soumission. Vérifiez que toutes les étapes sont complètes.")
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[submit-onboarding] err=', err)
+      toast.error(`Soumission impossible : ${msg}`)
     } finally {
       setSubmitting(false)
     }
@@ -161,7 +185,7 @@ export function WelcomePage() {
             title={s.title}
             duration={s.duration}
             icon={s.icon}
-            done={isStepDone(s.doneKey)}
+            done={onboarding ? isDone(onboarding, s.doneKey) : false}
             onClick={() => navigate(s.path)}
           />
         ))}

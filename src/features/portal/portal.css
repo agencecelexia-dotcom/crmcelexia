@@ -257,10 +257,16 @@
   transition: all 0.2s;
   cursor: pointer;
 }
-.portal-root .dropzone:hover,
 .portal-root .dropzone.drag {
   border-color: var(--violet-500);
   background: var(--violet-50);
+}
+/* Hover uniquement sur devices avec souris (évite l'effet sticky sur mobile) */
+@media (hover: hover) {
+  .portal-root .dropzone:hover {
+    border-color: var(--violet-500);
+    background: var(--violet-50);
+  }
 }
 
 /* ── Onboarding shell ── */

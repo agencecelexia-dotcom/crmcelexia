@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { usePortalAuth } from '../../hooks/use-portal-auth'
+import { usePortalAuth, type PortalOnboarding } from '../../hooks/use-portal-auth'
 import { updateOnboarding, uploadPortalDocument } from '../../services/onboarding-service'
 import { ProgressHeader } from '../../components/onboarding/progress-header'
 import { getNextOnboardingStep } from '../../lib/onboarding-navigation'
@@ -72,23 +72,29 @@ export function LegalPage() {
   async function handleContinue() {
     if (!onboarding || !client || !rcReady || !kbisReady) return
     setSaving(true)
+    let stage = 'init'
     try {
-      const updates: Record<string, unknown> = { current_step: 5 }
+      const updates: Partial<PortalOnboarding> = {}
 
       if (rc?.raw) {
+        stage = 'rc_pro_upload'
         updates.rc_pro_path = await uploadPortalDocument(client.id, rc.raw, 'rc-pro')
         updates.rc_pro_uploaded = true
       }
       if (kbis?.raw) {
+        stage = 'kbis_upload'
         updates.kbis_path = await uploadPortalDocument(client.id, kbis.raw, 'kbis')
         updates.kbis_uploaded = true
       }
 
+      stage = 'db_update'
       const updated = await updateOnboarding(onboarding.id, updates)
       await refreshOnboarding()
       navigate(getNextOnboardingStep(updated))
-    } catch {
-      toast.error("Erreur lors de l'upload")
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[legal] stage=${stage} err=`, err)
+      toast.error(`Erreur ${stage} : ${msg}`)
     } finally {
       setSaving(false)
     }
