@@ -154,6 +154,8 @@ export interface Client {
   // Commission (synchronisé depuis portal_onboardings.contract_data — voir migration 00086)
   commission_rate: number | null
   commission_base: 'HT' | 'TTC' | null
+  // LSA integration (migration 00089) — mapping artisan ↔ business Google
+  lsa_business_id: string | null
   // Joined
   commercial?: Profile
   prospect?: Prospect

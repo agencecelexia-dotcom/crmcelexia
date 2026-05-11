@@ -349,6 +349,13 @@ export function ClientDetailPage() {
                 value={client.website}
                 onSave={async (v) => { await updateClient.mutateAsync({ id: client.id, updates: { website: v } }) }}
               />
+              <EditableField
+                label="ID business LSA"
+                mono
+                placeholder="ID Google LSA — mappe les leads entrants vers ce client"
+                value={client.lsa_business_id ?? null}
+                onSave={async (v) => { await updateClient.mutateAsync({ id: client.id, updates: { lsa_business_id: v || null } }) }}
+              />
             </CardContent>
           </Card>
 
