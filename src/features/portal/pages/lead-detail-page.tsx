@@ -236,10 +236,19 @@ export function PortalLeadDetailPage() {
             </div>
           )}
 
-          {/* Delete */}
-          <button className="btn" style={{ width: '100%', background: 'white', color: '#DC2626', border: '1.5px solid #FECACA', padding: '10px 18px', fontSize: 14, fontWeight: 600 }} onClick={() => setDeleteOpen(true)}>
-            <Trash2 size={16} /> Supprimer ce lead
-          </button>
+          {/* Delete — uniquement pour les leads BAO (l'artisan ne peut pas
+              supprimer les leads envoyés par Celexia, le trigger DB le bloque
+              aussi côté serveur) */}
+          {lead.source === 'bao' && (
+            <button className="btn" style={{ width: '100%', background: 'white', color: '#DC2626', border: '1.5px solid #FECACA', padding: '10px 18px', fontSize: 14, fontWeight: 600 }} onClick={() => setDeleteOpen(true)}>
+              <Trash2 size={16} /> Supprimer ce lead
+            </button>
+          )}
+          {lead.source === 'lsa' && (
+            <div className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--gray-50)] p-3 text-xs text-[var(--gray-600)]">
+              Ce lead a été envoyé par Celexia. Il ne peut pas être supprimé — mettez son statut à jour pour ne plus le voir.
+            </div>
+          )}
         </div>
       </div>
 

@@ -105,7 +105,9 @@ export function PortalLeadsKanbanPage() {
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
 
   // New lead form
-  const [formData, setFormData] = useState({ name: '', phone: '', type: '', amount: '', source: 'lsa', notes: '' })
+  // Source forcée à 'bao' : un lead créé manuellement par l'artisan est
+  // toujours du bouche-à-oreille. Les LSA sont créés par Celexia uniquement.
+  const [formData, setFormData] = useState({ name: '', phone: '', type: '', amount: '', source: 'bao', notes: '' })
 
   const filtered = useMemo(() => {
     if (!leads) return []
@@ -129,7 +131,7 @@ export function PortalLeadsKanbanPage() {
     updateStatus.mutate({ id: leadId, newStatus, oldStatus: lead.status })
   }
 
-  function resetForm() { setFormData({ name: '', phone: '', type: '', amount: '', source: 'lsa', notes: '' }) }
+  function resetForm() { setFormData({ name: '', phone: '', type: '', amount: '', source: 'bao', notes: '' }) }
 
   async function handleCreateLead() {
     if (!client || !formData.name || !formData.phone || !formData.type) { toast.error('Nom, téléphone et type requis'); return }
@@ -346,14 +348,20 @@ export function PortalLeadsKanbanPage() {
                 <div><label className="label-input">Nom du prospect *</label><input className="input" value={formData.name} onChange={e => setFormData(d => ({ ...d, name: e.target.value }))} placeholder="Ex : Martin Dupont" style={{ fontSize: 16 }} /></div>
                 <div><label className="label-input">Téléphone *</label><input className="input" type="tel" value={formData.phone} onChange={e => setFormData(d => ({ ...d, phone: e.target.value }))} placeholder="06 XX XX XX XX" style={{ fontSize: 16 }} /></div>
                 <div><label className="label-input">Type de travaux *</label><input className="input" value={formData.type} onChange={e => setFormData(d => ({ ...d, type: e.target.value }))} placeholder="Ex : Rénovation piscine 8×4" style={{ fontSize: 16 }} /></div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div><label className="label-input">Montant estimé (€)</label><input className="input" type="number" inputMode="numeric" value={formData.amount} onChange={e => setFormData(d => ({ ...d, amount: e.target.value }))} placeholder="Optionnel" style={{ fontSize: 16 }} /></div>
-                  <div><label className="label-input">Source</label>
-                    <select className="input" value={formData.source} onChange={e => setFormData(d => ({ ...d, source: e.target.value }))} style={{ fontSize: 16 }}>
-                      <option value="lsa">Celexia</option>
-                      <option value="bao">Bouche-à-oreille</option>
-                    </select>
-                  </div>
+                <div>
+                  <label className="label-input">Montant estimé (€)</label>
+                  <input
+                    className="input"
+                    type="number"
+                    inputMode="numeric"
+                    value={formData.amount}
+                    onChange={e => setFormData(d => ({ ...d, amount: e.target.value }))}
+                    placeholder="Optionnel"
+                    style={{ fontSize: 16 }}
+                  />
+                </div>
+                <div className="rounded-[var(--radius-md)] border border-violet-100 bg-violet-50 p-2.5 text-[11px] leading-relaxed text-violet-800">
+                  Ce lead sera enregistré comme <strong>bouche-à-oreille</strong>. Les leads envoyés par Celexia apparaissent automatiquement dans votre tableau.
                 </div>
                 <div><label className="label-input">Notes</label><textarea className="input" value={formData.notes} onChange={e => setFormData(d => ({ ...d, notes: e.target.value }))} placeholder="Contexte, besoins particuliers…" style={{ minHeight: 80, resize: 'vertical', fontSize: 16 }} /></div>
               </div>

@@ -230,6 +230,18 @@ Deno.serve(async (req) => {
     forceSend = body?.force_send === true
   } catch (_) { /* no body */ }
 
+  // 0. Scan automatique des leads LSA stagnants (artisan n'a pas bougé)
+  //    → schedule les emails de relance qui seront traités à l'étape 1.
+  //    Function SQL migration 00088 ; gère les seuils + cooldowns en interne.
+  try {
+    const { data: staleScanned } = await supabase.rpc('schedule_stale_lead_reminders')
+    if (staleScanned && Number(staleScanned) > 0) {
+      console.log(`[send-scheduled-emails] ${staleScanned} relances de leads stagnants programmées`)
+    }
+  } catch (err) {
+    console.error('[send-scheduled-emails] stale lead scan failed', err)
+  }
+
   // 1. Récupérer les emails dus
   const { data: due, error: dueErr } = await supabase
     .from('email_schedule').select('*')
