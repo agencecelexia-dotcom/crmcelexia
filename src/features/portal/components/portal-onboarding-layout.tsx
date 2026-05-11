@@ -1,17 +1,32 @@
 import { useState } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, KeyRound, LogOut } from 'lucide-react'
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { ArrowLeft, KeyRound, LogOut, Loader2 } from 'lucide-react'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { ChangePasswordDialog } from './change-password-dialog'
 import '../portal.css'
 
 export function PortalOnboardingLayout() {
   const [pwdOpen, setPwdOpen] = useState(false)
-  const { signOut } = usePortalAuth()
+  const { signOut, onboarding, isLoading } = usePortalAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
   const isHub = location.pathname === '/portal/onboarding/welcome'
+
+  // Si l'onboarding est déjà validé par Celexia, on redirige vers le dashboard
+  // (sinon l'artisan reste bloqué sur /portal/onboarding/* après validation).
+  // Pendant le chargement initial, on affiche un loader pour ne pas flash le
+  // contenu d'onboarding à un artisan déjà validé.
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+      </div>
+    )
+  }
+  if (onboarding?.status === 'validated') {
+    return <Navigate to="/portal/dashboard" replace />
+  }
 
   async function handleLogout() {
     await signOut()
