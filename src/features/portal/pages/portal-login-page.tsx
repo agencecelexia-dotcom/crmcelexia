@@ -15,46 +15,58 @@ export function PortalLoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
+    let stage = 'signin'
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
+      // 1. Sign in
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInErr) {
+        toast.error('Email ou mot de passe incorrect')
+        return
+      }
+      const user = signInData.user
+      if (!user) throw new Error('Aucun utilisateur retourné après login')
 
-      // Check profile role + onboarding status to redirect properly
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user')
-
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      // 2. Profile
+      stage = 'profile'
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles').select('role').eq('id', user.id).single()
+      if (profileErr) throw profileErr
       if (!profile || profile.role !== 'artisan') {
-        // Not an artisan — redirect to CRM
         navigate('/dashboard')
         return
       }
 
-      // Check onboarding status
-      const { data: client } = await supabase.from('clients').select('id').eq('user_id', user.id).single()
+      // 3. Client
+      stage = 'client'
+      const { data: client, error: clientErr } = await supabase
+        .from('clients').select('id').eq('user_id', user.id).maybeSingle()
+      if (clientErr) throw clientErr
       if (!client) { navigate('/portal/onboarding/welcome'); return }
 
-      const { data: onb } = await supabase
+      // 4. Onboarding
+      stage = 'onboarding'
+      const { data: onb, error: onbErr } = await supabase
         .from('portal_onboardings')
         .select('status, rejection_reason, contract_signed, payment_proof_uploaded, gmb_access_confirmed, rc_pro_uploaded, kbis_uploaded')
         .eq('client_id', client.id)
-        .single()
-
+        .maybeSingle()
+      if (onbErr) throw onbErr
       if (!onb) { navigate('/portal/onboarding/welcome'); return }
 
+      // 5. Route based on status
       if (onb.status === 'validated') {
         navigate('/portal/dashboard')
       } else if (onb.status === 'pending_validation') {
         navigate('/portal/onboarding/pending')
       } else if (onb.rejection_reason) {
-        // Corrections demandées — welcome page affiche le motif + liste d'étapes
         navigate('/portal/onboarding/welcome')
       } else {
-        // Reprendre à la prochaine étape non complétée
         navigate(getNextOnboardingStep(onb))
       }
-    } catch {
-      toast.error('Email ou mot de passe incorrect')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[portal-login] stage=${stage} err=`, err)
+      toast.error(`Erreur ${stage} : ${msg}`)
     } finally {
       setLoading(false)
     }

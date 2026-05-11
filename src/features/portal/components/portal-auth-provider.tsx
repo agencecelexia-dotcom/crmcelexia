@@ -103,6 +103,16 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        // Reset l'état pour éviter de mélanger les identités (founder → artisan
+        // ou inversement) pendant le re-fetch. Sinon des routes peuvent s'évaluer
+        // avec un mix de l'ancienne et de la nouvelle session.
+        setProfile(null)
+        setClient(null)
+        setOnboarding(null)
+        setIsLoading(true)
+      }
+
       if (s?.user) {
         fetchPortalData(s.user.id)
       } else {
