@@ -19,8 +19,14 @@ export function PortalProtectedRoute() {
   }
 
   // Mode "view as" : les fondateurs peuvent visualiser le portail si ?as_client=<id>
+  // (ou si on a déjà mémorisé l'id en sessionStorage lors d'une navigation précédente)
   const params = new URLSearchParams(window.location.search)
-  const isViewAs = !!params.get('as_client') && (profile.role === 'fondateur' || profile.role === 'co_fondateur')
+  const isFounder = profile.role === 'fondateur' || profile.role === 'co_fondateur'
+  let hasAsClient = !!params.get('as_client')
+  if (!hasAsClient && isFounder) {
+    try { hasAsClient = !!sessionStorage.getItem('portal_view_as_client') } catch { /* noop */ }
+  }
+  const isViewAs = hasAsClient && isFounder
 
   if (profile.role !== 'artisan' && !isViewAs) {
     return <Navigate to="/dashboard" replace />

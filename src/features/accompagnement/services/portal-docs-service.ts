@@ -1,8 +1,10 @@
 import { supabase } from '@/lib/supabase/client'
 
-/** Sous-ensemble de portal_onboardings : juste les paths et timestamps utiles
- *  pour afficher les documents dans le dialog Accompagnement. */
+/** Sous-ensemble de portal_onboardings : juste les paths, timestamps + status
+ *  utiles pour le dialog Accompagnement et le bouton Valider de la carte. */
 export interface PortalDocsRow {
+  id: string
+  status: string
   signed_contract_path: string | null
   contract_signed_at: string | null
   payment_proof_path: string | null
@@ -10,13 +12,14 @@ export interface PortalDocsRow {
   kbis_path: string | null
   gmb_access_confirmed: boolean
   gmb_confirmed_at: string | null
+  validated_at: string | null
 }
 
 export async function getPortalDocsForClient(clientId: string): Promise<PortalDocsRow | null> {
   const { data, error } = await supabase
     .from('portal_onboardings')
     .select(
-      'signed_contract_path, contract_signed_at, payment_proof_path, rc_pro_path, kbis_path, gmb_access_confirmed, gmb_confirmed_at',
+      'id, status, signed_contract_path, contract_signed_at, payment_proof_path, rc_pro_path, kbis_path, gmb_access_confirmed, gmb_confirmed_at, validated_at',
     )
     .eq('client_id', clientId)
     .maybeSingle()

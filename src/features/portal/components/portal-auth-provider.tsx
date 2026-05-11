@@ -26,9 +26,17 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
 
       // Mode "view as" : un fondateur ou co-fondateur peut visualiser le portail
       // d'un artisan en passant ?as_client=<id> en URL. Permis seulement si is_founder.
+      // On stocke l'id en sessionStorage pour le préserver à travers les <Navigate>
+      // qui font perdre les query params (sinon l'utilisateur se retrouve éjecté).
       const params = new URLSearchParams(window.location.search)
-      const asClientId = params.get('as_client')
+      const asClientFromUrl = params.get('as_client')
       const isFounder = profileData.role === 'fondateur' || profileData.role === 'co_fondateur'
+
+      if (asClientFromUrl && isFounder) {
+        try { sessionStorage.setItem('portal_view_as_client', asClientFromUrl) } catch { /* noop */ }
+      }
+      const asClientId = asClientFromUrl
+        || (isFounder ? (() => { try { return sessionStorage.getItem('portal_view_as_client') } catch { return null } })() : null)
 
       if (asClientId && isFounder) {
         const { data: clientData } = await supabase
@@ -113,6 +121,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
   }, [fetchPortalData])
 
   const signOut = useCallback(async () => {
+    try { sessionStorage.removeItem('portal_view_as_client') } catch { /* noop */ }
     await supabase.auth.signOut()
     setSession(null)
     setProfile(null)

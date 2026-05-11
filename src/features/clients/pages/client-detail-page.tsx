@@ -91,11 +91,13 @@ import {
 import { toast } from 'sonner'
 import { useOpportunitiesForClient } from '@/features/opportunities/hooks/use-opportunities'
 import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STATUS_COLORS } from '@/types/enums'
-import { Zap, UserPlus, Workflow, Inbox, FileSignature, TrendingUp } from 'lucide-react'
+import { Zap, UserPlus, Workflow, Inbox, FileSignature, TrendingUp, Sparkles } from 'lucide-react'
 import { PortalInviteDialog } from '@/features/portal/components/portal-invite-dialog'
 import { AccompagnementStepper } from '@/components/shared/accompagnement-stepper'
 import { StepValidationDialog } from '@/features/accompagnement/components/step-validation-dialog'
-import { useStepsForClient, useClientKpis } from '@/features/accompagnement/hooks/use-accompagnement'
+import { useStepsForClient, useClientKpis, usePortalDocsForClient } from '@/features/accompagnement/hooks/use-accompagnement'
+import { validateOnboarding } from '@/features/portal-admin/services/admin-onboarding-service'
+import { useQueryClient } from '@tanstack/react-query'
 import { StatCard } from '@/components/shared/stat-card'
 import type { ClientAccompagnementStep } from '@/types'
 
@@ -465,6 +467,73 @@ export function ClientDetailPage() {
   )
 }
 
+function PortalValidationBanner({ clientId }: { clientId: string }) {
+  const { profile } = useAuth()
+  const queryClient = useQueryClient()
+  const { data: portalRow } = usePortalDocsForClient(clientId)
+  const [submitting, setSubmitting] = useState(false)
+
+  if (!portalRow) return null
+
+  // Onboarding déjà validé : petit récap discret
+  if (portalRow.status === 'validated') {
+    return (
+      <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+        Onboarding validé{portalRow.validated_at && ` le ${new Date(portalRow.validated_at).toLocaleDateString('fr-FR')}`}.
+        L'artisan peut accéder à son dashboard portail.
+      </div>
+    )
+  }
+
+  // Soumis par l'artisan, en attente de validation par Celexia
+  if (portalRow.status !== 'pending_validation') return null
+
+  async function handleValidate() {
+    if (!profile || !portalRow) return
+    setSubmitting(true)
+    try {
+      // Le trigger DB trg_portal_validated_email enverra l'email automatiquement.
+      await validateOnboarding(portalRow.id, profile.id)
+      await queryClient.invalidateQueries({ queryKey: ['portal-docs', clientId] })
+      await queryClient.invalidateQueries({ queryKey: ['accompagnement', clientId] })
+      toast.success('Onboarding validé · email envoyé à l\'artisan')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.error(`Échec de la validation : ${msg}`)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mb-4 flex flex-col gap-3 rounded-lg border border-violet-300 bg-violet-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-violet-600 text-white">
+          <Sparkles className="h-4 w-4" />
+        </div>
+        <div>
+          <div className="text-sm font-semibold text-violet-900">
+            L'artisan a soumis son onboarding pour validation
+          </div>
+          <div className="text-xs text-violet-800/80">
+            Vérifiez les documents fournis (cliquez sur les étapes ci-dessous), puis validez ou demandez des corrections.
+          </div>
+        </div>
+      </div>
+      <Button
+        size="sm"
+        onClick={handleValidate}
+        disabled={submitting}
+        className="bg-violet-600 hover:bg-violet-700"
+      >
+        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+        Valider l'onboarding
+      </Button>
+    </div>
+  )
+}
+
 function AccompagnementCard({
   clientId,
   onStepClick,
@@ -484,6 +553,7 @@ function AccompagnementCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <PortalValidationBanner clientId={clientId} />
         {isLoading || !steps ? (
           <Skeleton className="h-24" />
         ) : (

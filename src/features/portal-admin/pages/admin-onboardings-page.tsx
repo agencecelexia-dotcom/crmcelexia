@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { usePendingOnboardings, useValidateOnboarding, useRejectOnboarding, useToggleReminders } from '../hooks/use-admin-onboardings'
 import type { AdminOnboardingRow, OnboardingStepKey } from '../services/admin-onboarding-service'
 import { useAuth } from '@/features/auth/hooks/use-auth'
-import { sendOnboardingValidatedEmail, sendOnboardingRejectedEmail } from '@/features/portal/services/portal-email-service'
+import { sendOnboardingRejectedEmail } from '@/features/portal/services/portal-email-service'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -336,14 +336,11 @@ export function AdminOnboardingsPage() {
                   key={onb.id}
                   onb={onb}
                   onValidate={() => {
+                    // L'email de validation est déclenché automatiquement par
+                    // le trigger DB trg_portal_validated_email (migration 00081)
+                    // via la pipeline email_schedule → Resend. Plus besoin de
+                    // l'appel n8n ici.
                     validate.mutate({ id: onb.id, validatedBy: profile!.id })
-                    if (onb.client.contact_email) {
-                      sendOnboardingValidatedEmail({
-                        email: onb.client.contact_email,
-                        artisan_firstname: onb.client.contact_firstname || onb.client.company_name,
-                        company_name: onb.client.company_name,
-                      })
-                    }
                   }}
                   onReject={(reason, stepsToReset) => {
                     reject.mutate({ id: onb.id, reason, stepsToReset })
