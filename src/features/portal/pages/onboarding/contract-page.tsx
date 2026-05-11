@@ -15,6 +15,7 @@ export function ContractPage() {
   const { onboarding, client, isLoading, refreshOnboarding } = usePortalAuth()
   const navigate = useNavigate()
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const inFlightRef = useRef(false)
   const [signed, setSigned] = useState(false)
   const [accepted, setAccepted] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -48,31 +49,48 @@ export function ContractPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasContractData])
 
-  // Canvas init
+  // Canvas init + pointer events (unifie mouse / touch / stylus)
+  // Réinitialise sur resize / rotation pour que la signature reste alignée.
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    const rect = canvas.getBoundingClientRect()
-    canvas.width = rect.width * 2
-    canvas.height = rect.height * 2
-    ctx.scale(2, 2)
-    ctx.strokeStyle = '#0F172A'
-    ctx.lineWidth = 2
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
+
+    function setupCanvas() {
+      const c = canvasRef.current
+      if (!c) return
+      const cx = c.getContext('2d')
+      if (!cx) return
+      const dpr = window.devicePixelRatio || 1
+      const rect = c.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) return
+      // Préserve le contenu lors d'un resize (si déjà signé, on garde l'aperçu)
+      c.width = rect.width * dpr
+      c.height = rect.height * dpr
+      cx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      cx.strokeStyle = '#0F172A'
+      cx.lineWidth = 2
+      cx.lineCap = 'round'
+      cx.lineJoin = 'round'
+    }
+    setupCanvas()
 
     let drawing = false
     let last: { x: number; y: number } | null = null
 
-    const pos = (e: MouseEvent | TouchEvent) => {
+    const pos = (e: PointerEvent) => {
       const r = canvas.getBoundingClientRect()
-      const t = 'touches' in e ? e.touches[0] : e
-      return { x: t.clientX - r.left, y: t.clientY - r.top }
+      return { x: e.clientX - r.left, y: e.clientY - r.top }
     }
-    const start = (e: MouseEvent | TouchEvent) => { e.preventDefault(); drawing = true; last = pos(e); setSigned(true) }
-    const move = (e: MouseEvent | TouchEvent) => {
+    const start = (e: PointerEvent) => {
+      e.preventDefault()
+      canvas.setPointerCapture(e.pointerId)
+      drawing = true
+      last = pos(e)
+      setSigned(true)
+    }
+    const move = (e: PointerEvent) => {
       if (!drawing || !last) return
       e.preventDefault()
       const p = pos(e)
@@ -82,23 +100,32 @@ export function ContractPage() {
       ctx.stroke()
       last = p
     }
-    const end = () => { drawing = false }
-
-    canvas.addEventListener('mousedown', start)
-    canvas.addEventListener('mousemove', move)
-    window.addEventListener('mouseup', end)
-    canvas.addEventListener('touchstart', start, { passive: false })
-    canvas.addEventListener('touchmove', move, { passive: false })
-    canvas.addEventListener('touchend', end)
-    return () => {
-      canvas.removeEventListener('mousedown', start)
-      canvas.removeEventListener('mousemove', move)
-      window.removeEventListener('mouseup', end)
-      canvas.removeEventListener('touchstart', start)
-      canvas.removeEventListener('touchmove', move)
-      canvas.removeEventListener('touchend', end)
+    const end = (e: PointerEvent) => {
+      drawing = false
+      try { canvas.releasePointerCapture(e.pointerId) } catch { /* noop */ }
     }
-  }, [])
+
+    canvas.addEventListener('pointerdown', start)
+    canvas.addEventListener('pointermove', move)
+    canvas.addEventListener('pointerup', end)
+    canvas.addEventListener('pointercancel', end)
+    canvas.addEventListener('pointerleave', end)
+
+    // Resize / rotation handler : ré-init la taille canvas (DPI safe)
+    const ro = new ResizeObserver(() => setupCanvas())
+    ro.observe(canvas)
+    window.addEventListener('orientationchange', setupCanvas)
+
+    return () => {
+      canvas.removeEventListener('pointerdown', start)
+      canvas.removeEventListener('pointermove', move)
+      canvas.removeEventListener('pointerup', end)
+      canvas.removeEventListener('pointercancel', end)
+      canvas.removeEventListener('pointerleave', end)
+      ro.disconnect()
+      window.removeEventListener('orientationchange', setupCanvas)
+    }
+  }, [hasContractData])
 
   function clearCanvas() {
     const c = canvasRef.current
@@ -109,23 +136,44 @@ export function ContractPage() {
 
   async function handleContinue() {
     if (!onboarding || !client || !signed || !accepted || !hasContractData) return
+    if (inFlightRef.current) return  // garde contre double-clic
+    inFlightRef.current = true
     setSaving(true)
+    let stage = 'init'
     try {
+      stage = 'signature_export'
       const signatureData = canvasRef.current?.toDataURL('image/png') || ''
+      if (!signatureData || signatureData.length < 100) {
+        throw new Error('La signature est vide. Veuillez re-signer.')
+      }
       const signedDate = new Date().toLocaleDateString('fr-FR')
 
+      stage = 'pdf_generation'
       const signedBlob = await generateContract(contractData as ContractData, {
         clientSignatureDataUrl: signatureData,
         clientSignedDate: signedDate,
       })
 
-      const fileName = `Contrat-signe-${contractData.client_enseigne || 'client'}-${Date.now()}.pdf`
+      // Sanitise le nom de fichier : enlève /, \, ?, *, : et caractères spéciaux
+      const safeEnseigne = (contractData.client_enseigne || 'client')
+        .replace(/[^a-zA-Z0-9-_]/g, '-')
+        .replace(/-+/g, '-')
+        .slice(0, 50)
+      const fileName = `Contrat-signe-${safeEnseigne}-${Date.now()}.pdf`
       const signedFile = new File([signedBlob], fileName, { type: 'application/pdf' })
 
+      stage = 'storage_upload'
       const path = await uploadPortalDocument(client.id, signedFile, 'contract-signed')
 
-      saveAs(signedBlob, fileName)
+      // Téléchargement local : best-effort, ne pas bloquer le flow si ça échoue
+      // (iOS Safari peut refuser l'activation utilisateur après une attente async)
+      try {
+        saveAs(signedBlob, fileName)
+      } catch (downloadErr) {
+        console.warn('Auto-download échoué (non bloquant) :', downloadErr)
+      }
 
+      stage = 'db_update'
       const updated = await updateOnboarding(onboarding.id, {
         contract_signed: true,
         contract_signature_data: signatureData,
@@ -135,13 +183,15 @@ export function ContractPage() {
       } as Record<string, unknown>)
 
       await refreshOnboarding()
-      toast.success('Contrat signé et téléchargé !')
+      toast.success('Contrat signé !')
       navigate(getNextOnboardingStep(updated))
     } catch (err) {
-      console.error(err)
-      toast.error('Erreur lors de la signature du contrat')
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[contract-sign] stage=${stage} err=`, err)
+      toast.error(`Erreur ${stage} : ${msg}`)
     } finally {
       setSaving(false)
+      inFlightRef.current = false
     }
   }
 
