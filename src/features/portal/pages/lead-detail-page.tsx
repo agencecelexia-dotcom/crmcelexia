@@ -90,6 +90,29 @@ export function PortalLeadDetailPage() {
                 <Phone size={16} style={{ color: 'var(--gray-400)' }} />
                 <a href={`tel:${lead.phone}`} style={{ color: 'var(--violet-600)', fontWeight: 500, textDecoration: 'none' }}>{lead.phone}</a>
               </div>
+              <a
+                href={`tel:${lead.phone}`}
+                aria-label={`Appeler ${lead.name} au ${lead.phone}`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  height: 44,
+                  minHeight: 44,
+                  padding: '0 16px',
+                  borderRadius: 10,
+                  background: 'var(--violet-600)',
+                  color: 'white',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  boxShadow: 'var(--shadow-btn)',
+                  width: '100%',
+                }}
+              >
+                <Phone size={16} /> Appeler
+              </a>
               {lead.city && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--gray-700)' }}>
                   <MapPin size={16} style={{ color: 'var(--gray-400)' }} /> {lead.city}

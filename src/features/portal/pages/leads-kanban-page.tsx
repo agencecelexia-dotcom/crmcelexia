@@ -2,8 +2,16 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLeads, useCreatePortalLead, useUpdatePortalLeadStatus } from '../hooks/use-portal-leads'
-import { Plus, Search, Filter, Calendar, LayoutGrid, List, Phone, X, ChevronDown } from 'lucide-react'
+import { Plus, Search, Filter, Calendar, LayoutGrid, List, Phone, X, ChevronDown, MoreVertical, Check } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   nouveau: { label: 'Nouveau', color: 'var(--blue-600)', bg: 'var(--blue-100)' },
@@ -14,6 +22,79 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
 }
 
 const COLS = ['nouveau', 'qualifie', 'devis', 'signe', 'perdu']
+
+// Liste utilisée par le menu "⋮" pour changer de statut depuis mobile/clavier
+const STATUS_OPTIONS = COLS
+
+type StatusChangeMenuProps = {
+  currentStatus: string
+  onChange: (newStatus: string) => void
+  leadName: string
+}
+
+function StatusChangeMenu({ currentStatus, onChange, leadName }: StatusChangeMenuProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Changer le statut de ${leadName}`}
+          onClick={e => e.stopPropagation()}
+          onPointerDown={e => e.stopPropagation()}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 32,
+            height: 32,
+            minWidth: 32,
+            borderRadius: 8,
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--gray-500)',
+            cursor: 'pointer',
+            flexShrink: 0,
+          }}
+        >
+          <MoreVertical size={16} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="min-w-[200px]"
+        onClick={e => e.stopPropagation()}
+      >
+        <DropdownMenuLabel>Changer le statut</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {STATUS_OPTIONS.map(s => {
+          const m = STATUS_META[s]
+          const isCurrent = s === currentStatus
+          return (
+            <DropdownMenuItem
+              key={s}
+              onSelect={() => {
+                if (!isCurrent) onChange(s)
+              }}
+              className="min-h-10 sm:min-h-9"
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: m.color,
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ flex: 1 }}>{m.label}</span>
+              {isCurrent && <Check size={14} style={{ color: 'var(--violet-600)' }} />}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 export function PortalLeadsKanbanPage() {
   const { client } = usePortalAuth()
@@ -48,6 +129,12 @@ export function PortalLeadsKanbanPage() {
     setDropCol(null)
   }
 
+  function changeStatus(leadId: string, newStatus: string) {
+    const lead = leads?.find(l => l.id === leadId)
+    if (!lead || lead.status === newStatus) return
+    updateStatus.mutate({ id: leadId, newStatus, oldStatus: lead.status })
+  }
+
   function resetForm() { setFormData({ name: '', phone: '', type: '', amount: '', source: 'lsa', notes: '' }) }
 
   async function handleCreateLead() {
@@ -79,16 +166,38 @@ export function PortalLeadsKanbanPage() {
       </div>
 
       {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: 320 }}>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-5">
+        <div className="relative w-full sm:flex-1 sm:max-w-xs">
           <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)', pointerEvents: 'none' }}><Search size={16} /></span>
-          <input className="input" placeholder="Rechercher un lead…" style={{ paddingLeft: 38 }} value={search} onChange={e => setSearch(e.target.value)} />
+          <input
+            className="input w-full"
+            placeholder="Rechercher un lead…"
+            style={{ paddingLeft: 38, fontSize: 16 }}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
-        <button className="btn btn-secondary"><Filter size={14} /> Filtres</button>
-        <button className="btn btn-secondary"><Calendar size={14} /> Ce mois</button>
-        <div style={{ marginLeft: 'auto', display: 'flex', background: 'var(--gray-100)', borderRadius: 8, padding: 3 }}>
-          <button onClick={() => setView('kanban')} className="btn" style={{ padding: '6px 12px', fontSize: 13, background: view === 'kanban' ? 'white' : 'transparent', color: view === 'kanban' ? 'var(--violet-700)' : 'var(--gray-600)', boxShadow: view === 'kanban' ? 'var(--shadow-btn)' : 'none' }}><LayoutGrid size={14} /> Kanban</button>
-          <button onClick={() => setView('list')} className="btn" style={{ padding: '6px 12px', fontSize: 13, background: view === 'list' ? 'white' : 'transparent', color: view === 'list' ? 'var(--violet-700)' : 'var(--gray-600)', boxShadow: view === 'list' ? 'var(--shadow-btn)' : 'none' }}><List size={14} /> Liste</button>
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <button className="btn btn-secondary"><Filter size={14} /> Filtres</button>
+          <button className="btn btn-secondary"><Calendar size={14} /> Ce mois</button>
+          <div style={{ display: 'flex', background: 'var(--gray-100)', borderRadius: 8, padding: 3 }}>
+            <button
+              onClick={() => setView('kanban')}
+              className="btn"
+              aria-label="Vue Kanban"
+              style={{ padding: '6px 12px', fontSize: 13, background: view === 'kanban' ? 'white' : 'transparent', color: view === 'kanban' ? 'var(--violet-700)' : 'var(--gray-600)', boxShadow: view === 'kanban' ? 'var(--shadow-btn)' : 'none' }}
+            >
+              <LayoutGrid size={14} /> Kanban
+            </button>
+            <button
+              onClick={() => setView('list')}
+              className="btn"
+              aria-label="Vue Liste"
+              style={{ padding: '6px 12px', fontSize: 13, background: view === 'list' ? 'white' : 'transparent', color: view === 'list' ? 'var(--violet-700)' : 'var(--gray-600)', boxShadow: view === 'list' ? 'var(--shadow-btn)' : 'none' }}
+            >
+              <List size={14} /> Liste
+            </button>
+          </div>
         </div>
       </div>
 
@@ -131,8 +240,15 @@ export function PortalLeadsKanbanPage() {
                         onClick={() => navigate(`/portal/leads/${lead.id}`)}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)' }}>{lead.name}</div>
-                          {lead.is_urgent && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#DC2626', flexShrink: 0, marginTop: 5, boxShadow: '0 0 0 3px rgba(220,38,38,0.15)' }} />}
+                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)', minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.name}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                            {lead.is_urgent && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#DC2626', flexShrink: 0, marginTop: 5, boxShadow: '0 0 0 3px rgba(220,38,38,0.15)' }} />}
+                            <StatusChangeMenu
+                              currentStatus={lead.status}
+                              leadName={lead.name}
+                              onChange={newStatus => changeStatus(lead.id, newStatus)}
+                            />
+                          </div>
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--gray-600)', marginBottom: 8, lineHeight: 1.45 }}>{lead.work_type}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--gray-500)', marginBottom: 8 }}>
@@ -162,62 +278,83 @@ export function PortalLeadsKanbanPage() {
       ) : (
         /* List view */
         <div className="p-card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-            <thead>
-              <tr>
-                {['Prospect', 'Travaux', 'Montant', 'Source', 'Statut'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '12px 16px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--gray-500)', borderBottom: '1px solid var(--gray-200)', background: 'var(--gray-50)' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(l => (
-                <tr key={l.id} onClick={() => navigate(`/portal/leads/${l.id}`)} style={{ cursor: 'pointer' }}>
-                  <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
-                    <strong style={{ color: 'var(--gray-900)' }}>{l.name}</strong>
-                    <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>{l.phone}</div>
-                  </td>
-                  <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', color: 'var(--gray-700)' }}>{l.work_type}</td>
-                  <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', color: 'var(--gray-700)' }}>{l.amount_estimated ? l.amount_estimated.toLocaleString('fr-FR') + ' €' : '—'}</td>
-                  <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
-                    <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: l.source === 'lsa' ? 'var(--blue-100)' : 'var(--gray-100)', color: l.source === 'lsa' ? 'var(--blue-600)' : 'var(--gray-600)' }}>{l.source === 'lsa' ? 'Google Ads' : 'BAO'}</span>
-                  </td>
-                  <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
-                    <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: STATUS_META[l.status]?.bg, color: STATUS_META[l.status]?.color }}>{STATUS_META[l.status]?.label}</span>
-                  </td>
+          <div className="overflow-x-auto -mx-px">
+            <table className="min-w-[640px]" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+              <thead>
+                <tr>
+                  {['Prospect', 'Travaux', 'Montant', 'Source', 'Statut', ''].map((h, i) => (
+                    <th key={i} style={{ textAlign: 'left', padding: '12px 16px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--gray-500)', borderBottom: '1px solid var(--gray-200)', background: 'var(--gray-50)' }}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map(l => (
+                  <tr key={l.id} onClick={() => navigate(`/portal/leads/${l.id}`)} style={{ cursor: 'pointer' }}>
+                    <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
+                      <strong style={{ color: 'var(--gray-900)' }}>{l.name}</strong>
+                      <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>{l.phone}</div>
+                    </td>
+                    <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', color: 'var(--gray-700)' }}>{l.work_type}</td>
+                    <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', color: 'var(--gray-700)' }}>{l.amount_estimated ? l.amount_estimated.toLocaleString('fr-FR') + ' €' : '—'}</td>
+                    <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: l.source === 'lsa' ? 'var(--blue-100)' : 'var(--gray-100)', color: l.source === 'lsa' ? 'var(--blue-600)' : 'var(--gray-600)' }}>{l.source === 'lsa' ? 'Google Ads' : 'BAO'}</span>
+                    </td>
+                    <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
+                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: STATUS_META[l.status]?.bg, color: STATUS_META[l.status]?.color }}>{STATUS_META[l.status]?.label}</span>
+                    </td>
+                    <td
+                      style={{ padding: '8px 12px', borderBottom: '1px solid var(--gray-100)', width: 48 }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <StatusChangeMenu
+                        currentStatus={l.status}
+                        leadName={l.name}
+                        onChange={newStatus => changeStatus(l.id, newStatus)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       {/* New lead modal */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(17,24,39,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20, backdropFilter: 'blur(2px)' }} onClick={() => { setShowModal(false); resetForm() }}>
-          <div style={{ background: 'white', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: 24, borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div
+            className="flex flex-col max-h-[90vh] w-full max-w-[520px]"
+            style={{ background: 'white', borderRadius: 'var(--radius-xl)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 p-5 sm:p-6">
               <h2 className="font-display" style={{ fontSize: 18, fontWeight: 700 }}>Nouveau lead</h2>
               <button className="btn btn-ghost" onClick={() => { setShowModal(false); resetForm() }} style={{ padding: 8 }}><X size={18} /></button>
             </div>
-            <div style={{ padding: 24, display: 'grid', gap: 14 }}>
-              <div><label className="label-input">Nom du prospect *</label><input className="input" value={formData.name} onChange={e => setFormData(d => ({ ...d, name: e.target.value }))} placeholder="Ex : Martin Dupont" /></div>
-              <div><label className="label-input">Téléphone *</label><input className="input" value={formData.phone} onChange={e => setFormData(d => ({ ...d, phone: e.target.value }))} placeholder="06 XX XX XX XX" /></div>
-              <div><label className="label-input">Type de travaux *</label><input className="input" value={formData.type} onChange={e => setFormData(d => ({ ...d, type: e.target.value }))} placeholder="Ex : Rénovation piscine 8×4" /></div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div><label className="label-input">Montant estimé (€)</label><input className="input" type="number" value={formData.amount} onChange={e => setFormData(d => ({ ...d, amount: e.target.value }))} placeholder="Optionnel" /></div>
-                <div><label className="label-input">Source</label>
-                  <select className="input" value={formData.source} onChange={e => setFormData(d => ({ ...d, source: e.target.value }))}>
-                    <option value="lsa">Google Ads</option>
-                    <option value="bao">Bouche-à-oreille</option>
-                  </select>
+            <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6">
+              <div className="grid gap-3.5">
+                <div><label className="label-input">Nom du prospect *</label><input className="input" value={formData.name} onChange={e => setFormData(d => ({ ...d, name: e.target.value }))} placeholder="Ex : Martin Dupont" style={{ fontSize: 16 }} /></div>
+                <div><label className="label-input">Téléphone *</label><input className="input" type="tel" value={formData.phone} onChange={e => setFormData(d => ({ ...d, phone: e.target.value }))} placeholder="06 XX XX XX XX" style={{ fontSize: 16 }} /></div>
+                <div><label className="label-input">Type de travaux *</label><input className="input" value={formData.type} onChange={e => setFormData(d => ({ ...d, type: e.target.value }))} placeholder="Ex : Rénovation piscine 8×4" style={{ fontSize: 16 }} /></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div><label className="label-input">Montant estimé (€)</label><input className="input" type="number" inputMode="numeric" value={formData.amount} onChange={e => setFormData(d => ({ ...d, amount: e.target.value }))} placeholder="Optionnel" style={{ fontSize: 16 }} /></div>
+                  <div><label className="label-input">Source</label>
+                    <select className="input" value={formData.source} onChange={e => setFormData(d => ({ ...d, source: e.target.value }))} style={{ fontSize: 16 }}>
+                      <option value="lsa">Google Ads</option>
+                      <option value="bao">Bouche-à-oreille</option>
+                    </select>
+                  </div>
                 </div>
+                <div><label className="label-input">Notes</label><textarea className="input" value={formData.notes} onChange={e => setFormData(d => ({ ...d, notes: e.target.value }))} placeholder="Contexte, besoins particuliers…" style={{ minHeight: 80, resize: 'vertical', fontSize: 16 }} /></div>
               </div>
-              <div><label className="label-input">Notes</label><textarea className="input" value={formData.notes} onChange={e => setFormData(d => ({ ...d, notes: e.target.value }))} placeholder="Contexte, besoins particuliers…" style={{ minHeight: 80, resize: 'vertical' }} /></div>
             </div>
-            <div style={{ padding: 18, borderTop: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--gray-50)', borderRadius: '0 0 var(--radius-xl) var(--radius-xl)' }}>
-              <button className="btn btn-ghost" onClick={() => { setShowModal(false); resetForm() }}>Annuler</button>
-              <button className="btn btn-primary" disabled={!formData.name || !formData.phone || !formData.type || createLead.isPending} onClick={handleCreateLead}>Créer le lead</button>
+            <div
+              className="flex shrink-0 flex-col-reverse gap-2 border-t border-gray-100 p-4 sm:flex-row sm:justify-end sm:gap-2.5 sm:p-4"
+              style={{ background: 'var(--gray-50)', borderRadius: '0 0 var(--radius-xl) var(--radius-xl)' }}
+            >
+              <button className="btn btn-ghost w-full sm:w-auto" onClick={() => { setShowModal(false); resetForm() }}>Annuler</button>
+              <button className="btn btn-primary w-full sm:w-auto" disabled={!formData.name || !formData.phone || !formData.type || createLead.isPending} onClick={handleCreateLead}>Créer le lead</button>
             </div>
           </div>
         </div>
