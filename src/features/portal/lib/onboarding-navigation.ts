@@ -20,7 +20,7 @@ export function getOnboardingSteps(onb: Pick<PortalOnboarding,
 }
 
 /** Returns the path of the next incomplete step.
- *  Si toutes les étapes sont complétées, redirige vers la dernière (legal)
+ *  Si toutes les étapes sont complétées, redirige vers le hub (welcome)
  *  qui contient le bouton "Soumettre pour validation". */
 export function getNextOnboardingStep(onb: Pick<PortalOnboarding,
   'contract_signed' | 'payment_proof_uploaded' | 'gmb_access_confirmed' |
@@ -28,7 +28,7 @@ export function getNextOnboardingStep(onb: Pick<PortalOnboarding,
 >): string {
   const steps = getOnboardingSteps(onb)
   const next = steps.find(s => !s.done)
-  return next ? next.path : '/portal/onboarding/legal'
+  return next ? next.path : '/portal/onboarding/welcome'
 }
 
 /** True if all 4 sub-modules sont complétés (contrat, virement, GMB, légal). */

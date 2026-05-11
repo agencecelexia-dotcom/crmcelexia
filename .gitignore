@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Env files (secrets)
+.env
+.env.local
+.env.*.local
+
 # Claude Code MCP config (contains secrets)
 .mcp.json
 

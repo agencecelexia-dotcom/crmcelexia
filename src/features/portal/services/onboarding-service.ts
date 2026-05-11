@@ -30,6 +30,17 @@ export async function completeOnboarding(onboardingId: string) {
   } as Partial<PortalOnboarding>)
 }
 
+/** Soumet l'onboarding à l'agence pour validation. Le trigger DB
+ *  `enforce_portal_onboarding_invariants` vérifie que les 4 étapes sont
+ *  complétées avant d'autoriser la bascule en 'pending_validation'. */
+export async function submitOnboardingForValidation(onboardingId: string) {
+  return updateOnboarding(onboardingId, {
+    status: 'pending_validation',
+    completed_at: new Date().toISOString(),
+    rejection_reason: null,
+  } as Partial<PortalOnboarding>)
+}
+
 export async function uploadPortalDocument(
   clientId: string,
   file: File,

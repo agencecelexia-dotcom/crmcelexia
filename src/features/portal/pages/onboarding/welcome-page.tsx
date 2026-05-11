@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../../hooks/use-portal-auth'
-import { FileText, Euro, Building2, Shield, Clock, ArrowRight, AlertCircle, Check } from 'lucide-react'
-import { getNextOnboardingStep } from '../../lib/onboarding-navigation'
+import { FileText, Euro, Building2, Shield, Clock, ArrowRight, AlertCircle, Check, Send } from 'lucide-react'
+import { getNextOnboardingStep, isOnboardingComplete } from '../../lib/onboarding-navigation'
+import { submitOnboardingForValidation } from '../../services/onboarding-service'
+import { toast } from 'sonner'
 
 const STEPS = [
   { num: 1, title: "Signature du contrat d'apport d'affaires", duration: '2 min', icon: <FileText size={20} />, path: '/portal/onboarding/contract', doneKey: 'contract_signed' as const },
@@ -21,40 +24,31 @@ function StepCard({
   onClick: () => void
 }) {
   return (
-    <div
-      className="p-card"
+    <button
+      type="button"
       onClick={onClick}
-      style={{
-        padding: 18, display: 'flex', alignItems: 'center', gap: 16,
-        cursor: 'pointer',
-        opacity: done ? 0.8 : 1,
-        borderColor: done ? 'var(--emerald-200, #A7F3D0)' : undefined,
-      }}
+      className={`p-card flex w-full min-h-[80px] cursor-pointer items-center gap-4 p-4 text-left transition hover:border-violet-300 sm:p-5 ${done ? 'border-emerald-200 opacity-90' : ''}`}
     >
-      <div style={{
-        width: 44, height: 44, borderRadius: 12,
-        background: done ? 'var(--emerald-100, #D1FAE5)' : 'var(--violet-100)',
-        color: done ? 'var(--emerald-600, #059669)' : 'var(--violet-600)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-      }}>
+      <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${done ? 'bg-emerald-100 text-emerald-600' : 'bg-violet-100 text-violet-600'}`}>
         {done ? <Check size={20} /> : icon}
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', letterSpacing: '0.05em', marginBottom: 2 }}>
+      <div className="min-w-0 flex-1">
+        <div className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
           ÉTAPE {num}{done ? ' · TERMINÉE' : ''}
         </div>
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-900)' }}>{title}</div>
+        <div className="text-sm font-semibold text-gray-900 sm:text-[15px]">{title}</div>
       </div>
-      <div style={{ fontSize: 13, color: 'var(--gray-500)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-        {done ? 'Modifier' : <><Clock size={14} /> {duration}</>}
+      <div className="flex flex-shrink-0 items-center gap-1.5 text-xs font-medium text-gray-500 sm:text-sm">
+        {done ? 'Modifier' : <><Clock size={14} /> <span className="hidden sm:inline">{duration}</span></>}
       </div>
-    </div>
+    </button>
   )
 }
 
 export function WelcomePage() {
-  const { profile, onboarding } = usePortalAuth()
+  const { profile, onboarding, refreshOnboarding } = usePortalAuth()
   const navigate = useNavigate()
+  const [submitting, setSubmitting] = useState(false)
   const firstName = profile?.full_name?.split(' ')[0] || 'artisan'
   const hasCorrections = !!onboarding?.rejection_reason
 
@@ -65,79 +59,101 @@ export function WelcomePage() {
   }
 
   const stepsDone = STEPS.filter(s => isStepDone(s.doneKey)).length
-  const allDone = stepsDone === STEPS.length
+  const allDone = onboarding ? isOnboardingComplete(onboarding) : false
   const firstIncomplete = STEPS.find(s => !isStepDone(s.doneKey))
   const nextPath = onboarding ? getNextOnboardingStep(onboarding) : '/portal/onboarding/contract'
 
-  // Le CTA principal pointe toujours vers la prochaine étape à compléter.
-  // En mode corrections : si tout est complet on va à legal (qui montrera l'UI "Soumettre").
-  // Sinon, getNextOnboardingStep pointe déjà vers la bonne étape incomplète.
+  async function handleSubmit() {
+    if (!onboarding || !allDone || submitting) return
+    setSubmitting(true)
+    try {
+      await submitOnboardingForValidation(onboarding.id)
+      await refreshOnboarding()
+      navigate('/portal/onboarding/pending')
+    } catch (err) {
+      console.error(err)
+      toast.error("Erreur lors de la soumission. Vérifiez que toutes les étapes sont complètes.")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const mainCtaPath = nextPath
   const mainCtaLabel = hasCorrections
-    ? allDone
-      ? 'Soumettre à nouveau'
-      : `Corriger l'étape ${firstIncomplete?.num ?? '?'}`
+    ? `Corriger l'étape ${firstIncomplete?.num ?? '?'}`
     : stepsDone === 0
       ? "Commencer l'onboarding"
-      : allDone
-        ? 'Finaliser mon onboarding'
-        : `Reprendre à l'étape ${firstIncomplete?.num ?? '?'}`
+      : `Reprendre à l'étape ${firstIncomplete?.num ?? '?'}`
 
   return (
     <div>
       {hasCorrections && (
-        <div style={{
-          marginBottom: 24,
-          padding: 20,
-          borderRadius: 14,
-          background: '#FEF3C7',
-          border: '1px solid #FCD34D',
-          display: 'flex',
-          gap: 14,
-          alignItems: 'flex-start',
-        }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: '#F59E0B', color: 'white',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
+        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-100 p-4 sm:gap-4 sm:p-5">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white">
             <AlertCircle size={18} />
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#92400E', marginBottom: 4 }}>
+          <div className="flex-1">
+            <div className="mb-1 text-sm font-bold text-amber-900 sm:text-[15px]">
               Corrections demandées par Celexia
             </div>
-            <div style={{ fontSize: 14, color: '#78350F', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+            <div className="whitespace-pre-wrap text-sm leading-relaxed text-amber-900/90">
               {onboarding?.rejection_reason}
             </div>
-            <div style={{ fontSize: 13, color: '#92400E', marginTop: 10, fontWeight: 500 }}>
+            <div className="mt-2.5 text-xs font-medium text-amber-900 sm:text-[13px]">
               Cliquez sur l'étape concernée ci-dessous pour la modifier, puis soumettez à nouveau.
             </div>
           </div>
         </div>
       )}
 
-      <div style={{ marginBottom: 40 }}>
-        <span className="p-tag p-tag-violet" style={{ marginBottom: 16, display: 'inline-flex' }}>
+      <div className="mb-8 md:mb-10">
+        <span className="p-tag p-tag-violet mb-3 inline-flex">
           {hasCorrections ? 'À corriger' : stepsDone > 0 ? 'En cours' : 'Bienvenue'}
         </span>
-        <h1 className="font-display" style={{ fontSize: 40, fontWeight: 700, lineHeight: 1.1, marginTop: 14, marginBottom: 12 }}>
+        <h1 className="font-display mt-3 mb-3 text-3xl font-bold leading-tight md:text-4xl">
           {hasCorrections ? (
-            <>Reprenons votre onboarding, <span style={{ color: 'var(--violet-600)' }}>{firstName}</span>.</>
+            <>Reprenons votre onboarding, <span className="text-violet-600">{firstName}</span>.</>
           ) : (
-            <>Bienvenue chez Celexia,<br /><span style={{ color: 'var(--violet-600)' }}>{firstName}</span>.</>
+            <>Bienvenue chez Celexia,<br /><span className="text-violet-600">{firstName}</span>.</>
           )}
         </h1>
-        <p style={{ fontSize: 17, color: 'var(--gray-600)', lineHeight: 1.6, maxWidth: 620 }}>
+        <p className="max-w-[620px] text-base leading-relaxed text-gray-600 sm:text-[17px]">
           {hasCorrections
-            ? "Cliquez sur l'étape à modifier ci-dessous, puis validez à nouveau votre onboarding."
+            ? "Cliquez sur l'étape à modifier ci-dessous, puis soumettez à nouveau votre onboarding."
             : stepsDone > 0
-              ? `Vous avez complété ${stepsDone}/${STEPS.length} étapes. Reprenez où vous en étiez.`
-              : 'Voici les 5 étapes pour activer vos campagnes. Comptez environ 15 minutes.'}
+              ? `Vous avez complété ${stepsDone}/${STEPS.length} étapes. Vous pouvez les faire dans n'importe quel ordre.`
+              : `Voici les ${STEPS.length} étapes pour activer vos campagnes. Vous pouvez les faire dans n'importe quel ordre. Comptez environ 15 minutes.`}
         </p>
       </div>
 
-      <div style={{ display: 'grid', gap: 10, marginBottom: 40 }}>
+      {allDone && (
+        <div className="p-card mb-8 border-emerald-200 bg-emerald-50/60 p-5 sm:p-6">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+              <Check size={22} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 text-base font-bold text-gray-900 sm:text-lg">
+                {hasCorrections ? 'Corrections prêtes à être soumises' : 'Toutes les étapes sont complètes 🎉'}
+              </div>
+              <div className="mb-4 text-sm leading-relaxed text-gray-600">
+                Soumettez votre onboarding pour que Thomas ou Antoine puisse valider votre compte (≤ 24 h).
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary lg w-full sm:w-auto"
+                disabled={submitting}
+                onClick={handleSubmit}
+              >
+                <Send size={18} />
+                {submitting ? 'Envoi…' : hasCorrections ? 'Soumettre à nouveau' : 'Soumettre pour validation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mb-8 grid gap-3 md:mb-10">
         {STEPS.map(s => (
           <StepCard
             key={s.num}
@@ -151,14 +167,20 @@ export function WelcomePage() {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button className="btn btn-primary lg" onClick={() => navigate(mainCtaPath)}>
-          {mainCtaLabel} <ArrowRight size={18} />
-        </button>
-        <span style={{ fontSize: 13, color: 'var(--gray-500)' }}>
-          Vous pouvez reprendre à tout moment en vous reconnectant.
-        </span>
-      </div>
+      {!allDone && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <button
+            type="button"
+            className="btn btn-primary lg w-full sm:w-auto"
+            onClick={() => navigate(mainCtaPath)}
+          >
+            {mainCtaLabel} <ArrowRight size={18} />
+          </button>
+          <span className="text-xs text-gray-500 sm:text-[13px]">
+            Vous pouvez reprendre à tout moment en vous reconnectant.
+          </span>
+        </div>
+      )}
     </div>
   )
 }

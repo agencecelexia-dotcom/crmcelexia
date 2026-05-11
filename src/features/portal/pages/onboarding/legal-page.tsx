@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../../hooks/use-portal-auth'
 import { updateOnboarding, uploadPortalDocument } from '../../services/onboarding-service'
 import { ProgressHeader } from '../../components/onboarding/progress-header'
+import { getNextOnboardingStep } from '../../lib/onboarding-navigation'
 import { ArrowLeft, ArrowRight, Upload, CheckCircle2, X, Check, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -14,38 +15,37 @@ function DocUploadCard({ title, subtitle, file, setFile, criteria }: {
   const ref = useRef<HTMLInputElement>(null)
 
   return (
-    <div className="p-card" style={{ padding: 20 }}>
-      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 2 }}>{title}</div>
-      <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 14 }}>{subtitle}</div>
+    <div className="p-card p-5">
+      <div className="mb-0.5 text-sm font-semibold text-gray-900 sm:text-[15px]">{title}</div>
+      <div className="mb-3.5 text-xs text-gray-500">{subtitle}</div>
       {file ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, background: 'var(--emerald-100)', borderRadius: 8, marginBottom: 12 }}>
-          <CheckCircle2 size={18} style={{ color: 'var(--emerald-600)' }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-900)' }}>{file.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--gray-600)' }}>Validé automatiquement</div>
+        <div className="mb-3 flex items-center gap-2.5 rounded-lg bg-emerald-100 p-3">
+          <CheckCircle2 size={18} className="flex-shrink-0 text-emerald-600" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13px] font-semibold text-gray-900">{file.name}</div>
+            <div className="text-[11px] text-gray-600">Validé automatiquement</div>
           </div>
-          <button className="btn btn-ghost" onClick={() => setFile(null)} style={{ padding: 6 }}><X size={14} /></button>
+          <button className="btn btn-ghost flex-shrink-0" onClick={() => setFile(null)} style={{ padding: 6 }}><X size={14} /></button>
         </div>
       ) : (
         <div
-          className={`dropzone ${drag ? 'drag' : ''}`}
+          className={`dropzone mb-3.5 ${drag ? 'drag' : ''}`}
           onDragOver={e => { e.preventDefault(); setDrag(true) }}
           onDragLeave={() => setDrag(false)}
           onDrop={e => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) setFile({ name: f.name, raw: f }) }}
           onClick={() => ref.current?.click()}
-          style={{ padding: 20, marginBottom: 14 }}
         >
-          <input ref={ref} type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) setFile({ name: f.name, raw: f }) }} />
-          <Upload size={22} style={{ color: 'var(--violet-600)' }} />
-          <div style={{ fontSize: 13, fontWeight: 600, marginTop: 8, color: 'var(--gray-900)' }}>Téléverser un PDF</div>
-          <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>ou glissez-déposez</div>
+          <input ref={ref} type="file" accept=".pdf" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setFile({ name: f.name, raw: f }) }} />
+          <Upload size={22} className="mx-auto text-violet-600" />
+          <div className="mt-2 text-[13px] font-semibold text-gray-900">Téléverser un PDF</div>
+          <div className="text-[11px] text-gray-500">ou glissez-déposez</div>
         </div>
       )}
-      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>Critères de validité</div>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Critères de validité</div>
+      <ul className="m-0 grid list-none gap-1.5 p-0">
         {criteria.map((c, i) => (
-          <li key={i} style={{ fontSize: 12, color: 'var(--gray-600)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <Check size={14} style={{ color: 'var(--violet-600)', flexShrink: 0 }} />{c}
+          <li key={i} className="flex items-start gap-2 text-xs text-gray-600">
+            <Check size={14} className="flex-shrink-0 text-violet-600" />{c}
           </li>
         ))}
       </ul>
@@ -66,15 +66,13 @@ export function LegalPage() {
   )
   const [saving, setSaving] = useState(false)
 
-  const rcReady = rc !== null // soit déjà uploadé en DB, soit nouveau fichier
+  const rcReady = rc !== null
   const kbisReady = kbis !== null
 
   async function handleContinue() {
     if (!onboarding || !client || !rcReady || !kbisReady) return
     setSaving(true)
     try {
-      // Cette étape est désormais la DERNIÈRE de l'onboarding : on bascule
-      // direct vers pending_validation après upload des deux docs.
       const updates: Record<string, unknown> = { current_step: 5 }
 
       if (rc?.raw) {
@@ -86,14 +84,9 @@ export function LegalPage() {
         updates.kbis_uploaded = true
       }
 
-      // Marquer l'onboarding comme prêt à valider côté agence
-      updates.status = 'pending_validation'
-      updates.completed_at = new Date().toISOString()
-      updates.rejection_reason = null
-
-      await updateOnboarding(onboarding.id, updates)
+      const updated = await updateOnboarding(onboarding.id, updates)
       await refreshOnboarding()
-      navigate('/portal/onboarding/pending')
+      navigate(getNextOnboardingStep(updated))
     } catch {
       toast.error("Erreur lors de l'upload")
     } finally {
@@ -104,11 +97,11 @@ export function LegalPage() {
   return (
     <div>
       <ProgressHeader step={4} title="Documents légaux" />
-      <p style={{ fontSize: 15, color: 'var(--gray-600)', lineHeight: 1.6, marginBottom: 28 }}>
+      <p className="mb-7 text-sm leading-relaxed text-gray-600 sm:text-[15px]">
         Ces deux documents sont requis pour activer vos campagnes.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 24 }}>
+      <div className="mb-6 grid gap-4 sm:grid-cols-2">
         <DocUploadCard
           title="Assurance Responsabilité Civile Pro"
           subtitle="PDF · en cours de validité"
@@ -126,21 +119,23 @@ export function LegalPage() {
       </div>
 
       {/* RGPD notice */}
-      <div className="p-card" style={{ padding: 18, background: 'var(--gray-50)', border: '1px solid var(--gray-200)', marginBottom: 28 }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'white', border: '1px solid var(--gray-200)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gray-600)' }}>
+      <div className="p-card mb-7 border border-gray-200 bg-gray-50 p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600">
             <Lock size={16} />
           </div>
-          <div style={{ fontSize: 13, color: 'var(--gray-600)', lineHeight: 1.55 }}>
+          <div className="text-[13px] leading-relaxed text-gray-600">
             Ces documents sont chiffrés au repos et accessibles uniquement par l'équipe Celexia. Conformité RGPD — vous pouvez demander leur suppression à tout moment.
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <button className="btn btn-ghost" onClick={() => navigate('/portal/onboarding/gmb')}><ArrowLeft size={16} /> Retour</button>
-        <button className="btn btn-primary lg" disabled={!rc || !kbis || saving} onClick={handleContinue}>
-          {saving ? 'Envoi...' : 'Soumettre pour validation'} <ArrowRight size={18} />
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button className="btn btn-ghost w-full sm:w-auto" onClick={() => navigate('/portal/onboarding/welcome')}>
+          <ArrowLeft size={16} /> Retour
+        </button>
+        <button className="btn btn-primary lg w-full sm:w-auto" disabled={!rc || !kbis || saving} onClick={handleContinue}>
+          {saving ? 'Envoi…' : 'Enregistrer et continuer'} <ArrowRight size={18} />
         </button>
       </div>
     </div>

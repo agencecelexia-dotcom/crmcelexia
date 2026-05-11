@@ -5,6 +5,7 @@ import { saveAs } from 'file-saver'
 import { usePortalAuth } from '../../hooks/use-portal-auth'
 import { updateOnboarding, uploadPortalDocument } from '../../services/onboarding-service'
 import { ProgressHeader } from '../../components/onboarding/progress-header'
+import { getNextOnboardingStep } from '../../lib/onboarding-navigation'
 import { generateContract, type ContractData } from '@/features/contracts/services/contract-generator'
 import { ArrowLeft, ArrowRight, FileText, Download, Eye, Loader2, CheckCircle2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
@@ -113,24 +114,19 @@ export function ContractPage() {
       const signatureData = canvasRef.current?.toDataURL('image/png') || ''
       const signedDate = new Date().toLocaleDateString('fr-FR')
 
-      // Generate signed PDF (with client signature embedded)
       const signedBlob = await generateContract(contractData as ContractData, {
         clientSignatureDataUrl: signatureData,
         clientSignedDate: signedDate,
       })
 
-      // Convert to File for upload
       const fileName = `Contrat-signe-${contractData.client_enseigne || 'client'}-${Date.now()}.pdf`
       const signedFile = new File([signedBlob], fileName, { type: 'application/pdf' })
 
-      // Upload to Storage
       const path = await uploadPortalDocument(client.id, signedFile, 'contract-signed')
 
-      // Download locally for the artisan
       saveAs(signedBlob, fileName)
 
-      // Update onboarding
-      await updateOnboarding(onboarding.id, {
+      const updated = await updateOnboarding(onboarding.id, {
         contract_signed: true,
         contract_signature_data: signatureData,
         contract_signed_at: new Date().toISOString(),
@@ -140,7 +136,7 @@ export function ContractPage() {
 
       await refreshOnboarding()
       toast.success('Contrat signé et téléchargé !')
-      navigate('/portal/onboarding/payment')
+      navigate(getNextOnboardingStep(updated))
     } catch (err) {
       console.error(err)
       toast.error('Erreur lors de la signature du contrat')
@@ -149,20 +145,18 @@ export function ContractPage() {
     }
   }
 
-  // Still loading onboarding — show loader (prevents "contract not available" flash)
   if (isLoading || !onboarding) {
     return (
       <div>
         <ProgressHeader step={1} title="Signature du contrat d'apport d'affaires" />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', gap: 12 }}>
-          <Loader2 size={32} style={{ color: 'var(--violet-600)', animation: 'spin 1s linear infinite' }} />
-          <p style={{ fontSize: 13, color: 'var(--gray-500)' }}>Chargement de votre contrat...</p>
+        <div className="flex flex-col items-center justify-center gap-3 py-20">
+          <Loader2 size={32} className="animate-spin text-violet-600" />
+          <p className="text-xs text-gray-500 sm:text-sm">Chargement de votre contrat…</p>
         </div>
       </div>
     )
   }
 
-  // Contrat déjà signé — écran "déjà fait" avec bouton voir PDF + continuer
   if (onboarding.contract_signed && onboarding.signed_contract_path) {
     async function viewSignedPdf() {
       const { data } = await supabase.storage
@@ -174,25 +168,25 @@ export function ContractPage() {
     return (
       <div>
         <ProgressHeader step={1} title="Signature du contrat d'apport d'affaires" />
-        <div className="p-card" style={{ padding: 32, textAlign: 'center', marginBottom: 24 }}>
-          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--emerald-100)', color: 'var(--emerald-600)', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CheckCircle2 size={36} />
+        <div className="p-card mb-6 p-6 text-center sm:p-8">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 sm:h-[72px] sm:w-[72px]">
+            <CheckCircle2 size={32} />
           </div>
-          <h2 className="font-display" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
+          <h2 className="font-display mb-2 text-xl font-bold sm:text-2xl">
             Contrat déjà signé
           </h2>
-          <p style={{ fontSize: 14, color: 'var(--gray-600)', marginBottom: 20, maxWidth: 480, margin: '0 auto 20px', lineHeight: 1.6 }}>
+          <p className="mx-auto mb-5 max-w-[480px] text-sm leading-relaxed text-gray-600">
             Votre contrat a été signé le {onboarding.contract_signed_at ? new Date(onboarding.contract_signed_at).toLocaleDateString('fr-FR') : '—'}.
           </p>
-          <button className="btn btn-secondary" onClick={viewSignedPdf} style={{ marginBottom: 8 }}>
+          <button className="btn btn-secondary" onClick={viewSignedPdf}>
             <Eye size={16} /> Voir le contrat signé
           </button>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <button className="btn btn-ghost" onClick={() => navigate('/portal/onboarding/welcome')}>
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+          <button className="btn btn-ghost w-full sm:w-auto" onClick={() => navigate('/portal/onboarding/welcome')}>
             <ArrowLeft size={16} /> Retour au sommaire
           </button>
-          <button className="btn btn-primary lg" onClick={() => navigate('/portal/onboarding/payment')}>
+          <button className="btn btn-primary lg w-full sm:w-auto" onClick={() => navigate(getNextOnboardingStep(onboarding))}>
             Étape suivante <ArrowRight size={18} />
           </button>
         </div>
@@ -200,19 +194,18 @@ export function ContractPage() {
     )
   }
 
-  // Missing contract data — show error
   if (!hasContractData) {
     return (
       <div>
         <ProgressHeader step={1} title="Signature du contrat d'apport d'affaires" />
-        <div className="p-card" style={{ padding: 24, background: 'var(--amber-100)', border: '1px solid var(--amber-600)' }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <FileText size={20} style={{ color: 'var(--amber-600)', flexShrink: 0, marginTop: 2 }} />
+        <div className="p-card border-amber-600 bg-amber-100 p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <FileText size={20} className="mt-0.5 flex-shrink-0 text-amber-600" />
             <div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 4 }}>Contrat non disponible</div>
-              <div style={{ fontSize: 13, color: 'var(--gray-700)', lineHeight: 1.55 }}>
-                Les informations contractuelles (SIREN, enseigne...) n'ont pas été saisies par l'agence lors de votre invitation.
-                Merci de contacter Celexia à <a href="mailto:agence.celexia@gmail.com" style={{ color: 'var(--violet-600)', fontWeight: 600 }}>agence.celexia@gmail.com</a>.
+              <div className="mb-1 text-[15px] font-semibold text-gray-900">Contrat non disponible</div>
+              <div className="text-[13px] leading-relaxed text-gray-700">
+                Les informations contractuelles (SIREN, enseigne…) n'ont pas été saisies par l'agence lors de votre invitation.
+                Merci de contacter Celexia à <a href="mailto:agence.celexia@gmail.com" className="font-semibold text-violet-600 hover:underline">agence.celexia@gmail.com</a>.
               </div>
             </div>
           </div>
@@ -224,55 +217,55 @@ export function ContractPage() {
   return (
     <div>
       <ProgressHeader step={1} title="Signature du contrat d'apport d'affaires" />
-      <p style={{ fontSize: 15, color: 'var(--gray-600)', lineHeight: 1.6, marginBottom: 24 }}>
+      <p className="mb-6 text-sm leading-relaxed text-gray-600 sm:text-[15px]">
         Lisez attentivement votre contrat personnalisé ci-dessous, puis signez dans le cadre en bas de page.
       </p>
 
       {/* Contract preview */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-700)', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div className="mb-6">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 sm:text-[13px]">
             <Eye size={14} /> Aperçu de votre contrat
           </div>
           {previewUrl && (
             <a
               href={previewUrl}
               download={`Contrat-Celexia-${contractData.client_enseigne || 'client'}.pdf`}
-              style={{ fontSize: 12, color: 'var(--violet-600)', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+              className="flex items-center gap-1 text-[11px] font-semibold text-violet-600 no-underline hover:underline sm:text-xs"
             >
-              <Download size={12} /> Télécharger l'aperçu
+              <Download size={12} /> Télécharger
             </a>
           )}
         </div>
-        <div style={{ background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 12, overflow: 'hidden', height: 500 }}>
+        <div className="h-[50vh] min-h-[280px] overflow-hidden rounded-xl border border-gray-200 bg-gray-50 md:h-[500px]">
           {generatingPreview || !previewUrl ? (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-              <Loader2 size={32} style={{ color: 'var(--violet-600)', animation: 'spin 1s linear infinite' }} />
-              <p style={{ fontSize: 13, color: 'var(--gray-500)' }}>Génération de votre contrat personnalisé...</p>
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3">
+              <Loader2 size={32} className="animate-spin text-violet-600" />
+              <p className="text-xs text-gray-500 sm:text-[13px]">Génération de votre contrat personnalisé…</p>
             </div>
           ) : (
             <iframe
               src={previewUrl}
               title="Contrat Celexia"
-              style={{ width: '100%', height: '100%', border: 'none' }}
+              className="h-full w-full border-0"
             />
           )}
         </div>
       </div>
 
       {/* Signature canvas */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-700)', marginBottom: 8 }}>
+      <div className="mb-6">
+        <div className="mb-2 text-xs font-semibold text-gray-700 sm:text-[13px]">
           Votre signature
         </div>
-        <div style={{ background: 'white', border: '1px solid var(--gray-200)', borderRadius: 12, padding: 8, boxShadow: 'var(--shadow-soft)' }}>
+        <div className="rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
           <canvas
             ref={canvasRef}
-            style={{ width: '100%', height: 200, display: 'block', background: 'white', borderRadius: 8, cursor: 'crosshair', border: '1px dashed var(--gray-200)', touchAction: 'none' }}
+            className="block h-40 w-full cursor-crosshair touch-none rounded-lg border border-dashed border-gray-200 bg-white sm:h-48"
           />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-          <span style={{ fontSize: 12, color: signed ? 'var(--emerald-600)' : 'var(--gray-500)' }}>
+        <div className="mt-2.5 flex flex-col-reverse items-start justify-between gap-2 sm:flex-row sm:items-center">
+          <span className={`text-xs ${signed ? 'text-emerald-600' : 'text-gray-500'}`}>
             {signed ? '✓ Signature enregistrée — elle sera embarquée dans le PDF final' : 'Utilisez la souris ou le doigt'}
           </span>
           <button className="btn btn-ghost" onClick={clearCanvas}>Effacer</button>
@@ -280,25 +273,30 @@ export function ContractPage() {
       </div>
 
       {/* Accept checkbox */}
-      <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', padding: 14, background: 'white', border: '1px solid var(--gray-200)', borderRadius: 10, marginBottom: 28 }}>
-        <input type="checkbox" className="p-checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} />
-        <span style={{ fontSize: 14, color: 'var(--gray-700)', lineHeight: 1.5 }}>
+      <label className="mb-6 flex min-h-12 cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-white p-3.5 sm:mb-7">
+        <input
+          type="checkbox"
+          className="p-checkbox mt-0.5 flex-shrink-0"
+          checked={accepted}
+          onChange={e => setAccepted(e.target.checked)}
+        />
+        <span className="text-sm leading-snug text-gray-700">
           J'ai lu le contrat ci-dessus et j'accepte les conditions générales du contrat d'apport d'affaires Celexia.
         </span>
       </label>
 
       {/* Info box */}
-      <div style={{ padding: 12, background: 'var(--violet-50)', border: '1px solid var(--violet-200)', borderRadius: 10, marginBottom: 24, fontSize: 12, color: 'var(--gray-700)' }}>
+      <div className="mb-6 rounded-xl border border-violet-200 bg-violet-50 p-3 text-xs text-gray-700">
         En cliquant sur <strong>Continuer</strong>, votre signature sera intégrée au PDF qui sera automatiquement téléchargé sur votre ordinateur et enregistré dans votre espace.
       </div>
 
       {/* Navigation */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button className="btn btn-ghost" onClick={() => navigate('/portal/onboarding/welcome')}>
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button className="btn btn-ghost w-full sm:w-auto" onClick={() => navigate('/portal/onboarding/welcome')}>
           <ArrowLeft size={16} /> Retour
         </button>
-        <button className="btn btn-primary lg" disabled={!signed || !accepted || saving} onClick={handleContinue}>
-          {saving ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Génération PDF...</> : <>Signer et continuer <ArrowRight size={18} /></>}
+        <button className="btn btn-primary lg w-full sm:w-auto" disabled={!signed || !accepted || saving} onClick={handleContinue}>
+          {saving ? <><Loader2 size={16} className="animate-spin" /> Génération PDF…</> : <>Signer et continuer <ArrowRight size={18} /></>}
         </button>
       </div>
     </div>

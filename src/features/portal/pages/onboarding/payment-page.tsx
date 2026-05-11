@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../../hooks/use-portal-auth'
 import { updateOnboarding, uploadPortalDocument } from '../../services/onboarding-service'
 import { ProgressHeader } from '../../components/onboarding/progress-header'
+import { getNextOnboardingStep } from '../../lib/onboarding-navigation'
 import { ArrowLeft, ArrowRight, Upload, FileText, Trash2, Copy, Check, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -13,14 +14,13 @@ const REFERENCE = 'CELEXIA-LAUNCH'
 
 function Row({ label, value, mono, highlight }: { label: string; value: string; mono?: boolean; highlight?: boolean }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>{label}</span>
-      <span className={mono ? 'font-mono' : ''} style={{
-        fontSize: 14, fontWeight: 500,
-        color: highlight ? 'var(--violet-700)' : 'var(--gray-900)',
-        background: highlight ? 'var(--violet-50)' : 'transparent',
-        padding: highlight ? '3px 10px' : 0, borderRadius: 6,
-      }}>{value}</span>
+    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-xs text-gray-500">{label}</span>
+      <span
+        className={`${mono ? 'font-mono' : ''} ${highlight ? 'rounded bg-violet-50 px-2.5 py-0.5 text-violet-700' : 'text-gray-900'} text-sm font-medium break-all sm:break-normal`}
+      >
+        {value}
+      </span>
     </div>
   )
 }
@@ -51,17 +51,17 @@ export function PaymentPage() {
     if (!onboarding || !file || !client) return
     setSaving(true)
     try {
-      // Upload uniquement si l'artisan a fourni un nouveau fichier
+      let updated = onboarding
       if (file.raw) {
         const path = await uploadPortalDocument(client.id, file.raw, 'payment-proof')
-        await updateOnboarding(onboarding.id, {
+        updated = await updateOnboarding(onboarding.id, {
           payment_proof_uploaded: true,
           payment_proof_path: path,
           current_step: 3,
         } as Record<string, unknown>)
         await refreshOnboarding()
       }
-      navigate('/portal/onboarding/gmb')
+      navigate(getNextOnboardingStep(updated))
     } catch {
       toast.error("Erreur lors de l'upload")
     } finally {
@@ -72,73 +72,78 @@ export function PaymentPage() {
   return (
     <div>
       <ProgressHeader step={2} title="Preuve de virement" />
-      <p style={{ fontSize: 15, color: 'var(--gray-600)', lineHeight: 1.6, marginBottom: 24 }}>
+      <p className="mb-6 text-sm leading-relaxed text-gray-600 sm:text-[15px]">
         Merci d'effectuer un virement sur le compte ci-dessous, puis téléversez la preuve.
       </p>
 
       {/* Bank details card */}
-      <div className="p-card" style={{ padding: 24, marginBottom: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 14 }}>
+      <div className="p-card mb-5 p-5 sm:p-6">
+        <div className="mb-3.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
           Coordonnées bancaires Celexia
         </div>
-        <div style={{ display: 'grid', gap: 14 }}>
+        <div className="grid gap-3.5">
           <Row label="Bénéficiaire" value="CELEXIA" />
           <Row label="Banque" value="Qonto (Olinda SAS)" />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 2 }}>IBAN</div>
-              <div className="font-mono" style={{ fontSize: 14, color: 'var(--gray-900)', fontWeight: 500 }}>{IBAN}</div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <div className="min-w-0">
+              <div className="mb-0.5 text-xs text-gray-500">IBAN</div>
+              <div className="font-mono break-all text-sm font-medium text-gray-900 sm:break-normal">{IBAN}</div>
             </div>
-            <button className="btn btn-secondary" onClick={copyIban} style={{ padding: '8px 14px', fontSize: 13 }}>
+            <button
+              className="btn btn-secondary self-start sm:self-auto"
+              onClick={copyIban}
+              style={{ padding: '8px 14px', fontSize: 13 }}
+            >
               {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copié !' : 'Copier'}
             </button>
           </div>
           <Row label="BIC / SWIFT" value={BIC} mono />
           <Row label="Référence virement" value={REFERENCE} mono highlight />
         </div>
-        <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--gray-100)', fontSize: 12, color: 'var(--gray-500)', lineHeight: 1.5 }}>
-          Pour un virement <strong style={{ color: 'var(--gray-700)' }}>SWIFT international</strong>, votre banque pourrait demander le BIC de la banque partenaire : <span className="font-mono" style={{ color: 'var(--gray-700)' }}>{SWIFT_PARTNER}</span>.
+        <div className="mt-3.5 border-t border-gray-100 pt-3.5 text-xs leading-relaxed text-gray-500">
+          Pour un virement <strong className="text-gray-700">SWIFT international</strong>, votre banque pourrait demander le BIC de la banque partenaire&nbsp;: <span className="font-mono text-gray-700">{SWIFT_PARTNER}</span>.
         </div>
       </div>
 
       {/* File upload */}
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-700)', marginBottom: 10 }}>
+      <div className="mb-2.5 text-xs font-semibold text-gray-700 sm:text-[13px]">
         Preuve de virement (capture ou PDF)
       </div>
       {file ? (
-        <div className="p-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 8, background: file.raw ? 'var(--violet-100)' : 'var(--emerald-100)', color: file.raw ? 'var(--violet-600)' : 'var(--emerald-600)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="p-card mb-6 flex items-center gap-3.5 p-4 sm:gap-4">
+          <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${file.raw ? 'bg-violet-100 text-violet-600' : 'bg-emerald-100 text-emerald-600'}`}>
             {file.raw ? <FileText size={20} /> : <CheckCircle2 size={20} />}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)' }}>{file.name}</div>
-            <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>{file.raw ? `${file.size} · Uploadé` : 'Cliquez sur la poubelle pour remplacer'}</div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold text-gray-900">{file.name}</div>
+            <div className="text-xs text-gray-500">{file.raw ? `${file.size} · Uploadé` : 'Cliquez sur la poubelle pour remplacer'}</div>
           </div>
-          <button className="btn btn-ghost" onClick={() => setFile(null)}><Trash2 size={16} /></button>
+          <button className="btn btn-ghost flex-shrink-0" onClick={() => setFile(null)}><Trash2 size={16} /></button>
         </div>
       ) : (
         <div
-          className={`dropzone ${drag ? 'drag' : ''}`}
+          className={`dropzone mb-6 ${drag ? 'drag' : ''}`}
           onDragOver={e => { e.preventDefault(); setDrag(true) }}
           onDragLeave={() => setDrag(false)}
           onDrop={e => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) onFile(f) }}
           onClick={() => inputRef.current?.click()}
-          style={{ marginBottom: 24 }}
         >
-          <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f) }} />
-          <div style={{ width: 44, height: 44, borderRadius: 10, background: 'var(--violet-100)', color: 'var(--violet-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+          <input ref={inputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) onFile(f) }} />
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-[10px] bg-violet-100 text-violet-600">
             <Upload size={22} />
           </div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 4 }}>Glissez votre fichier ici</div>
-          <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>ou <span style={{ color: 'var(--violet-600)', fontWeight: 600 }}>parcourir</span> · PDF, JPG, PNG · 10 Mo max</div>
+          <div className="mb-1 text-sm font-semibold text-gray-900 sm:text-[15px]">Glissez votre fichier ici</div>
+          <div className="text-xs text-gray-500 sm:text-[13px]">ou <span className="font-semibold text-violet-600">parcourir</span> · PDF, JPG, PNG · 10 Mo max</div>
         </div>
       )}
 
       {/* Navigation */}
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <button className="btn btn-ghost" onClick={() => navigate('/portal/onboarding/contract')}><ArrowLeft size={16} /> Retour</button>
-        <button className="btn btn-primary lg" disabled={!file || saving} onClick={handleContinue}>
-          {saving ? 'Envoi...' : 'Continuer'} <ArrowRight size={18} />
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button className="btn btn-ghost w-full sm:w-auto" onClick={() => navigate('/portal/onboarding/welcome')}>
+          <ArrowLeft size={16} /> Retour
+        </button>
+        <button className="btn btn-primary lg w-full sm:w-auto" disabled={!file || saving} onClick={handleContinue}>
+          {saving ? 'Envoi…' : 'Continuer'} <ArrowRight size={18} />
         </button>
       </div>
     </div>
