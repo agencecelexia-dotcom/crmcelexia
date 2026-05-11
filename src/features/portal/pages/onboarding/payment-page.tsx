@@ -4,7 +4,7 @@ import { usePortalAuth } from '../../hooks/use-portal-auth'
 import { updateOnboarding, uploadPortalDocument } from '../../services/onboarding-service'
 import { ProgressHeader } from '../../components/onboarding/progress-header'
 import { getNextOnboardingStep } from '../../lib/onboarding-navigation'
-import { ArrowLeft, ArrowRight, Upload, FileText, Trash2, Copy, Check, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Upload, FileText, Trash2, Copy, Check, CheckCircle2, Euro } from 'lucide-react'
 import { toast } from 'sonner'
 import { describeError } from '../../lib/error-utils'
 
@@ -76,9 +76,24 @@ export function PaymentPage() {
   return (
     <div>
       <ProgressHeader step={2} title="Preuve de virement" />
-      <p className="mb-6 text-sm leading-relaxed text-gray-600 sm:text-[15px]">
-        Merci d'effectuer un virement sur le compte ci-dessous, puis téléversez la preuve.
+      <p className="mb-5 text-sm leading-relaxed text-gray-600 sm:text-[15px]">
+        Effectuez un virement sur le compte ci-dessous, puis téléversez la preuve.
       </p>
+
+      {/* Montant convenu callout */}
+      <div className="mb-5 flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 sm:p-5">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white">
+          <Euro size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 text-sm font-bold text-violet-900 sm:text-[15px]">
+            Montant du virement
+          </div>
+          <div className="text-[13px] leading-relaxed text-violet-900/90 sm:text-sm">
+            Faites un virement à la hauteur du <strong>budget pub convenu lors de notre appel</strong>. En cas de doute sur le montant, contactez-nous à <a href="mailto:agence.celexia@gmail.com" className="font-semibold text-violet-700 underline">agence.celexia@gmail.com</a> avant d'effectuer le virement.
+          </div>
+        </div>
+      </div>
 
       {/* Bank details card */}
       <div className="p-card mb-5 p-5 sm:p-6">
