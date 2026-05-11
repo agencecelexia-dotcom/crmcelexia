@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Upload, Trash2, Plus, Sparkles } from 'lucide-react'
-import { usePortalAuth } from '../hooks/use-portal-auth'
+import { usePortalAuth, type PortalOnboarding } from '../hooks/use-portal-auth'
 import {
   useAddToLibrary,
   useQuoteLibrary,
@@ -13,9 +13,32 @@ import {
 import { getQuoteLogoUrl } from '../services/quote-service'
 import { getSectorPresets } from '../lib/quote-sector-presets'
 import { COMPANY_FORMS, VAT_RATES } from '@/types/enums'
-import type { QuoteSettings } from '@/types'
+import type { Client, QuoteSettings } from '@/types'
 
 type Settings = QuoteSettings
+
+// Pré-remplissage : on dérive les coordonnées entreprise depuis le profil
+// Client + le contrat signé (contract_data). L'artisan peut ensuite ajuster.
+function deriveDefaultsFromProfile(
+  client: Client | null | undefined,
+  onboarding: PortalOnboarding | null | undefined,
+): Partial<Settings> {
+  const cd = (onboarding?.contract_data || {}) as Record<string, string | undefined>
+  const stripSpaces = (s: string | null | undefined) => (s ? s.replace(/\s/g, '') : null) || null
+  return {
+    company_legal_name: cd.client_enseigne || client?.company_name || null,
+    company_form: cd.client_forme_juridique || null,
+    company_address: cd.client_adresse || client?.address || null,
+    company_postal_code: cd.client_code_postal || null,
+    company_city: cd.client_ville || client?.city || null,
+    company_phone: client?.phone || null,
+    company_email: client?.contact_email || null,
+    company_website: client?.website || null,
+    siret: stripSpaces(cd.client_siret) || stripSpaces(client?.siret),
+    siren: stripSpaces(cd.client_siren) || stripSpaces(client?.siren),
+    rcs_city: cd.client_rcs_ville || null,
+  }
+}
 
 const SECTIONS: Array<{ id: string; title: string }> = [
   { id: 'company', title: 'Mon entreprise' },
@@ -26,7 +49,7 @@ const SECTIONS: Array<{ id: string; title: string }> = [
 ]
 
 export function PortalSettingsPage() {
-  const { client } = usePortalAuth()
+  const { client, onboarding } = usePortalAuth()
   const clientId = client?.id
   const { data: settings, isLoading } = useQuoteSettings(clientId)
   const upsert = useUpsertQuoteSettings()
@@ -34,6 +57,7 @@ export function PortalSettingsPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [drag, setDrag] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const prefilledRef = useRef(false)
 
   // Fetch signed URL for logo when path changes
   useEffect(() => {
@@ -45,6 +69,28 @@ export function PortalSettingsPage() {
     }
     return () => { alive = false }
   }, [settings?.logo_path])
+
+  // Pré-remplit les champs vides à la première ouverture avec les données
+  // déjà connues (profil Client + contrat signé). N'écrase jamais une valeur
+  // que l'artisan a saisie.
+  useEffect(() => {
+    if (!clientId || isLoading || prefilledRef.current) return
+    if (!client) return
+    prefilledRef.current = true
+    const derived = deriveDefaultsFromProfile(client, onboarding)
+    const current = (settings ?? {}) as Partial<Settings>
+    const updates: Partial<Settings> = {}
+    let count = 0
+    for (const [k, v] of Object.entries(derived) as Array<[keyof Settings, string | null]>) {
+      if (v && !current[k]) {
+        ;(updates as Record<string, unknown>)[k] = v
+        count++
+      }
+    }
+    if (count > 0) {
+      upsert.mutate({ clientId, updates })
+    }
+  }, [clientId, isLoading, client, onboarding, settings, upsert])
 
   function patch(updates: Partial<Settings>) {
     if (!clientId) return
