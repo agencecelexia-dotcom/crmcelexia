@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getStepsForClient,
@@ -8,15 +9,44 @@ import {
   getClientKpis,
 } from '../services/accompagnement-service'
 import { STALE_TIME_LIST } from '@/lib/constants'
+import { supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
 export function useStepsForClient(clientId: string | undefined) {
-  return useQuery({
+  const queryClient = useQueryClient()
+  const query = useQuery({
     queryKey: ['accompagnement', clientId],
     queryFn: () => getStepsForClient(clientId!),
     enabled: !!clientId,
     staleTime: STALE_TIME_LIST,
   })
+
+  // Realtime : le trigger sync_portal_to_accompagnement met à jour
+  // client_accompagnement_steps quand l'artisan progresse côté portail.
+  // On invalide la query React Query à chaque INSERT/UPDATE pour que
+  // la page client se mette à jour en live, sans recharger.
+  useEffect(() => {
+    if (!clientId) return
+    const channel = supabase
+      .channel(`accomp-steps-${clientId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'client_accompagnement_steps',
+          filter: `client_id=eq.${clientId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['accompagnement', clientId] })
+          queryClient.invalidateQueries({ queryKey: ['accompagnement', 'all'] })
+        },
+      )
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [clientId, queryClient])
+
+  return query
 }
 
 export function useAllClientsAccompagnement() {

@@ -62,17 +62,6 @@ export async function getAllOnboardings(): Promise<AdminOnboardingRow[]> {
   return (data ?? []) as unknown as AdminOnboardingRow[]
 }
 
-/** Fetch l'onboarding portail d'un client donné (pour l'admin / la page client). */
-export async function getOnboardingByClientId(clientId: string): Promise<AdminOnboardingRow | null> {
-  const { data, error } = await supabase
-    .from('portal_onboardings')
-    .select(SELECT)
-    .eq('client_id', clientId)
-    .maybeSingle()
-  if (error) throw error
-  return (data ?? null) as unknown as AdminOnboardingRow | null
-}
-
 export async function validateOnboarding(onboardingId: string, validatedBy: string) {
   const { error } = await supabase
     .from('portal_onboardings')
