@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLead, usePortalLeadEvents, useUpdatePortalLeadStatus, useUpdatePortalLead, useDeletePortalLead } from '../hooks/use-portal-leads'
-import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2, FileText } from 'lucide-react'
+import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2, FileText, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase/client'
 import { formatDate, formatDateTime } from '@/lib/format'
@@ -153,9 +153,23 @@ export function PortalLeadDetailPage() {
               >
                 <Phone size={16} /> Appeler
               </a>
-              {lead.city && (
+              {lead.email && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--gray-700)' }}>
-                  <MapPin size={16} style={{ color: 'var(--gray-400)' }} /> {lead.city}
+                  <Mail size={16} style={{ color: 'var(--gray-400)' }} />
+                  <a href={`mailto:${lead.email}`} style={{ color: 'var(--violet-600)', textDecoration: 'none' }}>
+                    {lead.email}
+                  </a>
+                </div>
+              )}
+              {(lead.address || lead.postal_code || lead.city) && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 14, color: 'var(--gray-700)' }}>
+                  <MapPin size={16} style={{ color: 'var(--gray-400)', marginTop: 2 }} />
+                  <div>
+                    {lead.address && <div>{lead.address}</div>}
+                    {(lead.postal_code || lead.city) && (
+                      <div>{[lead.postal_code, lead.city].filter(Boolean).join(' ')}</div>
+                    )}
+                  </div>
                 </div>
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--gray-700)' }}>

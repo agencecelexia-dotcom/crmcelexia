@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, Plus, X, BookOpen, FileDown, Eye, Send, CheckCircle2, Trash2, Upload } from 'lucide-react'
@@ -99,10 +99,21 @@ export function PortalQuoteEditorPage() {
   const [signOpen, setSignOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Anti-race autosave : 1 seul persist en vol à la fois.
+  // En cas de blur successifs, le 2e attend la fin du 1er au lieu de
+  // partir en parallèle (qui provoquait `duplicate quote_number` puis
+  // perte des éditions en cours via DELETE+INSERT items).
+  const persistInflightRef = useRef<Promise<Quote | null> | null>(null)
+  const ensureInflightRef = useRef<Promise<Quote | null> | null>(null)
+  // Bloque la ré-hydratation du formulaire depuis quote/items après
+  // que l'utilisateur a commencé à taper. Sinon, chaque refetch écrasait
+  // les inputs locaux.
+  const hydratedRef = useRef(false)
 
-  // Hydrate from quote (existing mode)
+  // Hydrate from quote (existing mode) — ONE-SHOT.
   useEffect(() => {
-    if (!quote) return
+    if (!quote || hydratedRef.current) return
+    hydratedRef.current = true
     setRecipient({
       name: quote.recipient_name ?? '',
       address: quote.recipient_address ?? '',
@@ -174,90 +185,122 @@ export function PortalQuoteEditorPage() {
 
   // ── Actions ──
 
+  /** Crée le devis si besoin. Dédupliqué : si un appel est déjà en vol,
+   *  on attend son résultat au lieu de spawner une 2e mutation (qui
+   *  causerait un `duplicate quote_number`). */
   async function ensureQuoteExists(): Promise<Quote | null> {
     if (quote) return quote
-    if (createdId) {
-      // already created earlier this session
-      const { data } = await supabase.from('quotes').select('*').eq('id', createdId).maybeSingle()
-      if (data) return data as Quote
+    if (ensureInflightRef.current) return ensureInflightRef.current
+    const promise: Promise<Quote | null> = (async () => {
+      if (createdId) {
+        const { data } = await supabase.from('quotes').select('*').eq('id', createdId).maybeSingle()
+        if (data) return data as Quote
+      }
+      if (!clientId) { toast.error('Client introuvable'); return null }
+      if (!recipient.name.trim()) { toast.error('Nom du destinataire requis'); return null }
+      const q = await createQuote.mutateAsync({
+        client_id: clientId,
+        portal_lead_id: selectedLeadId,
+        recipient_name: recipient.name.trim(),
+        recipient_address: recipient.address || null,
+        recipient_postal_code: recipient.postal || null,
+        recipient_city: recipient.city || null,
+        recipient_phone: recipient.phone || null,
+        recipient_email: recipient.email || null,
+        issued_at: issuedAt,
+        valid_until: validUntil,
+        client_message: clientMessage || null,
+        internal_notes: internalNotes || null,
+        payment_terms: paymentTerms || null,
+        footer_notes: footerNotes || null,
+      })
+      setCreatedId(q.id)
+      navigate(`/portal/devis/${q.id}`, { replace: true })
+      return q
+    })()
+    ensureInflightRef.current = promise
+    try {
+      return await promise
+    } finally {
+      ensureInflightRef.current = null
     }
-    if (!clientId) { toast.error('Client introuvable'); return null }
-    if (!recipient.name.trim()) { toast.error('Nom du destinataire requis'); return null }
-    const q = await createQuote.mutateAsync({
-      client_id: clientId,
-      portal_lead_id: selectedLeadId,
-      recipient_name: recipient.name.trim(),
-      recipient_address: recipient.address || null,
-      recipient_postal_code: recipient.postal || null,
-      recipient_city: recipient.city || null,
-      recipient_phone: recipient.phone || null,
-      recipient_email: recipient.email || null,
-      issued_at: issuedAt,
-      valid_until: validUntil,
-      client_message: clientMessage || null,
-      internal_notes: internalNotes || null,
-      payment_terms: paymentTerms || null,
-      footer_notes: footerNotes || null,
-    })
-    setCreatedId(q.id)
-    // Replace URL
-    navigate(`/portal/devis/${q.id}`, { replace: true })
-    return q
   }
 
-  async function persistAll(silent = false): Promise<Quote | null> {
+  /** Sauve uniquement le header (champs destinataire, dates, notes).
+   *  Pas de DELETE+INSERT sur les items — voir [persistItems]. */
+  async function persistHeader(silent = false): Promise<Quote | null> {
     if (isReadOnly) return quote ?? null
-    // Si le nom n'est pas encore renseigné en création, on ne fait rien
-    // (évite de spammer des toasts sur le blur d'un autre champ).
     if (!quote && !createdId && !recipient.name.trim()) {
       if (!silent) toast.error('Nom du destinataire requis')
       return null
     }
-    setBusy(true)
+    const q = await ensureQuoteExists()
+    if (!q) return null
+    await updateQuote.mutateAsync({
+      id: q.id,
+      updates: {
+        recipient_name: recipient.name.trim(),
+        recipient_address: recipient.address || null,
+        recipient_postal_code: recipient.postal || null,
+        recipient_city: recipient.city || null,
+        recipient_phone: recipient.phone || null,
+        recipient_email: recipient.email || null,
+        issued_at: issuedAt,
+        valid_until: validUntil,
+        client_message: clientMessage || null,
+        internal_notes: internalNotes || null,
+        payment_terms: paymentTerms || null,
+        footer_notes: footerNotes || null,
+      },
+    })
+    return q
+  }
+
+  /** Sauve les items (DELETE+INSERT). À appeler uniquement sur les
+   *  actions explicites — JAMAIS sur blur de champ — sinon on perd
+   *  les éditions en cours sur le refetch. */
+  async function persistItems(quoteId: string): Promise<void> {
+    await replaceItems.mutateAsync({
+      quoteId,
+      items: items
+        .filter((it) => it.description.trim() !== '' || it.unit_price_ht > 0)
+        .map((it, idx) => ({
+          position: idx,
+          description: it.description.trim() || '—',
+          quantity: it.quantity,
+          unit: it.unit,
+          unit_price_ht: it.unit_price_ht,
+          vat_rate: it.vat_rate,
+        })),
+    })
+  }
+
+  /** Persist header + items. Sérialisé (un seul en vol). */
+  async function persistAll(silent = false): Promise<Quote | null> {
+    if (persistInflightRef.current) {
+      // Attend la mutation en cours puis enchaîne la nouvelle.
+      try { await persistInflightRef.current } catch { /* déjà toasté */ }
+    }
+    const run: Promise<Quote | null> = (async () => {
+      if (isReadOnly) return quote ?? null
+      setBusy(true)
+      try {
+        const q = await persistHeader(silent)
+        if (!q) return null
+        await persistItems(q.id)
+        return q
+      } catch (err) {
+        toast.error(`Sauvegarde échouée : ${describeError(err)}`)
+        return null
+      } finally {
+        setBusy(false)
+      }
+    })()
+    persistInflightRef.current = run
     try {
-      const q = await ensureQuoteExists()
-      if (!q) return null
-
-      // Update quote header
-      await updateQuote.mutateAsync({
-        id: q.id,
-        updates: {
-          recipient_name: recipient.name.trim(),
-          recipient_address: recipient.address || null,
-          recipient_postal_code: recipient.postal || null,
-          recipient_city: recipient.city || null,
-          recipient_phone: recipient.phone || null,
-          recipient_email: recipient.email || null,
-          issued_at: issuedAt,
-          valid_until: validUntil,
-          client_message: clientMessage || null,
-          internal_notes: internalNotes || null,
-          payment_terms: paymentTerms || null,
-          footer_notes: footerNotes || null,
-        },
-      })
-
-      // Replace items
-      await replaceItems.mutateAsync({
-        quoteId: q.id,
-        items: items
-          .filter((it) => it.description.trim() !== '' || it.unit_price_ht > 0)
-          .map((it, idx) => ({
-            position: idx,
-            description: it.description.trim() || '—',
-            quantity: it.quantity,
-            unit: it.unit,
-            unit_price_ht: it.unit_price_ht,
-            vat_rate: it.vat_rate,
-          })),
-      })
-
-      return q
-    } catch (err) {
-      toast.error(`Sauvegarde échouée : ${describeError(err)}`)
-      return null
+      return await run
     } finally {
-      setBusy(false)
+      persistInflightRef.current = null
     }
   }
 
@@ -266,10 +309,23 @@ export function PortalQuoteEditorPage() {
     if (q) toast.success('Devis enregistré')
   }
 
-  /** Auto-save sur blur — silencieux si le devis n'existe pas encore et
-   *  que le nom du destinataire n'est pas saisi. */
+  /** Auto-save sur blur d'un champ HEADER. Ne touche PAS aux items
+   *  (sinon DELETE+INSERT pendant que l'utilisateur édite une ligne
+   *  écrase ses modifs locales sur le refetch). */
   async function handleAutoSave() {
-    await persistAll(true)
+    if (persistInflightRef.current) {
+      try { await persistInflightRef.current } catch { /* */ }
+    }
+    if (isReadOnly) return
+    if (!quote && !createdId && !recipient.name.trim()) return
+    setBusy(true)
+    try {
+      await persistHeader(true)
+    } catch (err) {
+      toast.error(`Sauvegarde échouée : ${describeError(err)}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function handlePreview() {
@@ -381,11 +437,15 @@ export function PortalQuoteEditorPage() {
     return <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>Chargement…</div>
   }
   if (!isNew && (quoteError || !quote)) {
+    // Log technique en console pour debug, mais on n'affiche qu'un message
+    // métier propre à l'utilisateur (les erreurs PostgREST type
+    // "Cannot coerce the result to a single JSON object" sont opaques).
+    if (quoteError) console.error('[quote-editor] load failed', quoteError)
     return (
       <div className="mx-auto max-w-md p-card" style={{ padding: 24, textAlign: 'center' }}>
         <p className="mb-2 text-sm font-semibold text-red-700">Impossible de charger ce devis.</p>
         <p className="mb-4 text-xs text-[var(--gray-500)]">
-          {quoteError ? describeError(quoteError) : 'Devis introuvable ou supprimé.'}
+          Ce devis n'existe pas ou a été supprimé.
         </p>
         <button type="button" className="btn btn-secondary" onClick={() => navigate('/portal/devis')}>
           Retour à la liste
@@ -704,9 +764,19 @@ export function PortalQuoteEditorPage() {
               </button>
             )}
             {currentStatus === 'sent' && (
-              <button type="button" className="btn btn-primary" onClick={() => setSignOpen(true)} disabled={busy}>
-                <CheckCircle2 size={14} /> Marquer comme signé
-              </button>
+              <>
+                <button type="button" className="btn btn-primary" onClick={() => setSignOpen(true)} disabled={busy}>
+                  <CheckCircle2 size={14} /> Marquer comme signé
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost text-xs text-[var(--gray-500)]"
+                  onClick={() => markAs('draft')}
+                  disabled={busy}
+                >
+                  ← Repasser en brouillon
+                </button>
+              </>
             )}
             {currentStatus === 'signed' && (
               <div className="rounded-md bg-emerald-50 p-2 text-center text-xs text-emerald-700">

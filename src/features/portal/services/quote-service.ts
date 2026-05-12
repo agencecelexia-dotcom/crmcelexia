@@ -127,10 +127,10 @@ export async function updateQuote(id: string, updates: Partial<Quote>): Promise<
 }
 
 export async function softDeleteQuote(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('quotes')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id)
+  // RPC SECURITY DEFINER (00093) — l'UPDATE direct sur deleted_at
+  // échouait avec une erreur RLS opaque sur la NEW row. Le RPC
+  // vérifie l'ownership (et refuse les devis signés).
+  const { error } = await supabase.rpc('soft_delete_quote', { quote_id: id })
   if (error) throw error
 }
 

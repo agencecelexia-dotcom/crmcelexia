@@ -30,8 +30,32 @@ interface State {
   y: number
 }
 
+/**
+ * Helvetica intégrée à pdf-lib utilise l'encoding WinAnsi qui ne couvre
+ * pas U+202F (NARROW NO-BREAK SPACE) ni U+2009 (THIN SPACE). Or
+ * `(1000).toLocaleString('fr-FR')` produit "1 000" avec un NNBSP entre
+ * milliers — d'où des crashes "WinAnsi cannot encode 0x202f" sur tout
+ * devis ≥ 1 000 €. On normalise vers NBSP (U+00A0) qui est en WinAnsi.
+ */
+function safeWinAnsi(s: string): string {
+  return s.replace(/[  ]/g, ' ')
+}
+
+/**
+ * Monkey-patche la méthode drawText d'une page pour systématiquement
+ * sanitiser le texte avant de le tracer. Appliqué à chaque nouvelle
+ * page (cf. newPage).
+ */
+function patchPageDrawText(page: PDFPage): void {
+  const orig = page.drawText.bind(page)
+  type Args = Parameters<typeof page.drawText>
+  page.drawText = ((text: Args[0], opts?: Args[1]) =>
+    orig(typeof text === 'string' ? safeWinAnsi(text) : text, opts)) as typeof page.drawText
+}
+
 function newPage(state: State): void {
   state.page = state.doc.addPage([PAGE_W, PAGE_H])
+  patchPageDrawText(state.page)
   state.y = PAGE_H - 40
 }
 
@@ -41,7 +65,7 @@ function ensureSpace(state: State, needed: number): void {
 
 function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   if (!text) return ['']
-  const words = String(text).split(/\s+/)
+  const words = safeWinAnsi(String(text)).split(/\s+/)
   const lines: string[] = []
   let cur = ''
   for (const w of words) {
@@ -61,14 +85,15 @@ function formatDateFR(iso: string): string {
   if (!iso) return ''
   try {
     const d = new Date(iso + (iso.length === 10 ? 'T00:00:00' : ''))
-    return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(d)
+    return safeWinAnsi(new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(d))
   } catch {
     return iso
   }
 }
 
 function formatEurFR(n: number): string {
-  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+  // safeWinAnsi pour neutraliser le NNBSP des séparateurs de milliers fr-FR.
+  return safeWinAnsi(n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) + ' €'
 }
 
 function drawText(state: State, text: string, x: number, y: number, opts: { size?: number; bold?: boolean; color?: ReturnType<typeof rgb> } = {}): void {
@@ -129,9 +154,10 @@ function drawHeader(state: State, settings: QuoteSettings, logo: PDFImage | null
   const rightSize = 8
   function drawRight(line: string, bold = false): void {
     if (!line) return
+    const safe = safeWinAnsi(line)
     const f = bold ? state.fontBold : state.font
-    const w = f.widthOfTextAtSize(line, rightSize)
-    state.page.drawText(line, { x: rightX - w, y: ry, size: rightSize, font: f, color: GRAY_700 })
+    const w = f.widthOfTextAtSize(safe, rightSize)
+    state.page.drawText(safe, { x: rightX - w, y: ry, size: rightSize, font: f, color: GRAY_700 })
     ry -= 10
   }
   if (settings.company_legal_name) drawRight(settings.company_legal_name, true)
@@ -254,7 +280,7 @@ function drawItems(state: State, items: QuoteItem[]): void {
 
     // numeric columns - vertically centered-ish on first line
     const numY = state.y - 14
-    const qtyStr = it.quantity.toLocaleString('fr-FR')
+    const qtyStr = safeWinAnsi(it.quantity.toLocaleString('fr-FR'))
     const qtyW = state.font.widthOfTextAtSize(qtyStr, 9)
     state.page.drawText(qtyStr, { x: COL_QTY_X + COL_QTY_W - qtyW - 6, y: numY, size: 9, font: state.font, color: BLACK })
 
@@ -408,6 +434,7 @@ export async function generateQuotePDF(
   const logo = await fetchLogoImage(doc, settings.logo_path)
 
   const page = doc.addPage([PAGE_W, PAGE_H])
+  patchPageDrawText(page)
   const state: State = { doc, page, font, fontBold, y: PAGE_H - 40 }
 
   drawHeader(state, settings, logo)

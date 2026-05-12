@@ -89,10 +89,10 @@ export async function updatePortalLead(id: string, updates: Partial<PortalLead>)
 }
 
 export async function deletePortalLead(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('portal_leads')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id)
+  // Passe par le RPC SECURITY DEFINER (00093) — l'UPDATE direct sur
+  // deleted_at échouait avec une erreur RLS opaque malgré des policies
+  // qui évaluaient à TRUE en test manuel. Le RPC vérifie l'ownership.
+  const { error } = await supabase.rpc('soft_delete_portal_lead', { lead_id: id })
   if (error) throw error
 }
 
