@@ -99,6 +99,7 @@ import { useStepsForClient, useClientKpis, usePortalDocsForClient } from '@/feat
 import { validateOnboarding } from '@/features/portal-admin/services/admin-onboarding-service'
 import { useQueryClient } from '@tanstack/react-query'
 import { StatCard } from '@/components/shared/stat-card'
+import { CommissionsToValidateSection } from '../components/commissions-to-validate-section'
 import type { ClientAccompagnementStep } from '@/types'
 
 const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
@@ -588,6 +589,8 @@ function AccompagnementCard({
             icon={TrendingUp}
           />
         </div>
+
+        <CommissionsToValidateSection clientId={clientId} />
       </CardContent>
     </Card>
   )

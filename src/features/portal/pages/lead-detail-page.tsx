@@ -7,6 +7,7 @@ import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2, FileText, Mai
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase/client'
 import { formatDate, formatDateTime } from '@/lib/format'
+import { LeadInvoicesSection } from '../components/lead-invoices-section'
 import { getCommissionTerms, formatCommissionTerms, calcCommission } from '../lib/format'
 import {
   PORTAL_LEAD_STATUS_LABELS,
@@ -220,6 +221,11 @@ export function PortalLeadDetailPage() {
               <p style={{ fontSize: 13, color: 'var(--gray-400)', textAlign: 'center', padding: '16px 0' }}>Aucun événement</p>
             )}
           </div>
+
+          {/* Factures du chantier — uniquement après signature */}
+          {lead.status === 'signe' && (
+            <LeadInvoicesSection leadId={lead.id} clientId={lead.client_id} />
+          )}
         </div>
 
         {/* Right column */}

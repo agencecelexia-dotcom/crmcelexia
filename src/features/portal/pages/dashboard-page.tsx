@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLeads, usePortalLeadStats } from '../hooks/use-portal-leads'
+import { useRoiStats } from '../hooks/use-roi-stats'
 import { Users, FileText, CheckCircle2, TrendingUp, Plus, Phone, ArrowRight } from 'lucide-react'
 import { PortalKpiCard } from '../components/portal-kpi-card'
 import { formatEur } from '../lib/format'
@@ -10,6 +11,7 @@ export function PortalDashboardPage() {
   const { profile, client } = usePortalAuth()
   const { data: stats } = usePortalLeadStats(client?.id)
   const { data: leads } = usePortalLeads(client?.id)
+  const { data: roi } = useRoiStats(client?.id)
   const firstName = profile?.full_name?.split(' ')[0] || 'artisan'
 
   // Build activity from leads. Tri par updated_at desc (activité réelle)
@@ -60,6 +62,41 @@ export function PortalDashboardPage() {
         <PortalKpiCard label="Devis signés" value={String(stats?.signed_count || 0)} icon={<CheckCircle2 size={18} />} tone="emerald" />
         <PortalKpiCard label="CA généré" value={formatEur(totalCa)} icon={<TrendingUp size={18} />} tone="violet" />
       </div>
+
+      {/* Bandeau ROI Celexia — affiché uniquement si commission > 10 € */}
+      {roi && roi.commission_celexia > 10 && (
+        <div
+          className="mb-5 sm:mb-7 rounded-[var(--radius-xl)] p-4 sm:p-6"
+          style={{
+            background: 'linear-gradient(135deg, var(--violet-600), var(--violet-700))',
+            color: 'white',
+            boxShadow: 'var(--shadow-violet)',
+          }}
+        >
+          <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider opacity-85 sm:text-xs">
+            <TrendingUp size={14} /> Celexia · {roi.period_label}
+          </div>
+          <div className="grid grid-cols-3 items-end gap-3">
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wider opacity-75 sm:text-xs">Commission</div>
+              <div className="font-display text-base font-bold sm:text-2xl">{formatEur(roi.commission_celexia)}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-[10px] font-medium uppercase tracking-wider opacity-75 sm:text-xs">CA signé</div>
+              <div className="font-display text-base font-bold sm:text-2xl">{formatEur(roi.ca_signed)}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] font-medium uppercase tracking-wider opacity-75 sm:text-xs">ROI</div>
+              <div className="font-display text-xl font-bold sm:text-3xl">
+                ×{Number.isFinite(roi.roi) ? roi.roi.toFixed(1) : '—'}
+              </div>
+            </div>
+          </div>
+          <p className="mt-3 text-[11px] opacity-85 sm:text-xs">
+            Pour 1&nbsp;€ versé à Celexia ces 30 derniers jours, vous avez signé {Number.isFinite(roi.roi) ? roi.roi.toFixed(1) : '—'}&nbsp;€ de devis.
+          </p>
+        </div>
+      )}
 
       {/* Activity + Commission card */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:gap-5">

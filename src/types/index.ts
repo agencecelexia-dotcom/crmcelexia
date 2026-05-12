@@ -481,10 +481,30 @@ export interface PortalLead {
   signed_pdf_path: string | null
   commission_rate: number
   commission_amount: number | null
+  // Tracking paiement commission (migration 00096)
+  commission_status: 'pending' | 'declared_paid' | 'paid' | 'disputed'
+  commission_declared_paid_at: string | null
+  commission_paid_at: string | null
+  commission_validated_by: string | null
+  commission_admin_notes: string | null
   notes: string | null
   is_urgent: boolean
   created_at: string
   updated_at: string
+  deleted_at: string | null
+}
+
+// ── Portal Lead Invoice (factures du chantier — migration 00097) ──
+export interface PortalLeadInvoice {
+  id: string
+  portal_lead_id: string
+  client_id: string
+  file_path: string
+  file_name: string
+  invoice_type: 'acompte' | 'solde' | 'finale'
+  amount_ttc: number | null
+  uploaded_by: string | null
+  created_at: string
   deleted_at: string | null
 }
 

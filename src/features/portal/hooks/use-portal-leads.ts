@@ -2,8 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getPortalLeads, getPortalLead, createPortalLead, updatePortalLeadStatus,
   updatePortalLead, deletePortalLead, getPortalLeadEvents, getPortalLeadStats,
+  declareCommissionPaid, validateCommissionPayment,
 } from '../services/portal-lead-service'
 import type { PortalLead } from '@/types'
+import { describeError } from '../lib/error-utils'
 import { toast } from 'sonner'
 
 export function usePortalLeads(clientId: string | undefined) {
@@ -89,5 +91,36 @@ export function useDeletePortalLead() {
       toast.success('Lead supprimé')
     },
     onError: () => toast.error('Erreur lors de la suppression'),
+  })
+}
+
+// ── Commission payment tracking ──
+
+export function useDeclareCommissionPaid() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (leadId: string) => declareCommissionPaid(leadId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['portal-leads'] })
+      qc.invalidateQueries({ queryKey: ['portal-lead'] })
+      qc.invalidateQueries({ queryKey: ['admin-commissions-pending'] })
+      toast.success('Paiement déclaré. Celexia validera sous quelques jours.')
+    },
+    onError: (err) => toast.error(`Déclaration échouée : ${describeError(err)}`),
+  })
+}
+
+export function useValidateCommissionPayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ leadId, approved, notes }: { leadId: string; approved: boolean; notes?: string }) =>
+      validateCommissionPayment(leadId, approved, notes),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['portal-leads'] })
+      qc.invalidateQueries({ queryKey: ['portal-lead'] })
+      qc.invalidateQueries({ queryKey: ['admin-commissions-pending'] })
+      toast.success(vars.approved ? 'Commission validée' : 'Commission marquée à clarifier')
+    },
+    onError: (err) => toast.error(`Action échouée : ${describeError(err)}`),
   })
 }

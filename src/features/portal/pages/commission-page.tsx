@@ -1,15 +1,28 @@
 import { useState } from 'react'
 import { usePortalAuth } from '../hooks/use-portal-auth'
-import { usePortalLeads, usePortalLeadStats } from '../hooks/use-portal-leads'
-import { Euro, CheckCircle2, TrendingUp, Info, ChevronDown } from 'lucide-react'
+import { usePortalLeads, usePortalLeadStats, useDeclareCommissionPaid } from '../hooks/use-portal-leads'
+import { Euro, CheckCircle2, TrendingUp, Info, ChevronDown, Clock, AlertCircle } from 'lucide-react'
 import { PortalKpiCard } from '../components/portal-kpi-card'
 import { formatEur, getCommissionTerms, formatCommissionTerms } from '../lib/format'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import type { PortalLead } from '@/types'
 
 export function PortalCommissionPage() {
   const { client } = usePortalAuth()
   const { data: leads } = usePortalLeads(client?.id)
   const { data: stats } = usePortalLeadStats(client?.id)
+  const declarePaid = useDeclareCommissionPaid()
   const [explainerOpen, setExplainerOpen] = useState(false)
+  const [confirmLead, setConfirmLead] = useState<PortalLead | null>(null)
 
   const signedLeads = (leads ?? []).filter(l => l.status === 'signe' && l.signed_amount)
   const totalCa = stats?.total_ca || 0
@@ -55,7 +68,7 @@ export function PortalCommissionPage() {
         <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
             <tr>
-              {['Date', 'Prospect', 'Type', `Devis ${terms.base}`, `Commission ${termsLabel}`].map(h => (
+              {['Date', 'Prospect', 'Type', `Devis ${terms.base}`, `Commission ${termsLabel}`, 'Statut'].map(h => (
                 <th key={h} style={{ textAlign: h.startsWith('Devis') || h.startsWith('Commission') ? 'right' : 'left', padding: '12px 16px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--gray-500)', borderBottom: '1px solid var(--gray-200)', background: 'var(--gray-50)' }}>{h}</th>
               ))}
             </tr>
@@ -68,6 +81,9 @@ export function PortalCommissionPage() {
                 <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', color: 'var(--gray-700)' }}>{l.work_type}</td>
                 <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', textAlign: 'right', color: 'var(--gray-900)' }}>{formatEur(l.signed_amount!)}</td>
                 <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', textAlign: 'right', fontWeight: 600, color: 'var(--violet-700)' }}>{formatEur(l.commission_amount || 0)}</td>
+                <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
+                  <CommissionStatusCell lead={l} onDeclare={() => setConfirmLead(l)} />
+                </td>
               </tr>
             ))}
             {signedLeads.length > 0 && (
@@ -75,15 +91,42 @@ export function PortalCommissionPage() {
                 <td colSpan={3} style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--gray-900)' }}>Total</td>
                 <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--gray-900)' }}>{formatEur(totalCa)}</td>
                 <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--violet-700)' }}>{formatEur(totalCommission)}</td>
+                <td style={{ padding: '14px 16px' }} />
               </tr>
             )}
             {signedLeads.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--gray-400)' }}>Aucun devis signé pour le moment</td></tr>
+              <tr><td colSpan={6} style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--gray-400)' }}>Aucun devis signé pour le moment</td></tr>
             )}
           </tbody>
         </table>
         </div>
       </div>
+
+      {/* Confirmation paiement commission */}
+      <AlertDialog open={!!confirmLead} onOpenChange={(open) => !open && setConfirmLead(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer le paiement de la commission&nbsp;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vous déclarez avoir viré <strong>{formatEur(confirmLead?.commission_amount ?? 0)}</strong> à
+              Celexia pour le lead <strong>{confirmLead?.name}</strong>.
+              L'équipe Celexia validera votre déclaration sous quelques jours après vérification du virement.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!confirmLead) return
+                declarePaid.mutate(confirmLead.id)
+                setConfirmLead(null)
+              }}
+            >
+              J'ai payé
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Explainer accordion */}
       <div className="p-card" style={{ overflow: 'hidden' }}>
@@ -116,4 +159,42 @@ export function PortalCommissionPage() {
       </div>
     </div>
   )
+}
+
+function CommissionStatusCell({ lead, onDeclare }: { lead: PortalLead; onDeclare: () => void }) {
+  switch (lead.commission_status) {
+    case 'paid':
+      return (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: 'var(--emerald-100)', color: 'var(--emerald-700)', fontSize: 12, fontWeight: 600 }}>
+          <CheckCircle2 size={13} /> Payée{lead.commission_paid_at ? ` le ${new Date(lead.commission_paid_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}` : ''}
+        </div>
+      )
+    case 'declared_paid':
+      return (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: '#FEF3C7', color: '#92400E', fontSize: 12, fontWeight: 600 }}>
+          <Clock size={13} /> En attente de validation
+        </div>
+      )
+    case 'disputed':
+      return (
+        <div
+          title={lead.commission_admin_notes ?? 'À clarifier — contactez Celexia.'}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: '#FEE2E2', color: '#991B1B', fontSize: 12, fontWeight: 600, cursor: 'help' }}
+        >
+          <AlertCircle size={13} /> À clarifier
+        </div>
+      )
+    case 'pending':
+    default:
+      return (
+        <button
+          type="button"
+          onClick={onDeclare}
+          className="btn btn-primary"
+          style={{ padding: '6px 12px', fontSize: 12, minHeight: 32 }}
+        >
+          J'ai payé
+        </button>
+      )
+  }
 }

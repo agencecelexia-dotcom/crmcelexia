@@ -96,6 +96,28 @@ export async function deletePortalLead(id: string): Promise<void> {
   if (error) throw error
 }
 
+// ──────────────────────────────────────────────────────────
+// Commission payment tracking (migration 00096)
+// ──────────────────────────────────────────────────────────
+
+/** Artisan déclare avoir payé sa commission à Celexia → email auto agence. */
+export async function declareCommissionPaid(leadId: string): Promise<void> {
+  const { error } = await supabase.rpc('declare_commission_paid', { lead_id: leadId })
+  if (error) throw error
+}
+
+/** Fondateur Celexia valide (ou refuse) un paiement de commission déclaré. */
+export async function validateCommissionPayment(
+  leadId: string,
+  approved: boolean,
+  notes?: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('validate_commission_payment', {
+    lead_id: leadId, approved, notes: notes ?? null,
+  })
+  if (error) throw error
+}
+
 export async function getPortalLeadEvents(leadId: string): Promise<PortalLeadEvent[]> {
   const { data, error } = await supabase
     .from('portal_lead_events')
