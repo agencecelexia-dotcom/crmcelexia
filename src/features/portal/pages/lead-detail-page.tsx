@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLead, usePortalLeadEvents, useUpdatePortalLeadStatus, useUpdatePortalLead, useDeletePortalLead } from '../hooks/use-portal-leads'
 import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2, FileText } from 'lucide-react'
 import { toast } from 'sonner'
+import { supabase } from '@/lib/supabase/client'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { getCommissionTerms, formatCommissionTerms, calcCommission } from '../lib/format'
 import {
@@ -36,6 +38,25 @@ export function PortalLeadDetailPage() {
   const [signDate, setSignDate] = useState(new Date().toISOString().split('T')[0])
   const [confirming, setConfirming] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+
+  // Dernier devis signé lié à ce lead (pour afficher un bouton "Voir le devis").
+  const { data: signedQuote } = useQuery({
+    queryKey: ['lead-signed-quote', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('quotes')
+        .select('id, quote_number')
+        .eq('portal_lead_id', id!)
+        .eq('status', 'signed')
+        .is('deleted_at', null)
+        .order('signed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (error) return null
+      return data
+    },
+    enabled: !!id && lead?.status === 'signe',
+  })
 
   if (isLoading || !lead) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>Chargement...</div>
 
@@ -233,6 +254,16 @@ export function PortalLeadDetailPage() {
                 <div style={{ fontSize: 12, color: 'var(--gray-600)' }}>Commission ({termsLabel})</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--violet-700)' }}>{calcCommission(lead.signed_amount, terms).toLocaleString('fr-FR')} €</div>
               </div>
+              {signedQuote && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: '100%', marginTop: 12, padding: '8px 14px', fontSize: 13 }}
+                  onClick={() => navigate(`/portal/devis/${signedQuote.id}`)}
+                >
+                  <FileText size={14} /> Voir le devis {signedQuote.quote_number}
+                </button>
+              )}
             </div>
           )}
 

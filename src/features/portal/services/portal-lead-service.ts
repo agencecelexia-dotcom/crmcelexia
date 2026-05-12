@@ -27,6 +27,9 @@ export async function createPortalLead(lead: {
   name: string
   phone: string
   work_type: string
+  email?: string
+  address?: string
+  postal_code?: string
   city?: string
   amount_estimated?: number
   source?: 'lsa' | 'bao'

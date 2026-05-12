@@ -466,6 +466,9 @@ export interface PortalLead {
   client_id: string
   name: string
   phone: string
+  email: string | null
+  address: string | null
+  postal_code: string | null
   city: string | null
   work_type: string
   amount_estimated: number | null
@@ -559,6 +562,7 @@ export interface Quote {
   deleted_at: string | null
   // Joined
   items?: QuoteItem[]
+  portal_lead?: { id: string; name: string } | null
 }
 
 export interface QuoteItem {

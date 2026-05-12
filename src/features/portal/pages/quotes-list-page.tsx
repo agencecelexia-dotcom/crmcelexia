@@ -99,6 +99,28 @@ export function PortalQuotesListPage() {
                     <div className="mt-0.5 text-[11px] text-[var(--gray-500)] sm:text-xs">
                       Émis le {formatDateShort(q.issued_at)} · Valide jusqu'au {formatDateShort(q.valid_until)}
                     </div>
+                    <div className="mt-0.5 text-[11px] sm:text-xs">
+                      {q.portal_lead ? (
+                        <span className="text-[var(--gray-500)]">
+                          Lead :{' '}
+                          <span
+                            role="link"
+                            tabIndex={-1}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/portal/leads/${q.portal_lead!.id}`)
+                            }}
+                            className="cursor-pointer text-violet-700 underline"
+                          >
+                            {q.portal_lead.name}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="inline-block rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                          Non attribué
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <div className="font-display text-base font-bold text-[var(--gray-900)] sm:text-lg">

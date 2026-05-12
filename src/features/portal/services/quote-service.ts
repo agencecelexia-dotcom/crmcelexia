@@ -56,7 +56,7 @@ export async function getQuoteLogoUrl(path: string): Promise<string | null> {
 export async function listQuotes(clientId: string, status?: QuoteStatus): Promise<Quote[]> {
   let q = supabase
     .from('quotes')
-    .select('*')
+    .select('*, portal_lead:portal_leads(id, name)')
     .eq('client_id', clientId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })

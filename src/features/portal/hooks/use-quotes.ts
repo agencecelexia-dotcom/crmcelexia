@@ -121,6 +121,7 @@ export function useQuote(id: string | undefined) {
     queryKey: ['quote', id],
     queryFn: () => getQuoteWithItems(id!),
     enabled: !!id,
+    retry: 1,
   })
 }
 

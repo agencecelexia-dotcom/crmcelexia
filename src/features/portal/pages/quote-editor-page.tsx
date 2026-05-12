@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { ArrowLeft, Plus, X, BookOpen, FileDown, Eye, Send, CheckCircle2, Trash2, Upload } from 'lucide-react'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLead } from '../hooks/use-portal-leads'
+import { LeadCombobox } from '../components/lead-combobox'
 import {
   useCreateQuote,
   useIncrementLibraryUsage,
@@ -71,8 +72,9 @@ export function PortalQuoteEditorPage() {
   const clientId = client?.id
 
   const { data: settings } = useQuoteSettings(clientId)
-  const { data: lead } = usePortalLead(leadId ?? undefined)
-  const { data: quote, isLoading: loadingQuote } = useQuote(isNew ? undefined : routeId)
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(leadId)
+  const { data: lead } = usePortalLead(selectedLeadId ?? undefined)
+  const { data: quote, isLoading: loadingQuote, error: quoteError } = useQuote(isNew ? undefined : routeId)
 
   const createQuote = useCreateQuote()
   const updateQuote = useUpdateQuote()
@@ -115,21 +117,26 @@ export function PortalQuoteEditorPage() {
     setInternalNotes(quote.internal_notes ?? '')
     setPaymentTerms(quote.payment_terms ?? '')
     setFooterNotes(quote.footer_notes ?? '')
+    if (quote.portal_lead_id && !selectedLeadId) setSelectedLeadId(quote.portal_lead_id)
     if (quote.items && quote.items.length > 0) {
       setItems(quote.items.map((it) => ({
         key: it.id, description: it.description, quantity: Number(it.quantity),
         unit: it.unit, unit_price_ht: Number(it.unit_price_ht), vat_rate: Number(it.vat_rate),
       })))
     }
-  }, [quote])
+  }, [quote, selectedLeadId])
 
-  // Pre-fill from lead (new mode)
+  // Pre-fill from lead (new mode, when lead is hydrated async).
+  // La pré-remplissage *immédiate* à la sélection se fait dans le handler du
+  // combobox (cf. écran "Choisir le destinataire" plus bas).
   useEffect(() => {
     if (!isNew || !lead) return
     setRecipient((r) => ({
-      ...r,
       name: r.name || lead.name,
       phone: r.phone || lead.phone,
+      email: r.email || (lead.email ?? ''),
+      address: r.address || (lead.address ?? ''),
+      postal: r.postal || (lead.postal_code ?? ''),
       city: r.city || (lead.city ?? ''),
     }))
   }, [isNew, lead])
@@ -178,7 +185,7 @@ export function PortalQuoteEditorPage() {
     if (!recipient.name.trim()) { toast.error('Nom du destinataire requis'); return null }
     const q = await createQuote.mutateAsync({
       client_id: clientId,
-      portal_lead_id: leadId,
+      portal_lead_id: selectedLeadId,
       recipient_name: recipient.name.trim(),
       recipient_address: recipient.address || null,
       recipient_postal_code: recipient.postal || null,
@@ -373,6 +380,61 @@ export function PortalQuoteEditorPage() {
   if (!isNew && loadingQuote) {
     return <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>Chargement…</div>
   }
+  if (!isNew && (quoteError || !quote)) {
+    return (
+      <div className="mx-auto max-w-md p-card" style={{ padding: 24, textAlign: 'center' }}>
+        <p className="mb-2 text-sm font-semibold text-red-700">Impossible de charger ce devis.</p>
+        <p className="mb-4 text-xs text-[var(--gray-500)]">
+          {quoteError ? describeError(quoteError) : 'Devis introuvable ou supprimé.'}
+        </p>
+        <button type="button" className="btn btn-secondary" onClick={() => navigate('/portal/devis')}>
+          Retour à la liste
+        </button>
+      </div>
+    )
+  }
+
+  // ÉCRAN OBLIGATOIRE — l'artisan doit choisir / créer un lead avant de pouvoir
+  // saisir le devis. Une fois selectedLeadId set, on bascule sur le formulaire.
+  if (isNew && !selectedLeadId) {
+    if (!clientId) {
+      return <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>Chargement…</div>
+    }
+    return (
+      <div className="mx-auto max-w-md py-6 sm:py-8">
+        <button
+          type="button"
+          className="btn btn-ghost mb-4"
+          onClick={() => navigate('/portal/devis')}
+          style={{ padding: '6px 10px', fontSize: 13 }}
+        >
+          <ArrowLeft size={14} /> Retour
+        </button>
+        <h1 className="font-display mb-2 text-xl font-bold leading-tight sm:text-2xl">
+          Pour qui est ce devis&nbsp;?
+        </h1>
+        <p className="mb-5 text-sm text-[var(--gray-500)]">
+          Sélectionnez un lead existant ou créez-en un nouveau. Le devis sera lié à ce lead.
+        </p>
+        <LeadCombobox
+          value={null}
+          clientId={clientId}
+          placeholder="Rechercher ou créer un lead…"
+          onChange={(id, l) => {
+            setSelectedLeadId(id)
+            setRecipient((r) => ({
+              name: r.name || l.name,
+              phone: r.phone || l.phone,
+              email: r.email || (l.email ?? ''),
+              address: r.address || (l.address ?? ''),
+              postal: r.postal || (l.postal_code ?? ''),
+              city: r.city || (l.city ?? ''),
+            }))
+          }}
+        />
+      </div>
+    )
+  }
 
   const currentStatus: QuoteStatus = quote?.status ?? 'draft'
   const statusCols = QUOTE_STATUS_COLORS[currentStatus]
@@ -418,6 +480,32 @@ export function PortalQuoteEditorPage() {
           </button>
         )}
       </div>
+
+      {selectedLeadId && lead && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-md)] border border-violet-200 bg-violet-50 px-3 py-2 text-xs sm:text-sm">
+          <div className="min-w-0">
+            <span className="text-[var(--gray-600)]">Devis pour </span>
+            <strong className="text-[var(--gray-900)]">{lead.name}</strong>
+            {lead.city && <span className="text-[var(--gray-500)]"> · {lead.city}</span>}
+            <button
+              type="button"
+              className="ml-2 text-violet-700 underline"
+              onClick={() => navigate(`/portal/leads/${lead.id}`)}
+            >
+              Voir la fiche
+            </button>
+          </div>
+          {!quote && !createdId && (
+            <button
+              type="button"
+              className="text-xs text-[var(--gray-500)] underline hover:text-[var(--gray-700)]"
+              onClick={() => setSelectedLeadId(null)}
+            >
+              Changer
+            </button>
+          )}
+        </div>
+      )}
 
       {!settings?.company_legal_name && (
         <div className="mb-4 rounded-[var(--radius-md)] border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 sm:text-sm">
