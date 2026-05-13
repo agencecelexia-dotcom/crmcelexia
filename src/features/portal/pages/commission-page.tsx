@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLeads, usePortalLeadStats, useDeclareCommissionPaid } from '../hooks/use-portal-leads'
 import { Euro, CheckCircle2, TrendingUp, Info, ChevronDown, Clock, AlertCircle } from 'lucide-react'
 import { PortalKpiCard } from '../components/portal-kpi-card'
 import { formatEur, getCommissionTerms, formatCommissionTerms } from '../lib/format'
+import { supabase } from '@/lib/supabase/client'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,11 +20,32 @@ import type { PortalLead } from '@/types'
 
 export function PortalCommissionPage() {
   const { client } = usePortalAuth()
+  const qc = useQueryClient()
   const { data: leads } = usePortalLeads(client?.id)
   const { data: stats } = usePortalLeadStats(client?.id)
   const declarePaid = useDeclareCommissionPaid()
   const [explainerOpen, setExplainerOpen] = useState(false)
   const [confirmLead, setConfirmLead] = useState<PortalLead | null>(null)
+
+  // Realtime subscription : quand le fondateur valide/refuse une commission
+  // côté admin, l'artisan voit le changement instantanément (KPI + badge)
+  // sans avoir à F5. Complète l'invalidation explicite des mutations locales
+  // (commit 6e255f3) en couvrant aussi les mutations *distantes*.
+  useEffect(() => {
+    if (!client?.id) return
+    const channel = supabase
+      .channel(`commission-${client.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'portal_leads', filter: `client_id=eq.${client.id}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ['portal-leads', client.id] })
+          qc.invalidateQueries({ queryKey: ['portal-lead-stats', client.id] })
+        },
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [client?.id, qc])
 
   const signedLeads = (leads ?? []).filter(l => l.status === 'signe' && l.signed_amount)
   const totalCa = stats?.total_ca || 0
