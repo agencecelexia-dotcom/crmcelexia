@@ -4,6 +4,7 @@ import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLeads, useCreatePortalLead, useUpdatePortalLeadStatus } from '../hooks/use-portal-leads'
 import { Plus, Search, LayoutGrid, List, Phone, X, ChevronDown, MoreVertical, Check } from 'lucide-react'
 import { toast } from 'sonner'
+import { useEscClose } from '../lib/use-esc-close'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,7 +108,11 @@ export function PortalLeadsKanbanPage() {
   // New lead form
   // Source forcée à 'bao' : un lead créé manuellement par l'artisan est
   // toujours du bouche-à-oreille. Les LSA sont créés par Celexia uniquement.
-  const [formData, setFormData] = useState({ name: '', phone: '', type: '', amount: '', source: 'bao', notes: '' })
+  const [formData, setFormData] = useState({
+    name: '', phone: '', email: '', type: '', amount: '',
+    address: '', postal_code: '', city: '',
+    source: 'bao', notes: '',
+  })
 
   const filtered = useMemo(() => {
     if (!leads) return []
@@ -131,7 +136,13 @@ export function PortalLeadsKanbanPage() {
     updateStatus.mutate({ id: leadId, newStatus, oldStatus: lead.status })
   }
 
-  function resetForm() { setFormData({ name: '', phone: '', type: '', amount: '', source: 'bao', notes: '' }) }
+  function resetForm() {
+    setFormData({
+      name: '', phone: '', email: '', type: '', amount: '',
+      address: '', postal_code: '', city: '',
+      source: 'bao', notes: '',
+    })
+  }
 
   async function handleCreateLead() {
     if (!client || !formData.name || !formData.phone || !formData.type) { toast.error('Nom, téléphone et type requis'); return }
@@ -140,6 +151,10 @@ export function PortalLeadsKanbanPage() {
       name: formData.name,
       phone: formData.phone,
       work_type: formData.type,
+      email: formData.email || undefined,
+      address: formData.address || undefined,
+      postal_code: formData.postal_code || undefined,
+      city: formData.city || undefined,
       amount_estimated: formData.amount ? parseFloat(formData.amount) : undefined,
       source: formData.source as 'lsa' | 'bao',
       notes: formData.notes || undefined,
@@ -147,6 +162,8 @@ export function PortalLeadsKanbanPage() {
     resetForm()
     setShowModal(false)
   }
+
+  useEscClose(showModal, () => { setShowModal(false); resetForm() })
 
   if (isLoading) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>Chargement...</div>
 
@@ -251,7 +268,11 @@ export function PortalLeadsKanbanPage() {
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)', minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{lead.name}</div>
+                          <div
+                            className="truncate"
+                            style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)', minWidth: 0, flex: 1, wordBreak: 'normal', overflowWrap: 'normal' }}
+                            title={lead.name}
+                          >{lead.name}</div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
                             {lead.is_urgent && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#DC2626', flexShrink: 0, marginTop: 5, boxShadow: '0 0 0 3px rgba(220,38,38,0.15)' }} />}
                             <StatusChangeMenu
@@ -261,7 +282,11 @@ export function PortalLeadsKanbanPage() {
                             />
                           </div>
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--gray-600)', marginBottom: 8, lineHeight: 1.45 }}>{lead.work_type}</div>
+                        <div
+                          className="line-clamp-2"
+                          style={{ fontSize: 12, color: 'var(--gray-600)', marginBottom: 8, lineHeight: 1.45, wordBreak: 'normal', overflowWrap: 'normal' }}
+                          title={lead.work_type}
+                        >{lead.work_type}</div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--gray-500)', marginBottom: 8 }}>
                           <Phone size={12} />{lead.phone}
                         </div>
@@ -346,8 +371,16 @@ export function PortalLeadsKanbanPage() {
             <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6">
               <div className="grid gap-3.5">
                 <div><label className="label-input">Nom du prospect *</label><input className="input" value={formData.name} onChange={e => setFormData(d => ({ ...d, name: e.target.value }))} placeholder="Ex : Martin Dupont" style={{ fontSize: 16 }} /></div>
-                <div><label className="label-input">Téléphone *</label><input className="input" type="tel" value={formData.phone} onChange={e => setFormData(d => ({ ...d, phone: e.target.value }))} placeholder="06 XX XX XX XX" style={{ fontSize: 16 }} /></div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div><label className="label-input">Téléphone *</label><input className="input" type="tel" value={formData.phone} onChange={e => setFormData(d => ({ ...d, phone: e.target.value }))} placeholder="06 XX XX XX XX" style={{ fontSize: 16 }} /></div>
+                  <div><label className="label-input">Email</label><input className="input" type="email" value={formData.email} onChange={e => setFormData(d => ({ ...d, email: e.target.value }))} placeholder="contact@…" style={{ fontSize: 16 }} /></div>
+                </div>
                 <div><label className="label-input">Type de travaux *</label><input className="input" value={formData.type} onChange={e => setFormData(d => ({ ...d, type: e.target.value }))} placeholder="Ex : Rénovation piscine 8×4" style={{ fontSize: 16 }} /></div>
+                <div><label className="label-input">Adresse du chantier</label><input className="input" value={formData.address} onChange={e => setFormData(d => ({ ...d, address: e.target.value }))} placeholder="12 rue des Lilas" style={{ fontSize: 16 }} /></div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[140px_1fr]">
+                  <div><label className="label-input">Code postal</label><input className="input" value={formData.postal_code} onChange={e => setFormData(d => ({ ...d, postal_code: e.target.value }))} placeholder="34000" style={{ fontSize: 16 }} /></div>
+                  <div><label className="label-input">Ville</label><input className="input" value={formData.city} onChange={e => setFormData(d => ({ ...d, city: e.target.value }))} placeholder="Montpellier" style={{ fontSize: 16 }} /></div>
+                </div>
                 <div>
                   <label className="label-input">Montant estimé (€)</label>
                   <input

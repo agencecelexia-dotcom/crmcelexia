@@ -92,6 +92,9 @@ export const router = createBrowserRouter([
       {
         element: <PortalOnboardingLayout />,
         children: [
+          // Tout accès à /portal/onboarding (sans suffixe) → redirige vers
+          // /welcome (sinon React Router affichait son errorElement dev brut).
+          { path: '/portal/onboarding', element: <Navigate to="/portal/onboarding/welcome" replace /> },
           { path: '/portal/onboarding/welcome', element: <LazyPage><WelcomePage /></LazyPage> },
           { path: '/portal/onboarding/contract', element: <LazyPage><ContractPage /></LazyPage> },
           { path: '/portal/onboarding/payment', element: <LazyPage><PaymentPage /></LazyPage> },
@@ -266,4 +269,8 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  // Catch-all 404 propre (au lieu du fallback dev de React Router).
+  // Portail artisan → renvoyer vers l'auth, admin → vers dashboard.
+  { path: '/portal/*', element: <Navigate to="/portal/auth" replace /> },
+  { path: '*', element: <Navigate to="/dashboard" replace /> },
 ])

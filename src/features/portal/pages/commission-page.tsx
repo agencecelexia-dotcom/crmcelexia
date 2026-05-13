@@ -45,8 +45,13 @@ export function PortalCommissionPage() {
           }}
         >
           <Euro size={18} className="mb-1.5 opacity-80" />
-          <div className="text-[11px] font-medium opacity-85 sm:text-xs">À payer ce mois</div>
-          <div className="font-display mt-0.5 text-2xl font-bold sm:text-[28px]">{formatEur(stats?.commission_this_month || 0)} {terms.base}</div>
+          <div className="text-[11px] font-medium opacity-85 sm:text-xs">Reste à payer ce mois</div>
+          <div className="font-display mt-0.5 text-2xl font-bold sm:text-[28px]">{formatEur(stats?.commission_remaining_this_month || 0)} {terms.base}</div>
+          {stats?.commission_this_month && stats.commission_remaining_this_month !== stats.commission_this_month && (
+            <div className="mt-1 text-[10px] opacity-75 sm:text-[11px]">
+              sur {formatEur(stats.commission_this_month)} total · le reste est déjà déclaré payé
+            </div>
+          )}
         </div>
         <PortalKpiCard
           label="Devis signés · ce mois"

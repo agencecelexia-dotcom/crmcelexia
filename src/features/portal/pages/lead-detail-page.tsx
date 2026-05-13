@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { usePortalAuth } from '../hooks/use-portal-auth'
@@ -36,6 +36,14 @@ export function PortalLeadDetailPage() {
 
   const [notes, setNotes] = useState<string | null>(null)
   const [signAmount, setSignAmount] = useState('')
+  // Pré-remplit le montant signé avec l'estimation faite à la création.
+  // L'artisan peut toujours surcharger si le devis final diffère.
+  useEffect(() => {
+    if (lead?.amount_estimated && !signAmount) {
+      setSignAmount(String(lead.amount_estimated))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lead?.amount_estimated])
   const [signDate, setSignDate] = useState(new Date().toISOString().split('T')[0])
   const [confirming, setConfirming] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -191,7 +199,7 @@ export function PortalLeadDetailPage() {
               onChange={e => setNotes(e.target.value)}
               onBlur={saveNotes}
               placeholder="Ajouter des notes..."
-              style={{ minHeight: 100, resize: 'vertical', lineHeight: 1.55 }}
+              style={{ minHeight: 100, resize: 'vertical', lineHeight: 1.55, fontSize: 16 }}
             />
           </div>
 
@@ -243,7 +251,7 @@ export function PortalLeadDetailPage() {
                 </div>
                 <div>
                   <label className="label-input">Date de signature</label>
-                  <input className="input" type="date" value={signDate} onChange={e => setSignDate(e.target.value)} />
+                  <input className="input" type="date" value={signDate} onChange={e => setSignDate(e.target.value)} style={{ fontSize: 16 }} />
                 </div>
               </div>
               {signAmount && Number(signAmount) > 0 && (

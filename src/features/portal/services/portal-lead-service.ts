@@ -131,7 +131,7 @@ export async function getPortalLeadEvents(leadId: string): Promise<PortalLeadEve
 export async function getPortalLeadStats(clientId: string) {
   const { data, error } = await supabase
     .from('portal_leads')
-    .select('status, signed_amount, commission_amount, created_at')
+    .select('status, signed_amount, commission_amount, commission_status, created_at')
     .eq('client_id', clientId)
     .is('deleted_at', null)
   if (error) throw error
@@ -144,6 +144,13 @@ export async function getPortalLeadStats(clientId: string) {
   const signed = leads.filter(l => l.status === 'signe')
   const signedThisMonth = signed.filter(l => new Date(l.created_at) >= monthStart)
 
+  // "Reste à payer" = signed ce mois dont la commission n'est pas
+  // encore payée/validée (les statuts pending et disputed sont à
+  // (re)payer, declared_paid + paid ne le sont plus).
+  const stillToPayThisMonth = signedThisMonth.filter(
+    l => l.commission_status === 'pending' || l.commission_status === 'disputed',
+  )
+
   return {
     total_leads: leads.length,
     leads_this_month: thisMonth.length,
@@ -154,5 +161,7 @@ export async function getPortalLeadStats(clientId: string) {
     total_commission: signed.reduce((s, l) => s + (l.commission_amount || 0), 0),
     ca_this_month: signedThisMonth.reduce((s, l) => s + (l.signed_amount || 0), 0),
     commission_this_month: signedThisMonth.reduce((s, l) => s + (l.commission_amount || 0), 0),
+    /** Reste à payer ce mois (exclut les commissions déjà déclarées payées ou validées). */
+    commission_remaining_this_month: stillToPayThisMonth.reduce((s, l) => s + (l.commission_amount || 0), 0),
   }
 }

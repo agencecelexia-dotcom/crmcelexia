@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalShortcuts } from '../hooks/use-portal-shortcuts'
-import { Home, LayoutGrid, Euro, FolderOpen, KeyRound, LogOut, Bell, Menu, FileText, Settings } from 'lucide-react'
+import { Home, LayoutGrid, Euro, FolderOpen, KeyRound, LogOut, Menu, FileText, Settings } from 'lucide-react'
 import { ChangePasswordDialog } from './change-password-dialog'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import '../portal.css'
@@ -163,7 +163,7 @@ export function PortalLayout() {
               {/* Hamburger (mobile only) */}
               <button
                 type="button"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[var(--gray-700)] hover:bg-[var(--gray-100)] md:hidden"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[var(--gray-700)] hover:bg-[var(--gray-100)] md:hidden"
                 onClick={() => setSidebarOpen(true)}
                 aria-label="Ouvrir le menu"
               >
@@ -177,18 +177,10 @@ export function PortalLayout() {
             <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
               <button
                 type="button"
-                aria-label="Notifications"
-                className="relative flex h-9 w-9 items-center justify-center rounded-md text-[var(--gray-600)] hover:bg-[var(--gray-100)] sm:h-10 sm:w-10"
-              >
-                <Bell size={18} />
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-red-600" aria-hidden />
-              </button>
-              <button
-                type="button"
                 onClick={() => setPwdOpen(true)}
                 title="Changer mon mot de passe"
                 aria-label="Changer mon mot de passe"
-                className="flex h-9 w-9 items-center justify-center rounded-md text-[var(--gray-600)] hover:bg-[var(--gray-100)] sm:h-10 sm:w-10"
+                className="flex h-11 w-11 items-center justify-center rounded-md text-[var(--gray-600)] hover:bg-[var(--gray-100)] sm:h-10 sm:w-10"
               >
                 <KeyRound size={18} />
               </button>

@@ -55,7 +55,7 @@ export function LeadCombobox({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between font-normal"
+            className="h-11 w-full justify-between font-normal sm:h-10"
           >
             {current ? (
               <span className="truncate">

@@ -83,6 +83,12 @@
   transition: all 0.25s cubic-bezier(0, 0, 0.2, 1);
   text-decoration: none;
   white-space: nowrap;
+  /* Hit area mini 44px (Apple HIG) sur tactile ; sur desktop, on
+     accepte plus compact (utilisation à la souris). */
+  min-height: 44px;
+}
+@media (min-width: 768px) {
+  .portal-root .btn { min-height: 36px; }
 }
 .portal-root .btn:disabled {
   opacity: 0.45;
@@ -184,6 +190,9 @@
 }
 
 /* ── Inputs ── */
+/* font-size 16px : sous iOS Safari, tout input < 16px déclenche un
+   zoom automatique au focus qui ne se rétracte pas → expérience cassée
+   sur mobile. Cf. audit Cowork 2026-05-13. */
 .portal-root .input,
 .portal-root .textarea,
 .portal-root .select {
@@ -193,7 +202,7 @@
   border-radius: var(--radius-md);
   padding: 11px 14px;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 16px;
   color: var(--gray-900);
   transition: all 0.2s cubic-bezier(0, 0, 0.2, 1);
   display: block;

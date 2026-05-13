@@ -76,23 +76,25 @@ export function PortalDashboardPage() {
           <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider opacity-85 sm:text-xs">
             <TrendingUp size={14} /> Celexia · {roi.period_label}
           </div>
-          <div className="grid grid-cols-3 items-end gap-3">
-            <div>
+          {/* Sous 600px, on empile verticalement (sinon les 3 chiffres se
+              télescopaient à 360px de large — bug rapporté Cowork). */}
+          <div className="flex flex-col gap-3 sm:grid sm:grid-cols-3 sm:items-end sm:gap-3">
+            <div className="flex items-baseline justify-between sm:block">
               <div className="text-[10px] font-medium uppercase tracking-wider opacity-75 sm:text-xs">Commission</div>
-              <div className="font-display text-base font-bold sm:text-2xl">{formatEur(roi.commission_celexia)}</div>
+              <div className="font-display text-2xl font-bold sm:text-2xl">{formatEur(roi.commission_celexia)}</div>
             </div>
-            <div className="text-center">
+            <div className="flex items-baseline justify-between sm:block sm:text-center">
               <div className="text-[10px] font-medium uppercase tracking-wider opacity-75 sm:text-xs">CA signé</div>
-              <div className="font-display text-base font-bold sm:text-2xl">{formatEur(roi.ca_signed)}</div>
+              <div className="font-display text-2xl font-bold sm:text-2xl">{formatEur(roi.ca_signed)}</div>
             </div>
-            <div className="text-right">
+            <div className="flex items-baseline justify-between sm:block sm:text-right">
               <div className="text-[10px] font-medium uppercase tracking-wider opacity-75 sm:text-xs">ROI</div>
-              <div className="font-display text-xl font-bold sm:text-3xl">
+              <div className="font-display text-2xl font-bold sm:text-3xl">
                 ×{Number.isFinite(roi.roi) ? roi.roi.toFixed(1) : '—'}
               </div>
             </div>
           </div>
-          <p className="mt-3 text-[11px] opacity-85 sm:text-xs">
+          <p className="mt-3 text-xs opacity-85">
             Pour 1&nbsp;€ versé à Celexia ces 30 derniers jours, vous avez signé {Number.isFinite(roi.roi) ? roi.roi.toFixed(1) : '—'}&nbsp;€ de devis.
           </p>
         </div>

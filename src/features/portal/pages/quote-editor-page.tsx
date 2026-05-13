@@ -109,6 +109,12 @@ export function PortalQuoteEditorPage() {
   // que l'utilisateur a commencé à taper. Sinon, chaque refetch écrasait
   // les inputs locaux.
   const hydratedRef = useRef(false)
+  // Autosave items debounce — voir useEffect plus bas.
+  const itemsAutoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Passe à true dès qu'un handler user (updateRow/addRow/...) modifie
+  // les items. Empêche le 1er useEffect "items changed" déclenché par
+  // l'hydratation initiale de lancer un save inutile.
+  const itemsDirtyRef = useRef(false)
 
   // Hydrate from quote (existing mode) — ONE-SHOT.
   useEffect(() => {
@@ -396,10 +402,12 @@ export function PortalQuoteEditorPage() {
   }
 
   function addRow() {
+    itemsDirtyRef.current = true
     setItems((curr) => [...curr, emptyItem(settings?.default_vat_rate ?? 20)])
   }
 
   function removeRow(key: string) {
+    itemsDirtyRef.current = true
     setItems((curr) => {
       const next = curr.filter((it) => it.key !== key)
       return next.length ? next : [emptyItem(settings?.default_vat_rate ?? 20)]
@@ -407,10 +415,12 @@ export function PortalQuoteEditorPage() {
   }
 
   function updateRow(key: string, patch: Partial<DraftItem>) {
+    itemsDirtyRef.current = true
     setItems((curr) => curr.map((it) => it.key === key ? { ...it, ...patch } : it))
   }
 
   function applyLibraryItem(lib: QuoteItemLibrary) {
+    itemsDirtyRef.current = true
     setItems((curr) => [
       ...curr,
       {
@@ -425,6 +435,47 @@ export function PortalQuoteEditorPage() {
     incrementUsage.mutate(lib.id)
     setLibraryOpen(false)
   }
+
+  // ── Autosave items (debounce 800ms) ──
+  // Évite la perte silencieuse au refresh signalée par Cowork : les
+  // lignes du devis n'étaient persistées qu'au clic explicite "Enregistrer".
+  // Le debounce + sérialisation via persistInflightRef garde la protection
+  // anti-race condition originelle (bug 4 cycle précédent).
+  useEffect(() => {
+    if (isReadOnly || !itemsDirtyRef.current) return
+    if (!quote && !createdId) return
+    if (itemsAutoSaveTimerRef.current) clearTimeout(itemsAutoSaveTimerRef.current)
+    itemsAutoSaveTimerRef.current = setTimeout(async () => {
+      if (persistInflightRef.current) {
+        try { await persistInflightRef.current } catch { /* */ }
+      }
+      const q = await ensureQuoteExists()
+      if (!q) return
+      try {
+        await persistItems(q.id)
+      } catch (err) {
+        toast.error(`Sauvegarde lignes échouée : ${describeError(err)}`)
+      }
+    }, 800)
+    return () => {
+      if (itemsAutoSaveTimerRef.current) clearTimeout(itemsAutoSaveTimerRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, isReadOnly])
+
+  // Warning beforeunload si l'utilisateur a une saisie non sauvée en cours.
+  // (Le debounce 800ms couvre 95% des cas, ce listener est le filet pour
+  // l'utilisateur qui ferme l'onglet juste après avoir tapé.)
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (itemsAutoSaveTimerRef.current) {
+        e.preventDefault()
+        e.returnValue = '' // Chrome
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [])
 
   async function handleDelete() {
     if (!quote) return
@@ -525,7 +576,11 @@ export function PortalQuoteEditorPage() {
           </div>
           {quote && (
             <div className="text-xs text-[var(--gray-500)] sm:text-[13px]">
-              Total TTC : {Number(quote.total_ttc).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+              {/* Utilise les totaux LOCAUX (calculés sur items en cours
+                  d'édition) plutôt que quote.total_ttc qui est figé sur
+                  la dernière valeur sauvée. Évite le décalage visible
+                  rapporté par Cowork. */}
+              Total TTC : {totals.ttc.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
             </div>
           )}
         </div>

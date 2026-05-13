@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { KeyRound, Loader2 } from 'lucide-react'
 import { describeError } from '../lib/error-utils'
+import { useEscClose } from '../lib/use-esc-close'
 
 interface Props {
   open: boolean
@@ -13,6 +14,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: Props) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [saving, setSaving] = useState(false)
+  useEscClose(open, () => onOpenChange(false))
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
