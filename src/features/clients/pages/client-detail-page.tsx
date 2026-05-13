@@ -91,6 +91,7 @@ import { PortalInviteDialog } from '@/features/portal/components/portal-invite-d
 import { AccompagnementStepper } from '@/components/shared/accompagnement-stepper'
 import { StepValidationDialog } from '@/features/accompagnement/components/step-validation-dialog'
 import { useStepsForClient, useClientKpis, usePortalDocsForClient } from '@/features/accompagnement/hooks/use-accompagnement'
+import { useAdminPortalLeadsRealtime } from '@/features/dashboard/hooks/use-admin-portal-leads-realtime'
 import { validateOnboarding } from '@/features/portal-admin/services/admin-onboarding-service'
 import { useQueryClient } from '@tanstack/react-query'
 import { StatCard } from '@/components/shared/stat-card'
@@ -546,6 +547,10 @@ function AccompagnementCard({
 }) {
   const { data: steps, isLoading } = useStepsForClient(clientId)
   const { data: kpis } = useClientKpis(clientId)
+  // Refresh auto quand l'artisan déclare un paiement, signe un devis,
+  // etc. côté portail. Sinon le fondateur doit F5 pour voir bouger les
+  // KPIs et la section "Commissions à valider".
+  useAdminPortalLeadsRealtime(clientId)
 
   return (
     <Card>

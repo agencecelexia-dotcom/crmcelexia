@@ -13,6 +13,7 @@ import { useMyReminders } from '@/features/prospection/hooks/use-reminders'
 import { useMyUpcomingRdv } from '@/features/rendez-vous/hooks/use-rdv'
 import { usePerformanceStats, useDashboardComparisons, useKeyRates } from '@/features/analytics/hooks/use-analytics'
 import { useAdminCommissionStats } from '../hooks/use-commission-stats'
+import { useAdminPortalLeadsRealtime } from '../hooks/use-admin-portal-leads-realtime'
 import { AlertsPanel } from '@/features/alerts/components/alerts-panel'
 import { StatCard } from '@/components/shared/stat-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -350,6 +351,8 @@ function FounderDashboard() {
   const { data: comparisons } = useDashboardComparisons()
   const { data: keyRates } = useKeyRates()
   const { data: commissionStats } = useAdminCommissionStats()
+  // Refresh auto du bandeau commission quand un artisan déclare/signe.
+  useAdminPortalLeadsRealtime()
 
   const funnelBarData = funnel ? [
     { name: 'Nouveau', value: funnel.nouveau, fill: FUNNEL_COLORS.nouveau },
