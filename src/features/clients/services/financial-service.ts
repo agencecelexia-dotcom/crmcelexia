@@ -1,30 +1,24 @@
 import { supabase } from '@/lib/supabase/client'
 
 // ── Commission types ──
+// Note : la table legacy `commissions` est dropée (migration 00100).
+// Source de vérité = portal_leads.commission_* (migration 00096).
+// Ce service expose une vue compatible avec l'ancienne UI admin.
 export interface Commission {
-  id: string
+  id: string                 // = portal_lead.id
   client_id: string
   opportunity_id: string | null
-  month: string // DATE as string (YYYY-MM-DD)
-  revenue_generated: number
+  month: string              // Premier jour du mois de signed_at (YYYY-MM-DD)
+  revenue_generated: number  // = portal_lead.signed_amount
   commission_rate: number
-  commission_amount: number // generated column
+  commission_amount: number
   status: 'a_recevoir' | 'recu' | 'en_retard'
   paid_at: string | null
   notes: string | null
   created_at: string
   updated_at: string
-}
-
-// ── Budget Payment types ──
-export interface BudgetPayment {
-  id: string
-  client_id: string
-  opportunity_id: string | null
-  amount: number
-  payment_date: string // DATE
-  notes: string | null
-  created_at: string
+  /** Nom du lead (pour affichage UI à la place de "month"). */
+  lead_name?: string
 }
 
 // ── Invoice types ──
@@ -43,93 +37,47 @@ export interface Invoice {
   deleted_at: string | null
 }
 
-// ── Commissions ──
+// ── Commissions (lecture seule, agrégation portal_leads) ──
+//
+// Mapping commission_status portail → status admin :
+//   'paid'          → 'recu'        (commission encaissée)
+//   'pending'       → 'a_recevoir'  (lead signé, l'artisan n'a pas encore payé)
+//   'declared_paid' → 'a_recevoir'  (l'artisan a déclaré, en attente validation)
+//   'disputed'      → 'en_retard'   (paiement contesté par Celexia)
 export async function getCommissionsForClient(clientId: string): Promise<Commission[]> {
   const { data, error } = await supabase
-    .from('commissions')
-    .select('*')
+    .from('portal_leads')
+    .select('id, client_id, name, signed_amount, signed_at, commission_rate, commission_amount, commission_status, commission_paid_at, commission_admin_notes, created_at, updated_at')
     .eq('client_id', clientId)
-    .order('month', { ascending: false })
+    .eq('status', 'signe')
+    .is('deleted_at', null)
+    .order('signed_at', { ascending: false })
 
   if (error) throw error
-  return (data ?? []) as Commission[]
-}
 
-export async function createCommission(params: {
-  client_id: string
-  opportunity_id?: string | null
-  month: string
-  revenue_generated: number
-  commission_rate?: number
-  notes?: string | null
-}): Promise<Commission> {
-  const { data, error } = await supabase
-    .from('commissions')
-    .insert({
-      client_id: params.client_id,
-      opportunity_id: params.opportunity_id ?? null,
-      month: params.month,
-      revenue_generated: params.revenue_generated,
-      commission_rate: params.commission_rate ?? 0.10,
-      notes: params.notes ?? null,
-    })
-    .select()
-    .single()
-
-  if (error) throw error
-  return data as Commission
-}
-
-export async function updateCommissionStatus(
-  id: string,
-  status: Commission['status'],
-): Promise<void> {
-  const updates: Record<string, unknown> = { status }
-  if (status === 'recu') {
-    updates.paid_at = new Date().toISOString()
-  }
-
-  const { error } = await supabase
-    .from('commissions')
-    .update(updates)
-    .eq('id', id)
-
-  if (error) throw error
-}
-
-// ── Budget Payments ──
-export async function getBudgetPaymentsForClient(clientId: string): Promise<BudgetPayment[]> {
-  const { data, error } = await supabase
-    .from('budget_payments')
-    .select('*')
-    .eq('client_id', clientId)
-    .order('payment_date', { ascending: false })
-
-  if (error) throw error
-  return (data ?? []) as BudgetPayment[]
-}
-
-export async function createBudgetPayment(params: {
-  client_id: string
-  opportunity_id?: string | null
-  amount: number
-  payment_date: string
-  notes?: string | null
-}): Promise<BudgetPayment> {
-  const { data, error } = await supabase
-    .from('budget_payments')
-    .insert({
-      client_id: params.client_id,
-      opportunity_id: params.opportunity_id ?? null,
-      amount: params.amount,
-      payment_date: params.payment_date,
-      notes: params.notes ?? null,
-    })
-    .select()
-    .single()
-
-  if (error) throw error
-  return data as BudgetPayment
+  return (data ?? []).map((l): Commission => {
+    const status: Commission['status'] =
+      l.commission_status === 'paid' ? 'recu'
+        : l.commission_status === 'disputed' ? 'en_retard'
+          : 'a_recevoir'
+    const signedDate = l.signed_at ? new Date(l.signed_at) : new Date(l.created_at)
+    const monthStart = new Date(signedDate.getFullYear(), signedDate.getMonth(), 1)
+    return {
+      id: l.id,
+      client_id: l.client_id,
+      opportunity_id: null,
+      month: monthStart.toISOString().slice(0, 10),
+      revenue_generated: Number(l.signed_amount ?? 0),
+      commission_rate: Number(l.commission_rate ?? 0),
+      commission_amount: Number(l.commission_amount ?? 0),
+      status,
+      paid_at: l.commission_paid_at,
+      notes: l.commission_admin_notes,
+      created_at: l.created_at,
+      updated_at: l.updated_at,
+      lead_name: l.name,
+    }
+  })
 }
 
 // ── Invoices ──

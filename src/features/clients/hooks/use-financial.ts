@@ -1,69 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getCommissionsForClient,
-  createCommission,
-  updateCommissionStatus,
-  getBudgetPaymentsForClient,
-  createBudgetPayment,
   getInvoicesForClient,
   uploadInvoice,
   softDeleteInvoice,
-  type Commission,
 } from '../services/financial-service'
 import { toast } from 'sonner'
 
-// ── Commissions ──
+// ── Commissions (lecture seule, agrégées depuis portal_leads) ──
+//
+// La création/modification de commission est désormais pilotée par le
+// workflow portail artisan → admin :
+//   - Artisan : useDeclareCommissionPaid (clic "J'ai payé")
+//   - Admin   : useValidateCommissionPayment (clic Valider/Refuser
+//               dans la carte Accompagnement)
+// Les anciens hooks useCreateCommission/useUpdateCommissionStatus ont
+// donc été retirés. Idem pour useBudgetPayments* (table dropée 00100).
 export function useCommissionsForClient(clientId: string | undefined) {
   return useQuery({
     queryKey: ['commissions', 'client', clientId],
     queryFn: () => getCommissionsForClient(clientId!),
     enabled: !!clientId,
-  })
-}
-
-export function useCreateCommission() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (params: Parameters<typeof createCommission>[0]) => createCommission(params),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['commissions', 'client', variables.client_id] })
-    },
-    onError: () => toast.error('Erreur lors de l\'ajout de la commission'),
-  })
-}
-
-export function useUpdateCommissionStatus() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Commission['status'] }) =>
-      updateCommissionStatus(id, status),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['commissions'] })
-    },
-    onError: () => toast.error('Erreur lors de la mise a jour du statut'),
-  })
-}
-
-// ── Budget Payments ──
-export function useBudgetPaymentsForClient(clientId: string | undefined) {
-  return useQuery({
-    queryKey: ['budget-payments', 'client', clientId],
-    queryFn: () => getBudgetPaymentsForClient(clientId!),
-    enabled: !!clientId,
-  })
-}
-
-export function useCreateBudgetPayment() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (params: Parameters<typeof createBudgetPayment>[0]) => createBudgetPayment(params),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['budget-payments', 'client', variables.client_id] })
-    },
-    onError: () => toast.error('Erreur lors de l\'ajout du versement'),
   })
 }
 

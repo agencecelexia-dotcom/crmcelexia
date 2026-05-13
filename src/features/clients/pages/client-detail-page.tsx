@@ -16,17 +16,12 @@ import {
 import { useContractsForClient, useUploadContract, useSoftDeleteContract } from '../hooks/use-contracts'
 import {
   useCommissionsForClient,
-  useCreateCommission,
-  useUpdateCommissionStatus,
-  useBudgetPaymentsForClient,
-  useCreateBudgetPayment,
   useInvoicesForClient,
   useUploadInvoice,
   useSoftDeleteInvoice,
 } from '../hooks/use-financial'
 import { getContractPublicUrl } from '../services/contract-service'
 import { getInvoicePublicUrl } from '../services/financial-service'
-import type { Commission } from '../services/financial-service'
 import type { ClientStatus, ProjectStatus, DevisStatus } from '@/types/enums'
 import {
   PROJECT_STATUS_LABELS,
@@ -1393,33 +1388,22 @@ function SuiviTab({ clientId, convertedAt }: { clientId: string; convertedAt: st
   )
 }
 
-// Finances tab - Commissions + Budget pub + Factures
+// Finances tab - Commissions (par lead signé) + Factures
+// Note : les sections "Création commission mensuelle" et "Budget publicitaire"
+// ont été retirées avec la migration 00100 (tables `commissions` et
+// `budget_payments` dropées, jamais utilisées en prod). Le flow commission
+// est désormais piloté de bout en bout par le workflow portail artisan
+// (J'ai payé) → admin (Valider/À clarifier dans la carte Accompagnement).
 function FinancesTab({ clientId }: { clientId: string }) {
   const { profile } = useAuth()
 
   // Data
   const { data: commissions, isLoading: loadingCommissions } = useCommissionsForClient(clientId)
-  const { data: budgetPayments, isLoading: loadingBudget } = useBudgetPaymentsForClient(clientId)
   const { data: invoices, isLoading: loadingInvoices } = useInvoicesForClient(clientId)
 
   // Mutations
-  const createCommission = useCreateCommission()
-  const updateCommissionStatus = useUpdateCommissionStatus()
-  const createBudgetPayment = useCreateBudgetPayment()
   const uploadInvoice = useUploadInvoice()
   const deleteInvoice = useSoftDeleteInvoice()
-
-  // Commission form state
-  const [showCommissionForm, setShowCommissionForm] = useState(false)
-  const [commMonth, setCommMonth] = useState('')
-  const [commRevenue, setCommRevenue] = useState('')
-  const [commNotes, setCommNotes] = useState('')
-
-  // Budget form state
-  const [showBudgetForm, setShowBudgetForm] = useState(false)
-  const [budgetAmount, setBudgetAmount] = useState('')
-  const [budgetDate, setBudgetDate] = useState('')
-  const [budgetNotes, setBudgetNotes] = useState('')
 
   // Invoice form state
   const [showInvoiceForm, setShowInvoiceForm] = useState(false)
@@ -1430,7 +1414,7 @@ function FinancesTab({ clientId }: { clientId: string }) {
   const [invoiceNotes, setInvoiceNotes] = useState('')
   const invoiceInputRef = useRef<HTMLInputElement>(null)
 
-  const isLoading = loadingCommissions || loadingBudget || loadingInvoices
+  const isLoading = loadingCommissions || loadingInvoices
 
   // Summary calculations
   const totalCommissionsDues = useMemo(() =>
@@ -1439,9 +1423,11 @@ function FinancesTab({ clientId }: { clientId: string }) {
       .reduce((sum, c) => sum + Number(c.commission_amount), 0)
   , [commissions])
 
-  const totalBudgetRecu = useMemo(() =>
-    (budgetPayments ?? []).reduce((sum, b) => sum + Number(b.amount), 0)
-  , [budgetPayments])
+  const totalCommissionsRecues = useMemo(() =>
+    (commissions ?? [])
+      .filter(c => c.status === 'recu')
+      .reduce((sum, c) => sum + Number(c.commission_amount), 0)
+  , [commissions])
 
   const lastInvoice = useMemo(() =>
     invoices && invoices.length > 0 ? invoices[0] : null
@@ -1461,7 +1447,7 @@ function FinancesTab({ clientId }: { clientId: string }) {
               </div>
               <div>
                 <p className="text-xl font-bold">{formatCurrency(totalCommissionsDues)}</p>
-                <p className="text-sm text-muted-foreground">Commissions dues</p>
+                <p className="text-sm text-muted-foreground">Commissions à recevoir</p>
               </div>
             </div>
           </CardContent>
@@ -1469,12 +1455,12 @@ function FinancesTab({ clientId }: { clientId: string }) {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-100">
-                <CreditCard className="h-5 w-5 text-blue-600" />
+              <div className="p-2 rounded-lg bg-emerald-100">
+                <CreditCard className="h-5 w-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-xl font-bold">{formatCurrency(totalBudgetRecu)}</p>
-                <p className="text-sm text-muted-foreground">Total budget recu</p>
+                <p className="text-xl font-bold">{formatCurrency(totalCommissionsRecues)}</p>
+                <p className="text-sm text-muted-foreground">Commissions reçues</p>
               </div>
             </div>
           </CardContent>
@@ -1496,97 +1482,38 @@ function FinancesTab({ clientId }: { clientId: string }) {
         </Card>
       </div>
 
-      {/* Section 1: Commissions mensuelles (10%) */}
+      {/* Section 1: Commissions par lead signé */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <DollarSign className="h-4 w-4 text-primary" />
-            Commissions mensuelles (10%)
+            Commissions par lead signé
           </CardTitle>
-          <Button size="sm" onClick={() => setShowCommissionForm(v => !v)}>
-            <Plus className="h-4 w-4 mr-1" /> Ajouter un mois
-          </Button>
+          <p className="text-xs text-muted-foreground">
+            Validation des paiements via la carte <strong>Accompagnement</strong> ci-dessus quand l'artisan déclare avoir payé.
+          </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {showCommissionForm && (
-            <div className="rounded-lg border p-4 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <Label>Mois *</Label>
-                  <Input
-                    type="month"
-                    value={commMonth}
-                    onChange={(e) => setCommMonth(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>CA genere (EUR) *</Label>
-                  <Input
-                    type="number"
-                    value={commRevenue}
-                    onChange={(e) => setCommRevenue(e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Commission (10%)</Label>
-                  <p className="text-sm font-medium pt-2">
-                    {commRevenue ? formatCurrency(parseFloat(commRevenue) * 0.10) : '0,00 EUR'}
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Notes</Label>
-                <Input value={commNotes} onChange={(e) => setCommNotes(e.target.value)} placeholder="Optionnel" />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={() => setShowCommissionForm(false)}>Annuler</Button>
-                <Button
-                  disabled={!commMonth || !commRevenue || createCommission.isPending}
-                  onClick={async () => {
-                    try {
-                      await createCommission.mutateAsync({
-                        client_id: clientId,
-                        month: `${commMonth}-01`,
-                        revenue_generated: parseFloat(commRevenue),
-                        notes: commNotes.trim() || null,
-                      })
-                      toast.success('Commission ajoutee')
-                      setShowCommissionForm(false)
-                      setCommMonth('')
-                      setCommRevenue('')
-                      setCommNotes('')
-                    } catch {
-                      // Error toast handled by hook
-                    }
-                  }}
-                >
-                  {createCommission.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Ajouter
-                </Button>
-              </div>
-            </div>
-          )}
-
           {!commissions || commissions.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Aucune commission enregistree</p>
+            <p className="text-sm text-muted-foreground text-center py-4">Aucun devis signé</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Mois</TableHead>
-                    <TableHead className="text-right">CA genere</TableHead>
-                    <TableHead className="text-right">Commission (10%)</TableHead>
+                    <TableHead>Lead</TableHead>
+                    <TableHead>Signé le</TableHead>
+                    <TableHead className="text-right">Montant signé</TableHead>
+                    <TableHead className="text-right">Commission</TableHead>
                     <TableHead>Statut</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {commissions.map(c => (
                     <TableRow key={c.id}>
-                      <TableCell className="font-medium">
-                        {new Date(c.month + 'T00:00:00').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                      <TableCell className="font-medium">{c.lead_name ?? '—'}</TableCell>
+                      <TableCell>
+                        {new Date(c.month + 'T00:00:00').toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
                       </TableCell>
                       <TableCell className="text-right">{formatCurrency(Number(c.revenue_generated))}</TableCell>
                       <TableCell className="text-right font-medium">{formatCurrency(Number(c.commission_amount))}</TableCell>
@@ -1595,129 +1522,6 @@ function FinancesTab({ clientId }: { clientId: string }) {
                           {COMMISSION_STATUS_LABELS[c.status]}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Select
-                          value={c.status}
-                          onValueChange={async (v) => {
-                            try {
-                              await updateCommissionStatus.mutateAsync({
-                                id: c.id,
-                                status: v as Commission['status'],
-                              })
-                              toast.success('Statut mis a jour')
-                            } catch {
-                              // Error handled by hook
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="w-[140px] h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="a_recevoir">A recevoir</SelectItem>
-                            <SelectItem value="recu">Recu</SelectItem>
-                            <SelectItem value="en_retard">En retard</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Section 2: Budget publicitaire */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-primary" />
-            Budget publicitaire
-            {budgetPayments && budgetPayments.length > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                Total : {formatCurrency(totalBudgetRecu)}
-              </Badge>
-            )}
-          </CardTitle>
-          <Button size="sm" onClick={() => setShowBudgetForm(v => !v)}>
-            <Plus className="h-4 w-4 mr-1" /> Ajouter un versement
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {showBudgetForm && (
-            <div className="rounded-lg border p-4 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Montant (EUR) *</Label>
-                  <Input
-                    type="number"
-                    value={budgetAmount}
-                    onChange={(e) => setBudgetAmount(e.target.value)}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Date versement *</Label>
-                  <Input
-                    type="date"
-                    value={budgetDate}
-                    onChange={(e) => setBudgetDate(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Commentaire</Label>
-                <Input value={budgetNotes} onChange={(e) => setBudgetNotes(e.target.value)} placeholder="Optionnel" />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={() => setShowBudgetForm(false)}>Annuler</Button>
-                <Button
-                  disabled={!budgetAmount || !budgetDate || createBudgetPayment.isPending}
-                  onClick={async () => {
-                    try {
-                      await createBudgetPayment.mutateAsync({
-                        client_id: clientId,
-                        amount: parseFloat(budgetAmount),
-                        payment_date: budgetDate,
-                        notes: budgetNotes.trim() || null,
-                      })
-                      toast.success('Versement ajoute')
-                      setShowBudgetForm(false)
-                      setBudgetAmount('')
-                      setBudgetDate('')
-                      setBudgetNotes('')
-                    } catch {
-                      // Error handled by hook
-                    }
-                  }}
-                >
-                  {createBudgetPayment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Ajouter
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {!budgetPayments || budgetPayments.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Aucun versement enregistre</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Montant</TableHead>
-                    <TableHead>Commentaire</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {budgetPayments.map(b => (
-                    <TableRow key={b.id}>
-                      <TableCell>{formatDateShort(b.payment_date)}</TableCell>
-                      <TableCell className="text-right font-medium">{formatCurrency(Number(b.amount))}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{b.notes || '—'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

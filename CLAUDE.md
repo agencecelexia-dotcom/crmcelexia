@@ -98,7 +98,20 @@ utiliser le skill `/crm-audit` qui :
 
 - `DEATH_REASONS` defini localement dans kanban-board.tsx (devrait etre dans enums.ts)
 - Dialog Perdu/Mort duplique entre KanbanBoard et ProspectDetailPage
-- Duplication champs contact entre tables prospects et clients
+- Duplication champs contact entre tables prospects et clients (delib : sync trigger 00080+)
 - Conversion prospect -> client non automatisee par trigger (manuelle)
 - recall_date stockee dans opportunities mais ne cree pas de reminder automatique
-- Tables event_log, saved_views, notifications creees mais non exploitees
+- `event_log` existe (active, 3500+ lignes audit) mais aucun front ne l'expose
+
+## Tables / coexistences à comprendre
+
+- `devis` (legacy agence — factures Celexia → artisan, analytics CA admin) vs
+  `quotes` + `quote_items` (moderne portail — devis artisan → client final).
+  Sémantiques distinctes, garder les deux. Voir audit DB 13/05/2026.
+- `portal_lead_events` (timeline UI portail artisan) vs `event_log`
+  (audit global cross-feature). Sémantiques distinctes.
+- `email_schedule` (queue d'envoi avec status pending/sent/failed) vs
+  `email_logs` (trace post-envoi pour debug). Pattern queue+log standard.
+- Système commission UNIFIÉ depuis migration 00100 : la table legacy
+  `commissions` a été supprimée. Source unique = `portal_leads.commission_*`
+  alimentée par le workflow portail artisan → admin (migration 00096).
