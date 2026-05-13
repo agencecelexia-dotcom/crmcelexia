@@ -106,6 +106,8 @@ export function useDeclareCommissionPaid() {
       qc.invalidateQueries({ queryKey: ['portal-lead-stats'] }) // KPI portail "Reste à payer"
       qc.invalidateQueries({ queryKey: ['admin-commissions-pending'] })
       qc.invalidateQueries({ queryKey: ['accompagnement', 'kpis'] }) // KPIs fiche client admin
+      qc.invalidateQueries({ queryKey: ['admin', 'commission-stats'] }) // bandeau founder dashboard
+      qc.invalidateQueries({ queryKey: ['commissions', 'client'] }) // tableau Finances admin
       toast.success('Paiement déclaré. Celexia validera sous quelques jours.')
     },
     onError: (err) => toast.error(`Déclaration échouée : ${describeError(err)}`),
@@ -122,7 +124,9 @@ export function useMarkPortalLeadSigned() {
       qc.invalidateQueries({ queryKey: ['portal-lead'] })
       qc.invalidateQueries({ queryKey: ['portal-lead-stats'] })
       qc.invalidateQueries({ queryKey: ['portal-lead-events'] })
-      qc.invalidateQueries({ queryKey: ['accompagnement', 'kpis'] }) // fiche client admin (Commission générée)
+      qc.invalidateQueries({ queryKey: ['accompagnement', 'kpis'] }) // fiche client admin
+      qc.invalidateQueries({ queryKey: ['admin', 'commission-stats'] }) // dashboard founder
+      qc.invalidateQueries({ queryKey: ['commissions', 'client'] })
     },
     onError: (err) => toast.error(`Signature échouée : ${describeError(err)}`),
   })
@@ -139,6 +143,8 @@ export function useValidateCommissionPayment() {
       qc.invalidateQueries({ queryKey: ['portal-lead-stats'] })
       qc.invalidateQueries({ queryKey: ['admin-commissions-pending'] })
       qc.invalidateQueries({ queryKey: ['accompagnement', 'kpis'] }) // Commission encaissée admin
+      qc.invalidateQueries({ queryKey: ['admin', 'commission-stats'] }) // dashboard founder
+      qc.invalidateQueries({ queryKey: ['commissions', 'client'] }) // tableau Finances admin
       toast.success(vars.approved ? 'Commission validée' : 'Commission marquée à clarifier')
     },
     onError: (err) => toast.error(`Action échouée : ${describeError(err)}`),

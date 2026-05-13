@@ -12,6 +12,7 @@ import {
 import { useMyReminders } from '@/features/prospection/hooks/use-reminders'
 import { useMyUpcomingRdv } from '@/features/rendez-vous/hooks/use-rdv'
 import { usePerformanceStats, useDashboardComparisons, useKeyRates } from '@/features/analytics/hooks/use-analytics'
+import { useAdminCommissionStats } from '../hooks/use-commission-stats'
 import { AlertsPanel } from '@/features/alerts/components/alerts-panel'
 import { StatCard } from '@/components/shared/stat-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -348,6 +349,7 @@ function FounderDashboard() {
   const { data: perfStats } = usePerformanceStats()
   const { data: comparisons } = useDashboardComparisons()
   const { data: keyRates } = useKeyRates()
+  const { data: commissionStats } = useAdminCommissionStats()
 
   const funnelBarData = funnel ? [
     { name: 'Nouveau', value: funnel.nouveau, fill: FUNNEL_COLORS.nouveau },
@@ -372,6 +374,31 @@ function FounderDashboard() {
 
   return (
     <>
+      {/* Bandeau Commissions Celexia (portal_leads agrégé) */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <StatCard
+          title="Commissions encaissées ce mois"
+          value={commissionStats ? formatCurrency(commissionStats.paidThisMonth) : '...'}
+          subtitle={commissionStats ? `Générées ce mois : ${formatCurrency(commissionStats.generatedThisMonth)}` : ''}
+          icon={DollarSign}
+          className="border-emerald-200 bg-emerald-50/60"
+        />
+        <StatCard
+          title="Commissions en attente"
+          value={commissionStats ? formatCurrency(commissionStats.pendingAllTime) : '...'}
+          subtitle={commissionStats ? `Toutes périodes confondues` : ''}
+          icon={Clock}
+          className="border-amber-200 bg-amber-50/60"
+        />
+        <StatCard
+          title="Validations en attente"
+          value={commissionStats?.pendingValidations ?? 0}
+          subtitle="Artisans qui ont déclaré avoir payé"
+          icon={UserCheck}
+          className="border-violet-200 bg-violet-50/60"
+        />
+      </div>
+
       {/* Global KPIs */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         <StatCard

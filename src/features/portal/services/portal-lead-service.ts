@@ -146,7 +146,7 @@ export async function getPortalLeadEvents(leadId: string): Promise<PortalLeadEve
 export async function getPortalLeadStats(clientId: string) {
   const { data, error } = await supabase
     .from('portal_leads')
-    .select('status, signed_amount, commission_amount, commission_status, created_at')
+    .select('status, signed_amount, signed_at, commission_amount, commission_status, created_at')
     .eq('client_id', clientId)
     .is('deleted_at', null)
   if (error) throw error
@@ -157,11 +157,18 @@ export async function getPortalLeadStats(clientId: string) {
 
   const thisMonth = leads.filter(l => new Date(l.created_at) >= monthStart)
   const signed = leads.filter(l => l.status === 'signe')
-  const signedThisMonth = signed.filter(l => new Date(l.created_at) >= monthStart)
+  // "Ce mois" pour les commissions = leads SIGNÉS ce mois (date de
+  // signature), pas date de création du lead. Sinon un lead créé en mars
+  // et signé en mai serait ignoré du KPI commission de mai. Source de
+  // vérité : `signed_at`, fallback created_at si NULL.
+  const signedThisMonth = signed.filter(l => {
+    const ref = l.signed_at ? new Date(l.signed_at) : new Date(l.created_at)
+    return ref >= monthStart
+  })
 
   // "Reste à payer" = signed ce mois dont la commission n'est pas
-  // encore payée/validée (les statuts pending et disputed sont à
-  // (re)payer, declared_paid + paid ne le sont plus).
+  // encore payée/validée (pending + disputed = à (re)payer ; declared_paid
+  // + paid ne le sont plus).
   const stillToPayThisMonth = signedThisMonth.filter(
     l => l.commission_status === 'pending' || l.commission_status === 'disputed',
   )
