@@ -175,44 +175,45 @@ export async function getAllClientsAccompagnement(): Promise<ClientAccompagnemen
 export interface ClientKpis {
   leadsCount: number
   signedDealsCount: number
-  totalCommissionReceived: number
+  /** Total commission générée par les leads signés (peu importe statut paiement). */
+  totalCommissionGenerated: number
+  /** Total commission déjà encaissée (commission_status='paid' uniquement). */
+  totalCommissionPaid: number
 }
 
 export async function getClientKpis(clientId: string): Promise<ClientKpis> {
-  // Leads received via portal
-  const { count: leadsCount, error: leadsErr } = await supabase
+  // Single query : on lit tous les leads (leur agrégats sont calculés côté JS).
+  // Source unique = portal_leads. La table "commissions" historique n'est plus
+  // utilisée — elle restait à 0 lignes en prod et déconnectait l'admin du
+  // vrai système (portal_leads.commission_status introduit en 00096).
+  const { data, error } = await supabase
     .from('portal_leads')
-    .select('id', { count: 'exact', head: true })
+    .select('status, commission_amount, commission_status')
     .eq('client_id', clientId)
     .is('deleted_at', null)
-  if (leadsErr) throw leadsErr
+  if (error) throw error
 
-  // Signed deals via portal
-  const { count: signedDealsCount, error: signedErr } = await supabase
-    .from('portal_leads')
-    .select('id', { count: 'exact', head: true })
-    .eq('client_id', clientId)
-    .eq('status', 'signe')
-    .is('deleted_at', null)
-  if (signedErr) throw signedErr
-
-  // Commission received (status = recu)
-  const { data: commissions, error: commErr } = await supabase
-    .from('commissions')
-    .select('commission_amount')
-    .eq('client_id', clientId)
-    .eq('status', 'recu')
-  if (commErr) throw commErr
-
-  const totalCommissionReceived = (commissions ?? []).reduce(
-    (sum: number, c: { commission_amount: number | string | null }) =>
-      sum + Number(c.commission_amount ?? 0),
-    0,
-  )
+  const leads = data ?? []
+  let leadsCount = 0
+  let signedDealsCount = 0
+  let totalCommissionGenerated = 0
+  let totalCommissionPaid = 0
+  for (const l of leads) {
+    leadsCount++
+    if (l.status === 'signe') {
+      signedDealsCount++
+      const amount = Number(l.commission_amount ?? 0)
+      totalCommissionGenerated += amount
+      if (l.commission_status === 'paid') {
+        totalCommissionPaid += amount
+      }
+    }
+  }
 
   return {
-    leadsCount: leadsCount ?? 0,
-    signedDealsCount: signedDealsCount ?? 0,
-    totalCommissionReceived,
+    leadsCount,
+    signedDealsCount,
+    totalCommissionGenerated,
+    totalCommissionPaid,
   }
 }

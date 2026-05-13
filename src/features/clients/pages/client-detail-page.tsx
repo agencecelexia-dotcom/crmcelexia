@@ -91,7 +91,7 @@ import {
 import { toast } from 'sonner'
 import { useOpportunitiesForClient } from '@/features/opportunities/hooks/use-opportunities'
 import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STATUS_COLORS } from '@/types/enums'
-import { Zap, UserPlus, Workflow, Inbox, FileSignature, TrendingUp, Sparkles } from 'lucide-react'
+import { Zap, UserPlus, Workflow, Inbox, FileSignature, TrendingUp, Sparkles, Euro } from 'lucide-react'
 import { PortalInviteDialog } from '@/features/portal/components/portal-invite-dialog'
 import { AccompagnementStepper } from '@/components/shared/accompagnement-stepper'
 import { StepValidationDialog } from '@/features/accompagnement/components/step-validation-dialog'
@@ -572,7 +572,7 @@ function AccompagnementCard({
           />
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-6">
           <StatCard
             title="Leads reçus"
             value={kpis?.leadsCount ?? 0}
@@ -585,8 +585,13 @@ function AccompagnementCard({
           />
           <StatCard
             title="Commission générée"
-            value={formatCurrency(kpis?.totalCommissionReceived ?? 0)}
+            value={formatCurrency(kpis?.totalCommissionGenerated ?? 0)}
             icon={TrendingUp}
+          />
+          <StatCard
+            title="Commission encaissée"
+            value={formatCurrency(kpis?.totalCommissionPaid ?? 0)}
+            icon={Euro}
           />
         </div>
 
