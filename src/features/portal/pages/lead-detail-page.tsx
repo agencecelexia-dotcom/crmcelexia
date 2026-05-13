@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { usePortalAuth } from '../hooks/use-portal-auth'
-import { usePortalLead, usePortalLeadEvents, useUpdatePortalLeadStatus, useUpdatePortalLead, useDeletePortalLead } from '../hooks/use-portal-leads'
+import { usePortalLead, usePortalLeadEvents, useUpdatePortalLead, useDeletePortalLead, useMarkPortalLeadSigned } from '../hooks/use-portal-leads'
 import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2, FileText, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase/client'
@@ -30,7 +30,7 @@ export function PortalLeadDetailPage() {
   const { client } = usePortalAuth()
   const { data: lead, isLoading } = usePortalLead(id)
   const { data: events } = usePortalLeadEvents(id)
-  const updateStatus = useUpdatePortalLeadStatus()
+  const markSigned = useMarkPortalLeadSigned()
   const updateLead = useUpdatePortalLead()
   const deleteLead = useDeletePortalLead()
 
@@ -87,7 +87,9 @@ export function PortalLeadDetailPage() {
     if (!amount || amount <= 0) { toast.error('Montant invalide'); return }
     setConfirming(true)
     try {
-      await updateStatus.mutateAsync({ id: lead!.id, newStatus: 'signe', oldStatus: lead!.status, extra: { signed_amount: amount, signed_at: signDate } })
+      // Passe par la RPC mark_portal_lead_signed (00098) — l'UPDATE
+      // direct sur status='signe' donnait 403 RLS opaque (audit Cowork).
+      await markSigned.mutateAsync({ leadId: lead!.id, amount, signedAt: signDate })
       toast.success('Lead marqué comme signé !')
     } finally { setConfirming(false) }
   }

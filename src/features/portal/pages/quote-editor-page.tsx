@@ -315,18 +315,27 @@ export function PortalQuoteEditorPage() {
     if (q) toast.success('Devis enregistré')
   }
 
-  /** Auto-save sur blur d'un champ HEADER. Ne touche PAS aux items
-   *  (sinon DELETE+INSERT pendant que l'utilisateur édite une ligne
-   *  écrase ses modifs locales sur le refetch). */
+  /** Auto-save sur blur — sauve header ET items si dirty.
+   *  Sérialisé via persistInflightRef pour éviter les races (DELETE+
+   *  INSERT items concurrents avec refetch). Le debounce reste comme
+   *  filet pour les rares cas où aucun blur ne survient avant unload. */
   async function handleAutoSave() {
     if (persistInflightRef.current) {
       try { await persistInflightRef.current } catch { /* */ }
     }
     if (isReadOnly) return
     if (!quote && !createdId && !recipient.name.trim()) return
+    // Annule le debounce items pending puisqu'on va save tout maintenant.
+    if (itemsAutoSaveTimerRef.current) {
+      clearTimeout(itemsAutoSaveTimerRef.current)
+      itemsAutoSaveTimerRef.current = null
+    }
     setBusy(true)
     try {
-      await persistHeader(true)
+      const q = await persistHeader(true)
+      if (q && itemsDirtyRef.current) {
+        await persistItems(q.id)
+      }
     } catch (err) {
       toast.error(`Sauvegarde échouée : ${describeError(err)}`)
     } finally {

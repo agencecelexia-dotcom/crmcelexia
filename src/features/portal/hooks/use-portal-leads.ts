@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getPortalLeads, getPortalLead, createPortalLead, updatePortalLeadStatus,
   updatePortalLead, deletePortalLead, getPortalLeadEvents, getPortalLeadStats,
-  declareCommissionPaid, validateCommissionPayment,
+  declareCommissionPaid, validateCommissionPayment, markPortalLeadSigned,
 } from '../services/portal-lead-service'
 import type { PortalLead } from '@/types'
 import { describeError } from '../lib/error-utils'
@@ -107,6 +107,21 @@ export function useDeclareCommissionPaid() {
       toast.success('Paiement déclaré. Celexia validera sous quelques jours.')
     },
     onError: (err) => toast.error(`Déclaration échouée : ${describeError(err)}`),
+  })
+}
+
+export function useMarkPortalLeadSigned() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ leadId, amount, signedAt }: { leadId: string; amount: number; signedAt: string }) =>
+      markPortalLeadSigned(leadId, amount, signedAt),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['portal-leads'] })
+      qc.invalidateQueries({ queryKey: ['portal-lead'] })
+      qc.invalidateQueries({ queryKey: ['portal-lead-stats'] })
+      qc.invalidateQueries({ queryKey: ['portal-lead-events'] })
+    },
+    onError: (err) => toast.error(`Signature échouée : ${describeError(err)}`),
   })
 }
 

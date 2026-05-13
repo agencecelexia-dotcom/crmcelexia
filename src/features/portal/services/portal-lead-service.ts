@@ -102,7 +102,7 @@ export async function deletePortalLead(id: string): Promise<void> {
 
 /** Artisan déclare avoir payé sa commission à Celexia → email auto agence. */
 export async function declareCommissionPaid(leadId: string): Promise<void> {
-  const { error } = await supabase.rpc('declare_commission_paid', { lead_id: leadId })
+  const { error } = await supabase.rpc('declare_commission_paid', { p_lead_id: leadId })
   if (error) throw error
 }
 
@@ -112,8 +112,23 @@ export async function validateCommissionPayment(
   approved: boolean,
   notes?: string,
 ): Promise<void> {
+  // Params préfixés p_ pour lever l'ambiguïté avec portal_leads.notes
+  // (bug "column reference 'notes' is ambiguous" — audit Cowork 13/05).
   const { error } = await supabase.rpc('validate_commission_payment', {
-    lead_id: leadId, approved, notes: notes ?? null,
+    p_lead_id: leadId, p_approved: approved, p_notes: notes ?? null,
+  })
+  if (error) throw error
+}
+
+/** Marque un lead comme signé via RPC SECURITY DEFINER (l'UPDATE direct
+ *  donnait 403 RLS opaque — même pattern que les soft-delete 00093). */
+export async function markPortalLeadSigned(
+  leadId: string,
+  amount: number,
+  signedAt: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('mark_portal_lead_signed', {
+    p_lead_id: leadId, p_amount: amount, p_signed_at: signedAt,
   })
   if (error) throw error
 }
