@@ -103,6 +103,7 @@ export function useDeclareCommissionPaid() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['portal-leads'] })
       qc.invalidateQueries({ queryKey: ['portal-lead'] })
+      qc.invalidateQueries({ queryKey: ['portal-lead-stats'] }) // KPI "Reste à payer" — bug Cowork
       qc.invalidateQueries({ queryKey: ['admin-commissions-pending'] })
       toast.success('Paiement déclaré. Celexia validera sous quelques jours.')
     },
@@ -133,6 +134,7 @@ export function useValidateCommissionPayment() {
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['portal-leads'] })
       qc.invalidateQueries({ queryKey: ['portal-lead'] })
+      qc.invalidateQueries({ queryKey: ['portal-lead-stats'] }) // KPI "Reste à payer"
       qc.invalidateQueries({ queryKey: ['admin-commissions-pending'] })
       toast.success(vars.approved ? 'Commission validée' : 'Commission marquée à clarifier')
     },
