@@ -22,56 +22,63 @@ ORIG_CSV = ROOT / "data" / "prospects-non-contactes.csv"
 API_BASE = "https://server.smartlead.ai/api/v1"
 CAMPAIGN_ID = 3338241
 
-# Nouvelle séquence avec {{zone_label}}
+# Séquence v7 finale : frame B "sélection inverse" + principe "appel direct"
 SEQUENCE = [
     {
         "seq_number": 1,
         "seq_delay_details": {"delay_in_days": 0},
-        "subject": "une demande {{profession}} {{ville}}",
+        "subject": "{{ville}} — vous prenez encore des clients ?",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
-            "J'ai une dame qui cherche un {{profession}} {{zone_label}} pour faire "
-            "signer un devis chez elle.<br><br>"
-            "Vous prenez encore des nouveaux clients ce mois-ci, ou vous êtes complet ?<br><br>"
-            "Si vous êtes complet, dites-le moi, je ne reviendrai pas vous déranger. "
-            "Sinon je vous explique en 2 lignes.<br><br>"
+            "Je cherche UN {{profession}} fiable {{zone_label}} pour orienter des "
+            "particuliers vers lui en direct. Un seul partenaire par secteur, pas plus.<br><br>"
+            "Avant d'aller voir ailleurs, je préfère tester ceux déjà installés. "
+            "{{company_name}} est dans ma sélection pour {{ville}}.<br><br>"
+            "Deux questions simples :<br><br>"
+            "1. Vous avez encore de la place pour de nouveaux chantiers ce trimestre ?<br>"
+            "2. Vous répondez vite quand un particulier vous sollicite ?<br><br>"
+            "Si c'est non sur l'un des deux, aucun souci, je passe au suivant. "
+            "Si c'est oui, dites-le moi en une ligne et je vous explique.<br><br>"
             "Thomas"
         ),
     },
     {
         "seq_number": 2,
         "seq_delay_details": {"delay_in_days": 3},
-        "subject": "vous êtes complet en ce moment ?",
+        "subject": "{{ville}} — votre place reste ouverte ?",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
-            "Je ne sais pas si mon mail est passé.<br><br>"
-            "2-3 chantiers {{profession}} de plus {{zone_label}} ce mois-ci — "
-            "ça vous parle, ou c'est mort pour vous en ce moment ?<br><br>"
+            "Petit rappel : je cherche un {{profession}} partenaire sur {{ville}}. "
+            "Le principe : un particulier de votre zone qui cherche un {{profession}} "
+            "pour un projet vous appelle directement. Vous prenez ou non, vous décidez.<br><br>"
+            "Je finalise mon choix ces prochains jours. {{company_name}} en fait toujours partie.<br><br>"
+            "Êtes-vous intéressé ?<br><br>"
             "Thomas"
         ),
     },
     {
         "seq_number": 3,
         "seq_delay_details": {"delay_in_days": 4},
-        "subject": "je vous recontacte plus tard ?",
+        "subject": "{{ville}} — votre silence vaut un non ?",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
-            "Pas de retour, j'arrête pour ce mois-ci.<br><br>"
-            "Je peux vous remettre un mot quand j'aurai un dossier {{profession}} "
-            "concret pour {{ville}} ?<br><br>"
-            "Un \"ok\" suffit.<br><br>"
+            "Aucune réponse de votre côté — je préfère vous demander franchement : "
+            "vaut-il mieux que je raye {{company_name}} de ma sélection {{zone_label}} "
+            "et que je regarde un autre {{profession}} ?<br><br>"
+            "Un mot suffit.<br><br>"
             "Thomas"
         ),
     },
     {
         "seq_number": 4,
         "seq_delay_details": {"delay_in_days": 7},
-        "subject": "bonne personne chez {{company_name}} ?",
+        "subject": "dernière question — {{company_name}}",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
-            "Dernier mail de ma part.<br><br>"
-            "Si ce n'est pas vous qui regardez les nouveaux chantiers chez {{company_name}}, "
-            "vous sauriez à qui je peux écrire ?<br><br>"
+            "Avant de clôturer mon tour des {{profession}}s à {{ville}}, une question "
+            "simple : est-ce vous qui décidez de prendre de nouveaux chantiers chez "
+            "{{company_name}}, ou je devrais parler à quelqu'un d'autre ?<br><br>"
+            "Un mot suffit.<br><br>"
             "Thomas"
         ),
     },
@@ -133,7 +140,7 @@ def load_leads() -> list[dict]:
                 "custom_fields": {
                     "profession": normalize_profession(o.get("profession", "")),
                     "zone_label": r.get("zone_label") or "dans votre zone",
-                    "ville": r.get("ville_enrichie", ""),
+                    "ville": r.get("ville_enrichie") or "votre secteur",
                     "departement": r.get("departement", ""),
                     "dirigeant_source": r.get("dirigeant_source", ""),
                     "code_naf": r.get("code_naf", ""),
