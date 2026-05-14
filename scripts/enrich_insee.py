@@ -89,15 +89,52 @@ def name_similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, normalize(a), normalize(b)).ratio()
 
 
-def api_search(query: str) -> list[dict]:
-    """Appelle l'API et retourne les résultats."""
+def api_search(query: str, code_postal: str = "", per_page: int = 5) -> list[dict]:
+    """Appelle l'API avec query texte + filtre code_postal optionnel."""
+    if not query.strip():
+        return []
+    params: dict = {"q": query, "per_page": per_page}
+    if code_postal and len(code_postal) == 5 and code_postal.isdigit():
+        params["code_postal"] = code_postal
     try:
-        r = requests.get(API_URL, params={"q": query, "per_page": 5}, timeout=TIMEOUT)
+        r = requests.get(API_URL, params=params, timeout=TIMEOUT)
         if r.status_code == 200:
             return r.json().get("results", [])
     except Exception:
         pass
     return []
+
+
+def clean_company_name(name: str) -> str:
+    """Vire les suffixes descriptifs Google Maps (après -, |, /, (, etc.).
+
+    Ex: 'Roche Construction - Gros oeuvre - Menuiseries' -> 'Roche Construction'
+    Ex: 'DEBUREAU GRIMPE ÉLAGAGE 50% DE CRÉDIT D IMPÔT' -> 'DEBUREAU GRIMPE ÉLAGAGE'
+    """
+    if not name:
+        return ""
+    for sep in (" - ", " | ", " / ", "/", "|", " ("):
+        idx = name.find(sep)
+        if idx > 0:
+            name = name[:idx]
+            break
+    # Tronque sur "% DE", "/" ou patterns marketing
+    name = re.sub(r"\s+\d+%.*", "", name)
+    name = re.sub(r"\s+(?:à|a|sur|en|de|du|le|les|au)\s+\S+.*", "", name, flags=re.IGNORECASE) \
+        if len(name.split()) > 6 else name
+    return name.strip()
+
+
+def looks_like_person_name(name: str) -> bool:
+    """Détecte si le nom ressemble plus à 'Prénom Nom' qu'à une raison sociale."""
+    parts = name.strip().split()
+    if len(parts) != 2:
+        return False
+    # Heuristique simple : pas de mot business commun (sarl, sas, etc.) et chacun > 2 lettres
+    business = {"sarl", "sas", "sa", "sasu", "eurl", "sci", "ets", "etablissements",
+                "entreprise", "societe", "groupe", "compagnie", "services", "paysage",
+                "jardins", "elagage", "clotures", "ets"}
+    return all(len(p) > 2 and p.lower() not in business for p in parts)
 
 
 def extract_dirigeant(result: dict) -> dict:
@@ -148,51 +185,80 @@ def empty_row(prospect: dict, reason: str) -> dict:
     return out
 
 
+def best_match(results: list[dict], target_name: str, target_city: str) -> tuple[float, dict] | None:
+    """Retourne (score, meilleur_result) parmi des résultats API."""
+    if not results:
+        return None
+    target_city_norm = normalize(target_city)
+    best: tuple[float, dict] | None = None
+    for r in results:
+        score_name = name_similarity(
+            target_name,
+            r.get("nom_complet") or r.get("nom_raison_sociale") or "",
+        )
+        result_city = normalize((r.get("siege") or {}).get("libelle_commune", ""))
+        bonus_city = 0.15 if result_city and target_city_norm and result_city == target_city_norm else 0
+        total = score_name + bonus_city
+        if best is None or total > best[0]:
+            best = (total, r)
+    return best
+
+
 def enrich_prospect(prospect: dict) -> dict:
-    """Enrichit un prospect, retourne la row finale."""
+    """Enrichit un prospect avec stratégies de fallback multiples."""
     siret = (prospect.get("siret") or "").replace(" ", "").strip()
-    company = prospect.get("company_name", "").strip()
+    company_raw = prospect.get("company_name", "").strip()
+    company = clean_company_name(company_raw)
     city = prospect.get("city", "").strip()
     cp = prospect.get("code_postal", "").strip()
 
-    # 1) Si on a un SIRET valide (14 chiffres), matching exact
+    # 1) Si SIRET valide → exact match
     if siret and len(siret) == 14 and siret.isdigit():
         results = api_search(siret)
         if results:
             return extract_row(prospect, results[0], "exact")
         return empty_row(prospect, "siret_unknown")
 
-    # 2) Sinon recherche fuzzy : nom + ville + CP
     if not company:
         return empty_row(prospect, "no_query")
-    parts = [company]
-    if cp:
-        parts.append(cp)
-    elif city:
-        parts.append(city)
-    query = " ".join(parts)
-    results = api_search(query)
-    if not results:
+
+    # Stratégies de recherche par ordre de précision décroissante.
+    # On garde le meilleur match cross-strategies.
+    strategies: list[tuple[str, str, str]] = []  # (query, code_postal_filter, label)
+    # 1. Nom complet nettoyé + CP filter
+    strategies.append((company, cp, "name+cp"))
+    # 2. Nom complet nettoyé + ville dans query
+    if city and not cp:
+        strategies.append((f"{company} {city}", "", "name+city_q"))
+    # 3. Nom complet nettoyé sans filtre (cast large)
+    strategies.append((company, "", "name_only"))
+    # 4. Si format "Prénom Nom", chercher par dirigeant
+    if looks_like_person_name(company_raw):
+        strategies.append((company_raw, cp, "dirigeant"))
+    # 5. Premier mot uniquement (très large, dernier recours)
+    first_word = company.split()[0] if company.split() else ""
+    if first_word and len(first_word) >= 4:
+        strategies.append((first_word, cp, "first_word"))
+
+    overall_best: tuple[float, dict, str] | None = None
+    seen_sirens: set[str] = set()
+    for query, cp_filter, label in strategies:
+        results = api_search(query, cp_filter)
+        if not results:
+            continue
+        bm = best_match(results, company_raw, city)
+        if bm and bm[1].get("siren") not in seen_sirens:
+            seen_sirens.add(bm[1].get("siren", ""))
+            if overall_best is None or bm[0] > overall_best[0]:
+                overall_best = (bm[0], bm[1], label)
+            # Si on a déjà un excellent match, pas la peine de chercher plus
+            if bm[0] >= 1.0:
+                break
+
+    if overall_best is None:
         return empty_row(prospect, "no_match")
 
-    # Sélectionne le meilleur résultat : combinaison nom + ville
-    target_name = company
-    target_city_norm = normalize(city)
-    best: tuple[float, dict] | None = None
-    for r in results:
-        score_name = name_similarity(target_name, r.get("nom_complet") or r.get("nom_raison_sociale") or "")
-        result_city = normalize((r.get("siege") or {}).get("libelle_commune", ""))
-        bonus_city = 0.15 if result_city and target_city_norm and result_city == target_city_norm else 0
-        total = score_name + bonus_city
-        if best is None or total > best[0]:
-            best = (total, r)
-
-    if best is None:
-        return empty_row(prospect, "no_match")
-
-    score, result = best
-    # Threshold : on cumule nom_similarity + bonus_ville
-    # 0.90+ = high (très probable), 0.70-0.90 = medium, sinon low
+    score, result, _label = overall_best
     if score >= 0.90:
         conf = "high"
     elif score >= 0.70:
