@@ -27,49 +27,51 @@ SEQUENCE = [
     {
         "seq_number": 1,
         "seq_delay_details": {"delay_in_days": 0},
-        "subject": "du business {{profession}} {{zone_label}}",
+        "subject": "une demande {{profession}} {{ville}}",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
-            "Je suis apporteur d'affaires. Il y a actuellement du business {{profession}} "
-            "{{zone_label}} — des particuliers qui cherchent un artisan pour signer un devis.<br><br>"
-            "Vous êtes en capacité d'en prendre plus, ou vous êtes complet ?<br><br>"
-            "Si oui, répondez à ce mail, je vous explique en 3 lignes comment on travaille.<br><br>"
+            "J'ai une dame qui cherche un {{profession}} {{zone_label}} pour faire "
+            "signer un devis chez elle.<br><br>"
+            "Vous prenez encore des nouveaux clients ce mois-ci, ou vous êtes complet ?<br><br>"
+            "Si vous êtes complet, dites-le moi, je ne reviendrai pas vous déranger. "
+            "Sinon je vous explique en 2 lignes.<br><br>"
             "Thomas"
         ),
     },
     {
         "seq_number": 2,
         "seq_delay_details": {"delay_in_days": 3},
-        "subject": "Re: du business {{profession}} {{zone_label}}",
+        "subject": "vous êtes complet en ce moment ?",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
-            "Vous recevez sûrement plein de mails dans le genre, je fais court.<br><br>"
-            "Avoir 2-3 chantiers {{profession}} en plus {{zone_label}} ce mois-ci, "
-            "ça vous intéresse oui ou non ?<br><br>"
+            "Je ne sais pas si mon mail est passé.<br><br>"
+            "2-3 chantiers {{profession}} de plus {{zone_label}} ce mois-ci — "
+            "ça vous parle, ou c'est mort pour vous en ce moment ?<br><br>"
             "Thomas"
         ),
     },
     {
         "seq_number": 3,
         "seq_delay_details": {"delay_in_days": 4},
-        "subject": "Re: du business {{profession}} {{zone_label}}",
+        "subject": "je vous recontacte plus tard ?",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
-            "Pas de retour, je n'insiste pas.<br><br>"
-            "Je peux garder vos coordonnées et vous recontacter quand j'aurai un "
-            "dossier {{profession}} précis {{zone_label}} à vous proposer ?<br><br>"
+            "Pas de retour, j'arrête pour ce mois-ci.<br><br>"
+            "Je peux vous remettre un mot quand j'aurai un dossier {{profession}} "
+            "concret pour {{ville}} ?<br><br>"
+            "Un \"ok\" suffit.<br><br>"
             "Thomas"
         ),
     },
     {
         "seq_number": 4,
         "seq_delay_details": {"delay_in_days": 7},
-        "subject": "Re: du business {{profession}} {{zone_label}}",
+        "subject": "bonne personne chez {{company_name}} ?",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
-            "Dernier mail.<br><br>"
-            "Si ce n'est pas vous qui gérez les nouveaux chantiers chez {{company_name}}, "
-            "à qui je peux m'adresser ?<br><br>"
+            "Dernier mail de ma part.<br><br>"
+            "Si ce n'est pas vous qui regardez les nouveaux chantiers chez {{company_name}}, "
+            "vous sauriez à qui je peux écrire ?<br><br>"
             "Thomas"
         ),
     },
