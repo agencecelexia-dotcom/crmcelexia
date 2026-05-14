@@ -96,6 +96,7 @@ HEADERS = {
 }
 
 TIMEOUT = (5, 8)      # (connect, read) — strict pour éviter les hangs
+PROSPECT_HARD_TIMEOUT = 20  # max secondes pour TOUT le scraping d'un prospect (5 pages)
 MAX_WORKERS = 15      # 15 prospects en parallèle (~5-8 req/s effectif)
 DELAY_BETWEEN_PROBES = 0.2  # pause entre 2 pages du même site
 
@@ -311,7 +312,22 @@ def main():
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
             futures = {ex.submit(scrape_prospect, r): r for r in candidates}
             for fut in as_completed(futures):
-                row = fut.result()
+                # Hard timeout : si un worker pend (DNS mort, SSL bloqué…), on l'abandonne
+                # après PROSPECT_HARD_TIMEOUT secondes et on passe au suivant.
+                try:
+                    row = fut.result(timeout=PROSPECT_HARD_TIMEOUT)
+                except Exception as e:
+                    # Worker mort/abandonné — on stocke quand même une row vide pour
+                    # ne pas réessayer ce prospect au prochain run (sinon boucle infinie).
+                    orig = futures[fut]
+                    row = dict(orig)
+                    row["emails_found"] = ""
+                    row["email_quality"] = ""
+                    row["best_email"] = ""
+                    row["best_email_quality"] = ""
+                    row["pages_visited"] = "TIMEOUT"
+                    print(f"[{processed + 1:>4}/{len(candidates)}] {orig.get('company_name', '')[:40]:<40} ⏱ timeout ({type(e).__name__})")
+
                 processed += 1
                 # Write incremental — pas de perte si interruption
                 header_written = append_row(row, fieldnames, header_written)
@@ -322,9 +338,10 @@ def main():
                     if quality == "high": high += 1
                     elif quality == "medium": medium += 1
                     elif quality == "low": low += 1
-                company = row.get("company_name", "")[:40]
-                status = f"✓ {emails}" if emails else "✗"
-                print(f"[{processed:>4}/{len(candidates)}] {company:<40} {status}")
+                if row.get("pages_visited") != "TIMEOUT":
+                    company = row.get("company_name", "")[:40]
+                    status = f"✓ {emails}" if emails else "✗"
+                    print(f"[{processed:>4}/{len(candidates)}] {company:<40} {status}")
     except KeyboardInterrupt:
         print(f"\n⏸  Interrompu manuellement après {processed} prospects. Les données sont sauvées.")
         print(f"   Relance la même commande pour reprendre.")
