@@ -30,14 +30,14 @@ SEQUENCE = [
         "subject": "{{first_name}}, des chantiers {{zone_label}} ?",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
-            "J'ai 3 demandes {{profession}} à placer {{zone_label}} ce mois-ci, "
-            "et je n'ai plus la bande passante pour traiter ça en direct.<br><br>"
-            "Avant de chercher ailleurs, je tente {{company_name}} — j'ai regardé "
-            "vos retours, ça colle.<br><br>"
-            "Commission classique d'apporteur, paiement à la signature du devis. "
-            "Zéro risque si pas de match.<br><br>"
-            "Vous prenez encore ?<br><br>"
-            "Thomas<br>Celexia"
+            "Apporteur d'affaires sur votre région, j'ai 3 demandes {{profession}} "
+            "à placer {{zone_label}} ce mois-ci.<br><br>"
+            "Vos retours sont bons, je tente {{company_name}} avant d'aller voir ailleurs.<br><br>"
+            "Le fonctionnement : je vous envoie les dossiers, vous filtrez ce qui "
+            "vous intéresse. Aucun engagement de votre côté. Commission uniquement "
+            "si vous signez le devis avec le client — sinon vous ne me devez rien.<br><br>"
+            "Répondez juste \"ok\" et je vous bascule le 1er dossier.<br><br>"
+            "Thomas"
         ),
     },
     {
@@ -46,8 +46,8 @@ SEQUENCE = [
         "subject": "Re: {{first_name}}, des chantiers {{zone_label}} ?",
         "email_body": (
             "{{first_name}},<br><br>"
-            "Le 1er dossier sort fin de semaine, après je le bascule sur quelqu'un d'autre.<br><br>"
-            "Yes / no, je m'aligne ?<br><br>"
+            "Le 1er dossier sort fin de semaine, après je le bascule à un autre.<br><br>"
+            "Yes / no, je vous l'envoie ?<br><br>"
             "Thomas"
         ),
     },
@@ -57,10 +57,9 @@ SEQUENCE = [
         "subject": "Re: {{first_name}}, des chantiers {{zone_label}} ?",
         "email_body": (
             "{{first_name}},<br><br>"
-            "Pas de souci si c'est pas le moment.<br><br>"
-            "Si jamais vous voulez qu'on reste en contact pour plus tard, dites-le "
-            "en 1 mot — je vous re-contacte quand un dossier {{profession}} repasse "
-            "{{zone_label}}.<br><br>"
+            "Pas de souci si c'est pas le bon moment.<br><br>"
+            "Si vous voulez qu'on reste en contact pour plus tard, dites-le en 1 mot — "
+            "je vous re-contacte dès qu'une demande {{profession}} repasse {{zone_label}}.<br><br>"
             "Sinon je n'insiste pas.<br><br>"
             "Thomas"
         ),
@@ -72,10 +71,9 @@ SEQUENCE = [
         "email_body": (
             "{{first_name}},<br><br>"
             "Dernière relance promis.<br><br>"
-            "Question simple : qui chez {{company_name}} prend les appels d'apporteurs "
-            "en ce moment ?<br><br>"
-            "Si c'est pas vous, indiquez-moi le bon contact — je n'embête plus la "
-            "mauvaise personne.<br><br>"
+            "Qui chez {{company_name}} prend les appels d'apporteurs en ce moment ?<br><br>"
+            "Si c'est pas vous, dites-moi juste le bon contact — je n'embête plus "
+            "la mauvaise personne.<br><br>"
             "Thomas"
         ),
     },
