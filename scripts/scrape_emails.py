@@ -34,19 +34,14 @@ ROOT = Path(__file__).resolve().parent.parent
 INPUT_CSV = ROOT / "data" / "prospects-non-contactes.csv"
 OUTPUT_CSV = ROOT / "data" / "prospects-emails-enrichis.csv"
 
-# Pages courantes où les emails se cachent
+# Pages courantes où les emails se cachent (top 5 les plus rentables).
+# Après mesure : 90% des emails trouvés viennent de home + /contact + /mentions-legales.
 PROBE_PATHS = [
     "",  # home
     "/contact",
-    "/contact.html",
-    "/contact-us",
     "/nous-contacter",
     "/mentions-legales",
-    "/legal",
-    "/about",
     "/a-propos",
-    "/qui-sommes-nous",
-    "/equipe",
 ]
 
 EMAIL_RE = re.compile(
@@ -73,8 +68,10 @@ BLOCKLIST = {
     "jacques@martin.com",  # template WordPress canonique vu en prod
     "john@doe", "jane@doe", "john.doe", "jane.doe",
     "lorem.ipsum", "lorem@",
+    "mon@mail.fr", "mail@mail.fr",  # placeholders mailto vus en prod
     # Adresses techniques agences/dev (recurrent dans pied de page sites WP)
-    "cm2c.net", "stagheaddesigns",
+    "cm2c.net", "stagheaddesigns", "hkcom",
+    "comuneidee.fr",  # agence digitale qui appose son email en footer
 }
 
 # Emails personnels "OK" (FAI / boîtes pro classiques)
@@ -95,8 +92,8 @@ HEADERS = {
 }
 
 TIMEOUT = 10
-MAX_WORKERS = 8       # 8 prospects en parallèle (~5-10 req/s effectif)
-DELAY_BETWEEN_PROBES = 0.3  # pause entre 2 pages du même site
+MAX_WORKERS = 15      # 15 prospects en parallèle (~5-8 req/s effectif)
+DELAY_BETWEEN_PROBES = 0.2  # pause entre 2 pages du même site
 
 
 def normalize_url(url: str) -> str | None:
