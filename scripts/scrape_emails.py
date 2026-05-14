@@ -28,7 +28,11 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 import requests
+import urllib3
 from bs4 import BeautifulSoup
+
+# On ignore les certificats SSL périmés (très répandu chez les artisans).
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 ROOT = Path(__file__).resolve().parent.parent
 INPUT_CSV = ROOT / "data" / "prospects-non-contactes.csv"
@@ -91,7 +95,7 @@ HEADERS = {
     "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
 }
 
-TIMEOUT = 10
+TIMEOUT = (5, 8)      # (connect, read) — strict pour éviter les hangs
 MAX_WORKERS = 15      # 15 prospects en parallèle (~5-8 req/s effectif)
 DELAY_BETWEEN_PROBES = 0.2  # pause entre 2 pages du même site
 
@@ -175,12 +179,18 @@ def rank_emails(emails: set[str], site_url: str | None) -> list[tuple[str, str]]
 
 
 def fetch(url: str) -> str | None:
-    """Récupère le HTML d'une URL avec gestion d'erreur souple."""
+    """Récupère le HTML d'une URL avec gestion d'erreur souple.
+    Timeout strict (5s connect, 8s read), pas de retry — si ça plante on passe.
+    SSL ignoré (beaucoup d'artisans ont des certificats périmés)."""
     try:
-        r = requests.get(url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
-        if r.status_code == 200 and "text/html" in r.headers.get("Content-Type", ""):
-            return r.text
-    except requests.RequestException:
+        r = requests.get(
+            url, headers=HEADERS, timeout=TIMEOUT,
+            allow_redirects=True, verify=False,
+        )
+        if r.status_code == 200 and "text/html" in r.headers.get("Content-Type", "").lower():
+            # Limite taille HTML à 500 KB pour éviter d'absorber des sites énormes
+            return r.text[:500_000]
+    except Exception:
         pass
     return None
 
@@ -214,15 +224,51 @@ def scrape_prospect(row: dict) -> dict:
     return row
 
 
+def load_already_processed() -> set[str]:
+    """Lit le CSV de sortie s'il existe, retourne les IDs déjà traités.
+
+    Permet de reprendre un scrape interrompu sans refaire les prospects
+    déjà scannés. Aucune perte de travail.
+    """
+    if not OUTPUT_CSV.exists():
+        return set()
+    try:
+        with OUTPUT_CSV.open(encoding="utf-8") as f:
+            return {row["id"] for row in csv.DictReader(f) if row.get("id")}
+    except Exception:
+        return set()
+
+
+def append_row(row: dict, fieldnames: list[str], header_written: bool) -> bool:
+    """Écrit une ligne au CSV en mode append, gère le header.
+
+    Retourne True si le header est désormais écrit (à passer au prochain
+    appel pour ne pas le réécrire).
+    """
+    OUTPUT_CSV.parent.mkdir(exist_ok=True)
+    mode = "a" if header_written else "w"
+    with OUTPUT_CSV.open(mode, encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not header_written:
+            writer.writeheader()
+        writer.writerow(row)
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--full", action="store_true", help="Traite tous les prospects (sinon limit 20)")
     parser.add_argument("--limit", type=int, default=20, help="Nombre max (défaut 20)")
+    parser.add_argument("--reset", action="store_true", help="Repart de zéro (supprime le CSV existant)")
     args = parser.parse_args()
 
     if not INPUT_CSV.exists():
         print(f"ERREUR : {INPUT_CSV} introuvable", file=sys.stderr)
         sys.exit(1)
+
+    if args.reset and OUTPUT_CSV.exists():
+        OUTPUT_CSV.unlink()
+        print(f"→ {OUTPUT_CSV.name} supprimé, on repart de zéro\n")
 
     with INPUT_CSV.open(encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
@@ -232,43 +278,70 @@ def main():
     print(f"Total prospects : {len(rows)}")
     print(f"Avec website, sans email : {len(candidates)}")
 
+    # Reprise auto : skip les IDs déjà présents dans le CSV de sortie
+    done_ids = load_already_processed()
+    if done_ids:
+        before = len(candidates)
+        candidates = [c for c in candidates if c["id"] not in done_ids]
+        print(f"Déjà traités (reprise auto) : {before - len(candidates)}")
+        print(f"Restant à scraper : {len(candidates)}")
+
     if not args.full:
         candidates = candidates[: args.limit]
         print(f"Test sur {len(candidates)} prospects (--full pour tout)\n")
+    else:
+        print(f"Mode FULL : {len(candidates)} prospects\n")
+
+    if not candidates:
+        print("Rien à faire — tout est déjà traité. Utilise --reset pour recommencer.")
+        return
+
+    # Fieldnames basés sur la 1re row + colonnes ajoutées par scrape_prospect
+    base_fields = list(candidates[0].keys())
+    extra_fields = ["emails_found", "email_quality", "best_email", "best_email_quality", "pages_visited"]
+    fieldnames = base_fields + [f for f in extra_fields if f not in base_fields]
+
+    header_written = OUTPUT_CSV.exists() and OUTPUT_CSV.stat().st_size > 0
 
     start = time.monotonic()
-    results = []
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-        futures = {ex.submit(scrape_prospect, r): r for r in candidates}
-        for i, fut in enumerate(as_completed(futures), 1):
-            row = fut.result()
-            results.append(row)
-            emails = row.get("emails_found", "")
-            company = row.get("company_name", "")[:40]
-            status = f"✓ {emails}" if emails else "✗"
-            print(f"[{i:>4}/{len(candidates)}] {company:<40} {status}")
+    processed = 0
+    found = 0
+    high = medium = low = 0
+    try:
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+            futures = {ex.submit(scrape_prospect, r): r for r in candidates}
+            for fut in as_completed(futures):
+                row = fut.result()
+                processed += 1
+                # Write incremental — pas de perte si interruption
+                header_written = append_row(row, fieldnames, header_written)
+                emails = row.get("emails_found", "")
+                quality = row.get("best_email_quality", "")
+                if emails:
+                    found += 1
+                    if quality == "high": high += 1
+                    elif quality == "medium": medium += 1
+                    elif quality == "low": low += 1
+                company = row.get("company_name", "")[:40]
+                status = f"✓ {emails}" if emails else "✗"
+                print(f"[{processed:>4}/{len(candidates)}] {company:<40} {status}")
+    except KeyboardInterrupt:
+        print(f"\n⏸  Interrompu manuellement après {processed} prospects. Les données sont sauvées.")
+        print(f"   Relance la même commande pour reprendre.")
 
     elapsed = time.monotonic() - start
-    found = sum(1 for r in results if r.get("emails_found"))
-    high = sum(1 for r in results if r.get("best_email_quality") == "high")
-    medium = sum(1 for r in results if r.get("best_email_quality") == "medium")
-    low = sum(1 for r in results if r.get("best_email_quality") == "low")
-    print(f"\n--- Bilan ---")
-    print(f"Durée   : {elapsed:.1f}s")
-    print(f"Trouvés : {found}/{len(results)} ({100 * found / max(len(results), 1):.1f} %)")
-    print(f"  - high   (email du domaine) : {high}")
-    print(f"  - medium (gmail/orange/etc) : {medium}")
-    print(f"  - low    (à vérifier)       : {low}")
-
-    # Écrit le CSV
-    if results:
-        fieldnames = list(results[0].keys())
-        OUTPUT_CSV.parent.mkdir(exist_ok=True)
-        with OUTPUT_CSV.open("w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(results)
-        print(f"\nCSV : {OUTPUT_CSV.relative_to(ROOT)}")
+    print(f"\n--- Bilan de la session ---")
+    print(f"Durée    : {elapsed:.1f}s ({elapsed/60:.1f} min)")
+    print(f"Traités  : {processed}")
+    print(f"Trouvés  : {found}/{processed} ({100 * found / max(processed, 1):.1f} %)")
+    print(f"  - high   : {high}")
+    print(f"  - medium : {medium}")
+    print(f"  - low    : {low}")
+    print(f"\nCSV : {OUTPUT_CSV.relative_to(ROOT)}")
+    if OUTPUT_CSV.exists():
+        with OUTPUT_CSV.open(encoding="utf-8") as f:
+            total_in_csv = sum(1 for _ in f) - 1  # -1 pour le header
+        print(f"Total cumulé dans le CSV : {total_in_csv}")
 
 
 if __name__ == "__main__":
