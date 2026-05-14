@@ -1,0 +1,51 @@
+id,company_name,website,categorie,emails_found,best_email,best_email_quality,status
+6,Lambert Clôtures,https://www.clotures-lambert.fr,fabricant_leader,,,,no_email_found
+7,Profilforges,https://www.profilforges.fr,fabricant,,,,no_email_found
+11,Riwal France,https://www.riwal.fr,fabricant,,,,no_email_found
+10,Mefran,https://www.mefran.fr,fabricant,,,,no_email_found
+14,Aluminco,https://www.aluminco.fr,portail_cloture,,,,no_email_found
+12,Cetal,https://www.cetal.fr,fabricant,contact@cetal.fr,contact@cetal.fr,high,ok
+16,SIB Fermetures,https://www.sib-fermetures.fr,portail_cloture,,,,no_email_found
+2,Bekaert France,https://fr.bekaert.com,fabricant_leader,,,,no_email_found
+9,SCMC France,https://www.scmc-france.com,fabricant,,,,no_email_found
+1,Dirickx Industries,https://www.dirickx.fr,fabricant_leader,,,,no_email_found
+20,Cloturmat,https://www.cloturmat.fr,grossiste,,,,no_email_found
+15,Charuel,https://www.charuel.fr,portail_cloture,contact@charuel.fr;contact@atlantem.fr,contact@charuel.fr,high,ok
+22,ABC Clôtures,https://www.abcc-clotures.com,grossiste,,,,no_email_found
+18,Hörmann France,https://www.hormann.fr,portail_cloture,,,,no_email_found
+24,Cloturen,https://www.cloturen.fr,grossiste,,,,no_email_found
+25,HBM Clôtures,https://www.hbm-clotures.fr,grossiste,,,,no_email_found
+26,Eurocloture,https://www.eurocloture.fr,grossiste,,,,no_email_found
+27,Cloture Express,https://www.cloture-express.fr,grossiste,,,,no_email_found
+17,Kostum,https://www.kostum.fr,portail_cloture,accueil@cadiou.bzh,accueil@cadiou.bzh,low,ok
+21,Cloture Diffusion,https://www.cloturediffusion.fr,grossiste,,,,no_email_found
+19,ATA Clôture,https://www.ata-cloture.com,grossiste,,,,no_email_found
+29,Clôture Discount,https://www.cloturediscount.com,ecommerce_b2b,,,,no_email_found
+31,Clôtures Direct,https://www.clotures-direct.fr,ecommerce_b2b,,,,no_email_found
+32,Brico Clôture,https://www.bricocloture.com,ecommerce_b2b,,,,no_email_found
+33,Point.P,https://www.pointp.fr,distrib_btp,,,,no_email_found
+5,Beauvallet,https://www.beauvallet.fr,fabricant_leader,support@agence-felix.fr,support@agence-felix.fr,low,ok
+35,Tout Faire,https://www.toutfaire.fr,distrib_btp,,,,no_email_found
+28,Cloture Online,https://www.cloture-online.fr,ecommerce_b2b,,,,no_email_found
+38,Forest Style,https://www.forest-style.fr,bois,,,,no_email_found
+3,Heras France,https://www.heras.fr,fabricant_leader,contact@heras.fr,contact@heras.fr,high,ok
+39,Bois & Loisirs,https://www.bois-loisirs.fr,bois,,,,no_email_found
+41,Cloture Bois,https://www.cloture-bois.com,bois,,,,no_email_found
+37,Mr Bricolage Pro,https://www.mr-bricolage.fr,distrib_btp,,,,no_email_found
+40,Naturalu,https://www.naturalu.com,bois,,,,no_email_found
+36,Gedimat,https://www.gedimat.fr,distrib_btp,,,,no_email_found
+43,Frangiclo,https://www.frangiclo.fr,fabricant,,,,no_email_found
+45,Sicur,https://www.sicur.fr,securite,,,,no_email_found
+42,Lapeyre,https://www.lapeyre.fr,bricolage_pro,,,,no_email_found
+46,SD Acier,https://www.sd-acier.fr,fabricant_metal,,,,no_email_found
+47,Acier Fabrication Métallurgie,https://www.afm-metal.fr,fabricant_metal,,,,no_email_found
+50,Cloture Bretagne,https://www.cloture-bretagne.fr,regional,,,,no_email_found
+49,Sud Cloture,https://www.sud-cloture.fr,regional,,,,no_email_found
+48,Cloture Vannes,https://www.cloture-vannes.fr,regional,,,,no_email_found
+4,Lippi,https://www.lippi.fr,fabricant_leader,stephanie.caramico@lippi.fr;dataprotection@lippi.fr;lippi@lippi.fr,stephanie.caramico@lippi.fr,high,ok
+34,BigMat,https://www.bigmat.fr,distrib_btp,,,,no_email_found
+8,Setforge,https://www.setforge.com,fabricant,,,,no_email_found
+44,Becht,https://www.becht.fr,fabricant,contact@becht.fr,contact@becht.fr,high,ok
+13,Cadiou,https://www.cadiou.fr,portail_cloture,,,,no_email_found
+23,Direct Clôtures,https://www.direct-clotures.com,grossiste,,,,no_email_found
+30,Pro Clôture,https://www.pro-cloture.fr,ecommerce_b2b,,,,no_email_found

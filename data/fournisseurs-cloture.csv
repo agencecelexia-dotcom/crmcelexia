@@ -1,0 +1,51 @@
+id,company_name,website,categorie
+1,Dirickx Industries,https://www.dirickx.fr,fabricant_leader
+2,Bekaert France,https://fr.bekaert.com,fabricant_leader
+3,Heras France,https://www.heras.fr,fabricant_leader
+4,Lippi,https://www.lippi.fr,fabricant_leader
+5,Beauvallet,https://www.beauvallet.fr,fabricant_leader
+6,Lambert Clôtures,https://www.clotures-lambert.fr,fabricant_leader
+7,Profilforges,https://www.profilforges.fr,fabricant
+8,Setforge,https://www.setforge.com,fabricant
+9,SCMC France,https://www.scmc-france.com,fabricant
+10,Mefran,https://www.mefran.fr,fabricant
+11,Riwal France,https://www.riwal.fr,fabricant
+12,Cetal,https://www.cetal.fr,fabricant
+13,Cadiou,https://www.cadiou.fr,portail_cloture
+14,Aluminco,https://www.aluminco.fr,portail_cloture
+15,Charuel,https://www.charuel.fr,portail_cloture
+16,SIB Fermetures,https://www.sib-fermetures.fr,portail_cloture
+17,Kostum,https://www.kostum.fr,portail_cloture
+18,Hörmann France,https://www.hormann.fr,portail_cloture
+19,ATA Clôture,https://www.ata-cloture.com,grossiste
+20,Cloturmat,https://www.cloturmat.fr,grossiste
+21,Cloture Diffusion,https://www.cloturediffusion.fr,grossiste
+22,ABC Clôtures,https://www.abcc-clotures.com,grossiste
+23,Direct Clôtures,https://www.direct-clotures.com,grossiste
+24,Cloturen,https://www.cloturen.fr,grossiste
+25,HBM Clôtures,https://www.hbm-clotures.fr,grossiste
+26,Eurocloture,https://www.eurocloture.fr,grossiste
+27,Cloture Express,https://www.cloture-express.fr,grossiste
+28,Cloture Online,https://www.cloture-online.fr,ecommerce_b2b
+29,Clôture Discount,https://www.cloturediscount.com,ecommerce_b2b
+30,Pro Clôture,https://www.pro-cloture.fr,ecommerce_b2b
+31,Clôtures Direct,https://www.clotures-direct.fr,ecommerce_b2b
+32,Brico Clôture,https://www.bricocloture.com,ecommerce_b2b
+33,Point.P,https://www.pointp.fr,distrib_btp
+34,BigMat,https://www.bigmat.fr,distrib_btp
+35,Tout Faire,https://www.toutfaire.fr,distrib_btp
+36,Gedimat,https://www.gedimat.fr,distrib_btp
+37,Mr Bricolage Pro,https://www.mr-bricolage.fr,distrib_btp
+38,Forest Style,https://www.forest-style.fr,bois
+39,Bois & Loisirs,https://www.bois-loisirs.fr,bois
+40,Naturalu,https://www.naturalu.com,bois
+41,Cloture Bois,https://www.cloture-bois.com,bois
+42,Lapeyre,https://www.lapeyre.fr,bricolage_pro
+43,Frangiclo,https://www.frangiclo.fr,fabricant
+44,Becht,https://www.becht.fr,fabricant
+45,Sicur,https://www.sicur.fr,securite
+46,SD Acier,https://www.sd-acier.fr,fabricant_metal
+47,Acier Fabrication Métallurgie,https://www.afm-metal.fr,fabricant_metal
+48,Cloture Vannes,https://www.cloture-vannes.fr,regional
+49,Sud Cloture,https://www.sud-cloture.fr,regional
+50,Cloture Bretagne,https://www.cloture-bretagne.fr,regional
