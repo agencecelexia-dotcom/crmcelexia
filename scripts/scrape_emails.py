@@ -53,11 +53,36 @@ EMAIL_RE = re.compile(
     r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
 )
 
-# Patterns à filtrer (emails techniques / faux positifs)
+# Patterns à filtrer (emails techniques / faux positifs / templates).
+# Tout email contenant l'une de ces chaînes en SOUS-CHAÎNE est jeté.
 BLOCKLIST = {
-    "sentry.io", "wixpress.com", "wix.com", "noreply", "no-reply",
-    "donotreply", "do-not-reply", "example.com", "test.com", "domain.com",
-    "yourdomain", "votredomaine", "@2x", "@3x", "u003e", "u003c",
+    # Erreurs / robots
+    "sentry.io", "noreply", "no-reply", "donotreply", "do-not-reply",
+    "u003e", "u003c", "@2x", "@3x",
+    # Builders de site (apparaissent dans le footer/CMS)
+    "wixpress.com", "wix.com", "webador", "ovhcloud", "ovh.com",
+    "jimdo", "squarespace", "weebly", "godaddy", "1and1.fr", "ionos",
+    "shopify.com", "myshopify.com", "prestashop", "shopify-mail",
+    "wordpress.com", "automattic.com", "wpengine",
+    # Trackers / analytics
+    "google-analytics", "googleadservices", "facebook.com", "fbcdn",
+    "googletagmanager", "doubleclick", "hotjar.com", "intercom",
+    # Templates / placeholders répandus
+    "example.com", "test.com", "domain.com", "yourdomain", "votredomaine",
+    "email@", "nom@", "prenom@", "votre.email", "votre-email",
+    "jacques@martin.com",  # template WordPress canonique vu en prod
+    "john@doe", "jane@doe", "john.doe", "jane.doe",
+    "lorem.ipsum", "lorem@",
+    # Adresses techniques agences/dev (recurrent dans pied de page sites WP)
+    "cm2c.net", "stagheaddesigns",
+}
+
+# Emails personnels "OK" (FAI / boîtes pro classiques)
+PERSONAL_DOMAINS = {
+    "gmail.com", "outlook.fr", "outlook.com", "hotmail.fr", "hotmail.com",
+    "orange.fr", "wanadoo.fr", "free.fr", "laposte.net", "sfr.fr",
+    "yahoo.fr", "yahoo.com", "live.fr", "icloud.com", "me.com",
+    "bbox.fr", "neuf.fr", "aliceadsl.fr",
 }
 
 HEADERS = {
@@ -119,7 +144,37 @@ def extract_emails_from_html(html: str) -> set[str]:
         if addr:
             candidates.add(addr)
     # 3) Filtre
-    return {e for e in candidates if not is_email_garbage(e)}
+    return {e.lower() for e in candidates if not is_email_garbage(e)}
+
+
+def rank_emails(emails: set[str], site_url: str | None) -> list[tuple[str, str]]:
+    """
+    Trie les emails par qualité décroissante et retourne max 3 paires
+    (email, quality_tag) où tag ∈ {high, medium, low}.
+
+    - high   : email finissant par @<domaine-du-site> (vraie boîte de l'entreprise)
+    - medium : email sur FAI classique (gmail, orange, etc.) — souvent le gérant
+    - low    : autre (vendor, voisin du footer, etc.) — à vérifier manuellement
+    """
+    site_domain: str | None = None
+    if site_url:
+        try:
+            netloc = urlparse(site_url).netloc.lower()
+            # Strip www. et sous-domaine éventuel pour matcher email pro
+            site_domain = netloc.lstrip("www.")
+        except Exception:
+            site_domain = None
+
+    def tag(email: str) -> str:
+        domain = email.split("@", 1)[1] if "@" in email else ""
+        if site_domain and (domain == site_domain or site_domain.endswith("." + domain) or domain.endswith("." + site_domain)):
+            return "high"
+        if domain in PERSONAL_DOMAINS:
+            return "medium"
+        return "low"
+
+    ranked = sorted(emails, key=lambda e: ({"high": 0, "medium": 1, "low": 2}[tag(e)], e))
+    return [(e, tag(e)) for e in ranked[:3]]
 
 
 def fetch(url: str) -> str | None:
@@ -134,7 +189,7 @@ def fetch(url: str) -> str | None:
 
 
 def scrape_prospect(row: dict) -> dict:
-    """Scrape un prospect, retourne la row enrichie avec emails_found."""
+    """Scrape un prospect, retourne la row enrichie avec emails_found + quality."""
     website = normalize_url(row.get("website"))
     emails_found: set[str] = set()
     pages_visited = 0
@@ -150,7 +205,14 @@ def scrape_prospect(row: dict) -> dict:
                     if pages_visited >= 3:
                         break
             time.sleep(DELAY_BETWEEN_PROBES)
-    row["emails_found"] = ";".join(sorted(emails_found))
+
+    # Classement par qualité (high > medium > low), top 3 max
+    ranked = rank_emails(emails_found, website)
+    row["emails_found"] = ";".join(e for e, _ in ranked)
+    row["email_quality"] = ";".join(t for _, t in ranked)
+    # Meilleur email (le top 1) + sa qualité — colonnes prêtes pour UPDATE SQL
+    row["best_email"] = ranked[0][0] if ranked else ""
+    row["best_email_quality"] = ranked[0][1] if ranked else ""
     row["pages_visited"] = str(pages_visited)
     return row
 
@@ -191,10 +253,15 @@ def main():
 
     elapsed = time.monotonic() - start
     found = sum(1 for r in results if r.get("emails_found"))
+    high = sum(1 for r in results if r.get("best_email_quality") == "high")
+    medium = sum(1 for r in results if r.get("best_email_quality") == "medium")
+    low = sum(1 for r in results if r.get("best_email_quality") == "low")
     print(f"\n--- Bilan ---")
     print(f"Durée   : {elapsed:.1f}s")
     print(f"Trouvés : {found}/{len(results)} ({100 * found / max(len(results), 1):.1f} %)")
-    print(f"Total emails uniques : {sum(len(r['emails_found'].split(';')) for r in results if r.get('emails_found'))}")
+    print(f"  - high   (email du domaine) : {high}")
+    print(f"  - medium (gmail/orange/etc) : {medium}")
+    print(f"  - low    (à vérifier)       : {low}")
 
     # Écrit le CSV
     if results:
