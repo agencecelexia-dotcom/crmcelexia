@@ -27,53 +27,50 @@ SEQUENCE = [
     {
         "seq_number": 1,
         "seq_delay_details": {"delay_in_days": 0},
-        "subject": "{{first_name}}, des chantiers {{zone_label}} ?",
+        "subject": "un partenaire {{profession}} {{zone_label}}",
         "email_body": (
-            "Bonjour {{first_name}},<br><br>"
-            "Apporteur d'affaires sur votre région, j'ai 3 demandes {{profession}} "
-            "à placer {{zone_label}} ce mois-ci.<br><br>"
-            "Vos retours sont bons, je tente {{company_name}} avant d'aller voir ailleurs.<br><br>"
-            "Le fonctionnement : je vous envoie les dossiers, vous filtrez ce qui "
-            "vous intéresse. Aucun engagement de votre côté. Commission uniquement "
-            "si vous signez le devis avec le client — sinon vous ne me devez rien.<br><br>"
-            "Répondez juste \"ok\" et je vous bascule le 1er dossier.<br><br>"
+            "{{first_name}},<br><br>"
+            "Je cherche un {{profession}} sérieux {{zone_label}} avec qui bosser sur la durée.<br><br>"
+            "J'ai régulièrement des particuliers à placer dans le coin et je préfère "
+            "travailler avec une seule boîte qui connaît la zone, plutôt que d'éparpiller.<br><br>"
+            "{{company_name}} est remontée plusieurs fois quand j'ai regardé qui était "
+            "actif dans le secteur.<br><br>"
+            "Tu serais ouvert à en discuter, ou c'est pas le moment ?<br><br>"
             "Thomas"
         ),
     },
     {
         "seq_number": 2,
         "seq_delay_details": {"delay_in_days": 3},
-        "subject": "Re: {{first_name}}, des chantiers {{zone_label}} ?",
+        "subject": "Re: un partenaire {{profession}} {{zone_label}}",
         "email_body": (
             "{{first_name}},<br><br>"
-            "Le 1er dossier sort fin de semaine, après je le bascule à un autre.<br><br>"
-            "Yes / no, je vous l'envoie ?<br><br>"
+            "Tu reçois sûrement pas mal de mails comme celui-là, donc je fais court.<br><br>"
+            "Question simple : t'as de la place pour quelques chantiers en plus en ce moment, "
+            "ou t'es saturé ?<br><br>"
             "Thomas"
         ),
     },
     {
         "seq_number": 3,
         "seq_delay_details": {"delay_in_days": 4},
-        "subject": "Re: {{first_name}}, des chantiers {{zone_label}} ?",
+        "subject": "Re: un partenaire {{profession}} {{zone_label}}",
         "email_body": (
             "{{first_name}},<br><br>"
-            "Pas de souci si c'est pas le bon moment.<br><br>"
-            "Si vous voulez qu'on reste en contact pour plus tard, dites-le en 1 mot — "
-            "je vous re-contacte dès qu'une demande {{profession}} repasse {{zone_label}}.<br><br>"
-            "Sinon je n'insiste pas.<br><br>"
+            "Je vais arrêter de t'écrire, promis.<br><br>"
+            "Avant ça : ce serait une mauvaise idée que je garde ton contact pour t'envoyer "
+            "un client {{zone_label}} quand l'occasion se présente ?<br><br>"
             "Thomas"
         ),
     },
     {
         "seq_number": 4,
         "seq_delay_details": {"delay_in_days": 7},
-        "subject": "Re: {{first_name}}, des chantiers {{zone_label}} ?",
+        "subject": "Re: un partenaire {{profession}} {{zone_label}}",
         "email_body": (
             "{{first_name}},<br><br>"
-            "Dernière relance promis.<br><br>"
-            "Qui chez {{company_name}} prend les appels d'apporteurs en ce moment ?<br><br>"
-            "Si c'est pas vous, dites-moi juste le bon contact — je n'embête plus "
-            "la mauvaise personne.<br><br>"
+            "Je me suis peut-être trompé d'interlocuteur chez {{company_name}}.<br><br>"
+            "Si quelqu'un d'autre gère les nouveaux chantiers, tu peux me rediriger ?<br><br>"
             "Thomas"
         ),
     },
