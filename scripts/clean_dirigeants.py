@@ -10,12 +10,13 @@ Lit : data/prospects-dirigeants.csv
 """
 from __future__ import annotations
 import csv
+import os
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-IN_CSV = ROOT / "data" / "prospects-dirigeants.csv"
-OUT_CSV = ROOT / "data" / "prospects-dirigeants-clean.csv"
+IN_CSV = Path(os.environ.get("CLEAN_DIR_INPUT", str(ROOT / "data" / "prospects-dirigeants.csv")))
+OUT_CSV = Path(os.environ.get("CLEAN_DIR_OUTPUT", str(ROOT / "data" / "prospects-dirigeants-clean.csv")))
 
 # Tokens-marqueurs : on coupe le nom dès qu'on en croise un (après les noms initiaux)
 TRUNCATE_WORDS = re.compile(

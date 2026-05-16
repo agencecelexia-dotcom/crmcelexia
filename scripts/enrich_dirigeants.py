@@ -18,6 +18,7 @@ Usage :
 """
 from __future__ import annotations
 import csv
+import os
 import re
 import sys
 import time
@@ -34,8 +35,8 @@ from bs4 import BeautifulSoup  # type: ignore
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 ROOT = Path(__file__).resolve().parent.parent
-IN_CSV = ROOT / "data" / "prospects-emails-final.csv"
-OUT_CSV = ROOT / "data" / "prospects-dirigeants.csv"
+IN_CSV = Path(os.environ.get("DIRIGEANTS_INPUT", str(ROOT / "data" / "prospects-emails-final.csv")))
+OUT_CSV = Path(os.environ.get("DIRIGEANTS_OUTPUT", str(ROOT / "data" / "prospects-dirigeants.csv")))
 
 PROBE_PATHS = [
     "/mentions-legales",
