@@ -17,6 +17,7 @@ Usage :
 """
 from __future__ import annotations
 import csv
+import os
 import re
 import sys
 import time
@@ -28,8 +29,8 @@ from pathlib import Path
 import dns.resolver
 
 ROOT = Path(__file__).resolve().parent.parent
-IN_CSV = ROOT / "data" / "prospects-emails-clean.csv"
-OUT_CSV = ROOT / "data" / "prospects-emails-final.csv"
+IN_CSV = Path(os.environ.get("VALIDATE_INPUT", str(ROOT / "data" / "prospects-emails-clean.csv")))
+OUT_CSV = Path(os.environ.get("VALIDATE_OUTPUT", str(ROOT / "data" / "prospects-emails-final.csv")))
 
 EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 

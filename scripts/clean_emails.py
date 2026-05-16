@@ -13,6 +13,7 @@ Usage :
 """
 from __future__ import annotations
 import csv
+import os
 import re
 import sys
 import urllib.parse
@@ -20,8 +21,8 @@ from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-IN_CSV = ROOT / "data" / "prospects-emails-enrichis.csv"
-OUT_CSV = ROOT / "data" / "prospects-emails-clean.csv"
+IN_CSV = Path(os.environ.get("CLEAN_INPUT", str(ROOT / "data" / "prospects-emails-enrichis.csv")))
+OUT_CSV = Path(os.environ.get("CLEAN_OUTPUT", str(ROOT / "data" / "prospects-emails-clean.csv")))
 
 BLOCKLIST_SUFFIXES = {
     "@example.com", "@test.com", "@domain.com", "@mysite.com", "@monsite.com",

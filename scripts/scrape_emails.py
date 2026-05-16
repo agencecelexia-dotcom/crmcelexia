@@ -20,6 +20,7 @@ mentionné au 1er contact (intérêt légitime, art. 6.1.f).
 from __future__ import annotations
 import argparse
 import csv
+import os
 import re
 import sys
 import time
@@ -35,8 +36,9 @@ from bs4 import BeautifulSoup
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 ROOT = Path(__file__).resolve().parent.parent
-INPUT_CSV = ROOT / "data" / "prospects-non-contactes.csv"
-OUTPUT_CSV = ROOT / "data" / "prospects-emails-enrichis.csv"
+# Permet d'override les chemins via env vars (utile pour pipelines alternatifs)
+INPUT_CSV = Path(os.environ.get("SCRAPE_INPUT", str(ROOT / "data" / "prospects-non-contactes.csv")))
+OUTPUT_CSV = Path(os.environ.get("SCRAPE_OUTPUT", str(ROOT / "data" / "prospects-emails-enrichis.csv")))
 
 # Pages courantes où les emails se cachent (top 5 les plus rentables).
 # Après mesure : 90% des emails trouvés viennent de home + /contact + /mentions-legales.
