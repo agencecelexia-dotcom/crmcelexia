@@ -245,7 +245,10 @@ export async function generateContract(data: ContractData, options?: { clientSig
   drawBullet(state, `Date de signature ou d'acceptation du devis`)
   drawParagraph(state, `Cette transmission s'effectue par tout moyen écrit (email ou SMS). En cas d'omission ou de retard répété 48 heures après une relance infructueuse, Agence Celexia est en droit de suspendre les prestations.`)
 
-  drawSubHeading(state, '4.3 — Facturation et paiement')
+  drawSubHeading(state, '4.3 — Vérification directe auprès des Leads')
+  drawParagraph(state, `Agence Celexia se réserve le droit de contacter directement, par téléphone ou par email, tout Lead transmis au Client, à l'effet de vérifier si un contrat a été conclu avec ce dernier. Le Client reconnaît expressément ce droit et s'engage à ne pas s'y opposer. Toute conversion établie par cette vérification rend la commission prévue à l'article 4.1 immédiatement exigible, indépendamment de toute déclaration préalable du Client.`)
+
+  drawSubHeading(state, '4.4 — Facturation et paiement')
   drawParagraph(state, `Agence Celexia établit une facture mensuelle récapitulative de l'ensemble des commissions dues au titre du mois écoulé. Le paiement est exigible dans un délai de 15 jours à compter de la réception de la facture, par virement bancaire ou tout autre moyen convenu entre les Parties.`)
   drawParagraph(state, `Tout retard de paiement entraîne de plein droit l'application de pénalités de retard au taux d'intérêt légal en vigueur, ainsi qu'une indemnité forfaitaire pour frais de recouvrement de 40 €, conformément à l'article L.441-10 du Code de commerce.`)
 
@@ -270,7 +273,7 @@ export async function generateContract(data: ContractData, options?: { clientSig
   drawBullet(state, `Déclarer loyalement et sans délai l'ensemble des contrats signés issus des Leads convertis`)
   drawBullet(state, `Maintenir un niveau de réactivité satisfaisant pour répondre aux contacts entrants`)
   drawBullet(state, `Informer Agence Celexia de tout changement dans son activité (zone, services, disponibilités)`)
-  drawBullet(state, `Régler les factures dans les délais convenus à l'article 4.3`)
+  drawBullet(state, `Régler les factures dans les délais convenus à l'article 4.4`)
 
   // 7. RESPONSABILITÉ
   drawHeading(state, '7. RESPONSABILITÉ ET GARANTIES')
