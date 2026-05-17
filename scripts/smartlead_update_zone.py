@@ -22,8 +22,9 @@ ORIG_CSV = ROOT / "data" / "prospects-non-contactes.csv"
 API_BASE = "https://server.smartlead.ai/api/v1"
 CAMPAIGN_ID = 3338241
 
-# Séquence v8 : frame B + corrections anti-vente (pas de "—", pas de "Êtes-vous intéressé",
-# pas de "et je vous explique", remplacement des "Un mot suffit")
+# Séquence v8.5 : labels "société de X" par niche (custom field societe_label / societes_label)
+# Corrections : paysagiste → "société de paysagisme", reformulation "à qui transmettre",
+# "finir mon tour" (évite collision avec niche clôture).
 SEQUENCE = [
     {
         "seq_number": 1,
@@ -31,9 +32,9 @@ SEQUENCE = [
         "subject": "{{ville}}, vous prenez encore des clients ?",
         "email_body": (
             "{{opening}},<br><br>"
-            "Je cherche UN partenaire {{profession}} fiable {{zone_label}} pour orienter "
-            "des particuliers vers lui en direct. Un seul partenaire par secteur, pas plus.<br><br>"
-            "Avant d'aller voir ailleurs, je préfère tester ceux déjà installés. "
+            "Je cherche UNE {{societe_label}} fiable {{zone_label}} à qui transmettre "
+            "des particuliers en direct. Un seul partenaire par secteur, pas plus.<br><br>"
+            "Avant d'aller voir ailleurs, je préfère tester celles déjà installées. "
             "{{company_name}} est dans ma sélection pour {{ville}}.<br><br>"
             "Deux questions simples :<br><br>"
             "1. Vous avez encore de la place pour de nouveaux chantiers ce trimestre ?<br>"
@@ -49,9 +50,9 @@ SEQUENCE = [
         "subject": "{{ville}}, votre place reste ouverte ?",
         "email_body": (
             "{{opening}},<br><br>"
-            "Petit rappel : je cherche un partenaire {{profession}} sur {{ville}}. "
-            "Le principe est simple, un particulier de votre zone qui cherche un "
-            "professionnel {{profession}} pour un projet vous appelle directement.<br><br>"
+            "Petit rappel : je cherche une {{societe_label}} sur {{ville}}. "
+            "Le principe est simple, un particulier de votre zone qui cherche une "
+            "{{societe_label}} pour un projet vous appelle directement.<br><br>"
             "Je finalise mon choix ces prochains jours. {{company_name}} en fait toujours partie.<br><br>"
             "On peut en parler quelques minutes ?<br><br>"
             "Thomas"
@@ -65,7 +66,7 @@ SEQUENCE = [
             "{{opening}},<br><br>"
             "Pas de réponse de votre côté. Je préfère vous demander franchement, "
             "vaut-il mieux que je raye {{company_name}} de ma sélection {{zone_label}} "
-            "et que je regarde un autre partenaire {{profession}} ?<br><br>"
+            "et que je regarde une autre {{societe_label}} ?<br><br>"
             "Dites-moi.<br><br>"
             "Thomas"
         ),
@@ -76,7 +77,7 @@ SEQUENCE = [
         "subject": "dernière question, {{company_name}}",
         "email_body": (
             "{{opening}},<br><br>"
-            "Avant de clôturer mon tour des partenaires {{profession}} à {{ville}}, "
+            "Avant de finir mon tour des {{societes_label}} à {{ville}}, "
             "une question simple, est-ce vous qui décidez de prendre de nouveaux chantiers "
             "chez {{company_name}}, ou je devrais parler à quelqu'un d'autre ?<br><br>"
             "Dites-moi.<br><br>"
@@ -84,6 +85,15 @@ SEQUENCE = [
         ),
     },
 ]
+
+# Mapping niche → (singulier, pluriel) pour le custom_field societe_label
+SOCIETE_LABELS_BY_NICHE = {
+    "paysagiste":   ("société de paysagisme", "sociétés de paysagisme"),
+    "pisciniste":   ("société de piscine",    "sociétés de piscine"),
+    "chauffagiste": ("société de chauffage",  "sociétés de chauffage"),
+    "cloture":      ("société de clôture",    "sociétés de clôture"),
+    "bardage":      ("société de bardage",    "sociétés de bardage"),
+}
 
 
 def load_api_key() -> str:
