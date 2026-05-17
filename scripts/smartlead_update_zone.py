@@ -32,8 +32,8 @@ SEQUENCE = [
         "subject": "{{ville}}, vous prenez encore des clients ?",
         "email_body": (
             "{{opening}},<br><br>"
-            "Je cherche UNE {{societe_label}} fiable {{zone_label}} à qui transmettre "
-            "des particuliers en direct. Un seul partenaire par secteur, pas plus.<br><br>"
+            "Je cherche UNE {{societe_label}} fiable {{zone_label}} pour orienter "
+            "des particuliers vers elle en direct. Un seul partenaire par secteur, pas plus.<br><br>"
             "Avant d'aller voir ailleurs, je préfère tester celles déjà installées. "
             "{{company_name}} est dans ma sélection pour {{ville}}.<br><br>"
             "Deux questions simples :<br><br>"
@@ -77,7 +77,7 @@ SEQUENCE = [
         "subject": "dernière question, {{company_name}}",
         "email_body": (
             "{{opening}},<br><br>"
-            "Avant de finir mon tour des {{societes_label}} à {{ville}}, "
+            "Avant de clôturer mon tour des {{societes_label}} à {{ville}}, "
             "une question simple, est-ce vous qui décidez de prendre de nouveaux chantiers "
             "chez {{company_name}}, ou je devrais parler à quelqu'un d'autre ?<br><br>"
             "Dites-moi.<br><br>"
