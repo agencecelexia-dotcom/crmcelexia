@@ -247,6 +247,22 @@ export function ProspectDetailPage() {
     return prospect.custom_fields.loss_reason as { reason: LossReason; notes?: string }
   }, [prospect])
 
+  // Concurrents LSA (issu de la matrice scrape, custom_fields)
+  const competitorsLsa = useMemo(() => {
+    const v = prospect?.custom_fields?.competitors_count_lsa
+    return typeof v === 'number' ? v : (typeof v === 'string' && v ? parseInt(v, 10) : null)
+  }, [prospect])
+
+  // Date dernier email envoyé via Smartlead
+  const smartleadSentAt = useMemo(() => {
+    const v = prospect?.custom_fields?.smartlead_last_sent_at
+    return typeof v === 'string' && v ? new Date(v) : null
+  }, [prospect])
+  const smartleadStatus = useMemo(() => {
+    const v = prospect?.custom_fields?.smartlead_status
+    return typeof v === 'string' ? v : null
+  }, [prospect])
+
   // Check if prospect has no planned action
   const hasNoPlannedAction = useMemo(() => {
     if (!prospect) return false
@@ -530,6 +546,35 @@ export function ProspectDetailPage() {
             }`}>
               <Zap className="h-3 w-3 mr-1" />
               Score: {savedLeadScore.total_score}/100
+            </Badge>
+          )}
+          {competitorsLsa != null && (
+            <Badge
+              title="Nombre de concurrents Google Local Services Ads sur la zone du prospect"
+              className={`text-xs ${
+                competitorsLsa === 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                competitorsLsa === 1 ? 'bg-green-100 text-green-800' :
+                competitorsLsa === 2 ? 'bg-amber-100 text-amber-800' :
+                'bg-red-100 text-red-800'
+              }`}
+            >
+              ⚔️ {competitorsLsa} concurrent{competitorsLsa > 1 ? 's' : ''} LSA
+            </Badge>
+          )}
+          {smartleadSentAt && (
+            <Badge
+              title={`Email Smartlead${smartleadStatus ? ` (${smartleadStatus})` : ''} envoyé le ${smartleadSentAt.toLocaleDateString('fr-FR')}`}
+              className={`text-xs ${
+                smartleadStatus === 'replied' ? 'bg-purple-100 text-purple-800' :
+                smartleadStatus === 'opened' ? 'bg-blue-100 text-blue-800' :
+                smartleadStatus === 'bounced' ? 'bg-red-100 text-red-800' :
+                'bg-slate-100 text-slate-700'
+              }`}
+            >
+              {smartleadStatus === 'replied' ? '💬 Répondu' :
+               smartleadStatus === 'opened' ? '👁️ Ouvert' :
+               smartleadStatus === 'bounced' ? '⚠️ Bounce' :
+               '📧 Envoyé'} {smartleadSentAt.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
             </Badge>
           )}
         </div>

@@ -26,6 +26,8 @@ TO_ENRICH = ROOT / "data" / "lsa-05-to-enrich.csv"
 TO_INSERT = ROOT / "data" / "lsa-07-emails-validated.csv"  # output du pipeline emails
 
 BATCH_SIZE = 50
+# Thomas (founder agence.celexia@gmail.com) — owner par défaut des prospects importés
+DEFAULT_COMMERCIAL_ID = "2254659b-0fbb-49a7-9e4c-e38d21b9b154"
 
 
 def load_env() -> tuple[str, str]:
@@ -181,6 +183,7 @@ def do_insert(supabase, dry_run: bool) -> None:
             "contact_email": best_email,
             "status": "nouveau",
             "source": "csv_import",
+            "commercial_id": DEFAULT_COMMERCIAL_ID,
             "custom_fields": {
                 **build_custom_fields(r),
                 "email_quality": r.get("best_email_quality") or None,
