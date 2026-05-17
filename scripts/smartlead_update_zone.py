@@ -22,12 +22,13 @@ ORIG_CSV = ROOT / "data" / "prospects-non-contactes.csv"
 API_BASE = "https://server.smartlead.ai/api/v1"
 CAMPAIGN_ID = 3338241
 
-# Séquence v7 finale : frame B "sélection inverse" + principe "appel direct"
+# Séquence v8 : frame B + corrections anti-vente (pas de "—", pas de "Êtes-vous intéressé",
+# pas de "et je vous explique", remplacement des "Un mot suffit")
 SEQUENCE = [
     {
         "seq_number": 1,
         "seq_delay_details": {"delay_in_days": 0},
-        "subject": "{{ville}} — vous prenez encore des clients ?",
+        "subject": "{{ville}}, vous prenez encore des clients ?",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
             "Je cherche UN {{profession}} fiable {{zone_label}} pour orienter des "
@@ -38,47 +39,47 @@ SEQUENCE = [
             "1. Vous avez encore de la place pour de nouveaux chantiers ce trimestre ?<br>"
             "2. Vous répondez vite quand un particulier vous sollicite ?<br><br>"
             "Si c'est non sur l'un des deux, aucun souci, je passe au suivant. "
-            "Si c'est oui, dites-le moi en une ligne et je vous explique.<br><br>"
+            "Si c'est oui, dites-le moi en une ligne.<br><br>"
             "Thomas"
         ),
     },
     {
         "seq_number": 2,
         "seq_delay_details": {"delay_in_days": 3},
-        "subject": "{{ville}} — votre place reste ouverte ?",
+        "subject": "{{ville}}, votre place reste ouverte ?",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
             "Petit rappel : je cherche un {{profession}} partenaire sur {{ville}}. "
-            "Le principe : un particulier de votre zone qui cherche un {{profession}} "
+            "Le principe est simple, un particulier de votre zone qui cherche un {{profession}} "
             "pour un projet vous appelle directement. Vous prenez ou non, vous décidez.<br><br>"
             "Je finalise mon choix ces prochains jours. {{company_name}} en fait toujours partie.<br><br>"
-            "Êtes-vous intéressé ?<br><br>"
+            "On peut en parler quelques minutes ?<br><br>"
             "Thomas"
         ),
     },
     {
         "seq_number": 3,
         "seq_delay_details": {"delay_in_days": 4},
-        "subject": "{{ville}} — votre silence vaut un non ?",
+        "subject": "{{ville}}, votre silence vaut un non ?",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
-            "Aucune réponse de votre côté — je préfère vous demander franchement : "
+            "Pas de réponse de votre côté. Je préfère vous demander franchement, "
             "vaut-il mieux que je raye {{company_name}} de ma sélection {{zone_label}} "
             "et que je regarde un autre {{profession}} ?<br><br>"
-            "Un mot suffit.<br><br>"
+            "Dites-moi.<br><br>"
             "Thomas"
         ),
     },
     {
         "seq_number": 4,
         "seq_delay_details": {"delay_in_days": 7},
-        "subject": "dernière question — {{company_name}}",
+        "subject": "dernière question, {{company_name}}",
         "email_body": (
             "Bonjour {{first_name}},<br><br>"
             "Avant de clôturer mon tour des {{profession}}s à {{ville}}, une question "
-            "simple : est-ce vous qui décidez de prendre de nouveaux chantiers chez "
+            "simple, est-ce vous qui décidez de prendre de nouveaux chantiers chez "
             "{{company_name}}, ou je devrais parler à quelqu'un d'autre ?<br><br>"
-            "Un mot suffit.<br><br>"
+            "Dites-moi.<br><br>"
             "Thomas"
         ),
     },
