@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase/client'
 import type { Prospect } from '@/types'
+import type { RealtimePostgresUpdatePayload } from '@supabase/supabase-js'
 
 /**
  * Liste les prospects ayant répondu via Smartlead et pas encore traités.
@@ -36,7 +37,7 @@ export function useSmartleadInbox() {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'prospects' },
-        (payload) => {
+        (payload: RealtimePostgresUpdatePayload<Record<string, unknown>>) => {
           // On refetch si custom_fields a changé
           const oldCf = (payload.old as { custom_fields?: Record<string, unknown> })?.custom_fields ?? {}
           const newCf = (payload.new as { custom_fields?: Record<string, unknown> })?.custom_fields ?? {}

@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Phone, Check, ExternalLink, MessageCircle, Mail, Inbox } from 'lucide-react'
 import { useSmartleadInbox, useMarkReplyHandled, useRequestNotificationPermission } from '../hooks/use-smartlead-inbox'
-import { describeError } from '@/lib/errors'
+import { describeError } from '@/features/portal/lib/error-utils'
 import { toast } from 'sonner'
 import { formatPhone } from '@/lib/format'
 
