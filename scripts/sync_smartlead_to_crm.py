@@ -107,29 +107,38 @@ def get_lead_message_history(api_key: str, campaign_id: int, lead_id: int) -> li
         return []
 
 
-def derive_status(lead_obj: dict) -> tuple[str, str | None, int, int]:
-    """Extrait (status, last_sent_at, open_count, reply_count) du lead Smartlead."""
+def derive_status(lead_obj: dict) -> tuple[str | None, str | None, int, int]:
+    """Extrait (status, last_sent_at, open_count, reply_count) du lead Smartlead.
+
+    IMPORTANT : Smartlead expose un champ `status` au niveau campaign_lead_map
+    qui vaut "STARTED" pour les leads pas encore envoyés. Ne PAS conclure
+    "sent" par défaut — l'envoi réel est tracké via webhook EMAIL_SENT.
+    """
     inner = lead_obj.get("lead", {}) or lead_obj
-    # Smartlead expose ces compteurs dans `lead_campaign_data` ou `lead`
     data = lead_obj.get("lead_campaign_data") or {}
     open_count = int(data.get("open_count", 0) or 0)
     reply_count = int(data.get("reply_count", 0) or 0)
-    sent_at = data.get("created_at") or inner.get("created_at")
+    sent_count = int(data.get("sent_count", 0) or 0)
+    sent_at = data.get("last_sent_at") or data.get("sent_at")
     is_replied = data.get("is_replied") or reply_count > 0
     is_bounced = data.get("is_bounced") or False
     is_unsubscribed = data.get("is_unsubscribed") or False
     is_opened = open_count > 0
+    # Statut au niveau campagne (STARTED = pas envoyé)
+    map_status = (lead_obj.get("status") or "").upper()
+
     if is_unsubscribed:
-        status = "unsubscribed"
-    elif is_bounced:
-        status = "bounced"
-    elif is_replied:
-        status = "replied"
-    elif is_opened:
-        status = "opened"
-    else:
-        status = "sent"
-    return status, sent_at, open_count, reply_count
+        return ("unsubscribed", sent_at, open_count, reply_count)
+    if is_bounced:
+        return ("bounced", sent_at, open_count, reply_count)
+    if is_replied:
+        return ("replied", sent_at, open_count, reply_count)
+    if is_opened:
+        return ("opened", sent_at, open_count, reply_count)
+    if sent_count > 0 and map_status not in ("STARTED", "QUEUED", ""):
+        return ("sent", sent_at, open_count, reply_count)
+    # Pas encore envoyé → on ne renseigne aucun statut
+    return (None, None, open_count, reply_count)
 
 
 def main() -> None:
@@ -195,14 +204,17 @@ def main() -> None:
 
             status, sent_at, opens, replies = derive_status(lead_obj)
             existing_cf = db_row.get("custom_fields") or {}
-            new_cf = {
-                **existing_cf,
-                "smartlead_campaign_id": cid,
-                "smartlead_status": status,
-                "smartlead_last_sent_at": sent_at,
-                "smartlead_open_count": opens,
-                "smartlead_reply_count": replies,
-            }
+            new_cf = {**existing_cf, "smartlead_campaign_id": cid}
+            # On n'écrit smartlead_status QUE si on a une vraie info d'envoi
+            # (sinon le webhook le fera correctement au 1er event réel)
+            if status is not None:
+                new_cf["smartlead_status"] = status
+                if sent_at:
+                    new_cf["smartlead_last_sent_at"] = sent_at
+                if opens > 0:
+                    new_cf["smartlead_open_count"] = opens
+                if replies > 0:
+                    new_cf["smartlead_reply_count"] = replies
             updates.append((db_row["id"], new_cf))
 
         print(f"  Matchés en DB   : {len(updates)}")
