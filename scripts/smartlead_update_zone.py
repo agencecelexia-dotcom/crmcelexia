@@ -90,7 +90,7 @@ SEQUENCE = [
 SOCIETE_LABELS_BY_NICHE = {
     "paysagiste":   ("société de paysagisme", "sociétés de paysagisme"),
     "pisciniste":   ("société de piscine",    "sociétés de piscine"),
-    "chauffagiste": ("société de chauffage",  "sociétés de chauffage"),
+    "chauffagiste": ("société de CVC",        "sociétés de CVC"),
     "cloture":      ("société de clôture",    "sociétés de clôture"),
     "bardage":      ("société de bardage",    "sociétés de bardage"),
 }
