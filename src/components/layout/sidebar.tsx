@@ -29,6 +29,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { useUndo } from '@/hooks/use-undo'
 import { toast } from 'sonner'
+import { SmartleadInboxNavLink } from './smartlead-inbox-nav-link'
 
 interface NavItem {
   to: string
@@ -53,6 +54,7 @@ const navSections: NavSection[] = [
     title: 'Commercial',
     items: [
       { to: '/prospects', label: 'Prospects', icon: <Phone className="h-4 w-4" /> },
+      { to: '__SMARTLEAD_INBOX__', label: 'Inbox Smartlead', icon: null },
       { to: '/rdv', label: 'Rendez-vous', icon: <Calendar className="h-4 w-4" /> },
       { to: '/calendar', label: 'Calendrier', icon: <CalendarDays className="h-4 w-4" /> },
       { to: '/opportunities', label: 'Opportunités', icon: <Zap className="h-4 w-4" /> },
@@ -121,25 +123,30 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   </p>
                 )}
                 <div className="space-y-0.5">
-                  {visibleItems.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      end={item.to === '/settings'}
-                      className={({ isActive }) =>
-                        cn(
-                          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                          isActive
-                            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
-                        )
-                      }
-                      onClick={onNavigate}
-                    >
-                      {item.icon}
-                      {item.label}
-                    </NavLink>
-                  ))}
+                  {visibleItems.map((item) => {
+                    if (item.to === '__SMARTLEAD_INBOX__') {
+                      return <SmartleadInboxNavLink key="smartlead-inbox" onNavigate={onNavigate} />
+                    }
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.to === '/settings'}
+                        className={({ isActive }) =>
+                          cn(
+                            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                            isActive
+                              ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                          )
+                        }
+                        onClick={onNavigate}
+                      >
+                        {item.icon}
+                        {item.label}
+                      </NavLink>
+                    )
+                  })}
                 </div>
               </div>
             )

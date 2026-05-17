@@ -14,6 +14,7 @@ import { PortalLayout } from '@/features/portal/components/portal-layout'
 const DashboardPage = lazy(() => import('@/features/dashboard/pages/dashboard-page').then(m => ({ default: m.DashboardPage })))
 const ProspectsListPage = lazy(() => import('@/features/prospection/pages/prospects-list-page').then(m => ({ default: m.ProspectsListPage })))
 const ProspectDetailPage = lazy(() => import('@/features/prospection/pages/prospect-detail-page').then(m => ({ default: m.ProspectDetailPage })))
+const SmartleadInboxPage = lazy(() => import('@/features/prospection/pages/smartlead-inbox-page').then(m => ({ default: m.SmartleadInboxPage })))
 const ProspectCreatePage = lazy(() => import('@/features/prospection/pages/prospect-create-page').then(m => ({ default: m.ProspectCreatePage })))
 const CsvImportPage = lazy(() => import('@/features/prospection/pages/csv-import-page').then(m => ({ default: m.CsvImportPage })))
 const RdvListPage = lazy(() => import('@/features/rendez-vous/pages/rdv-list-page').then(m => ({ default: m.RdvListPage })))
@@ -148,6 +149,10 @@ export const router = createBrowserRouter([
           {
             path: '/prospects',
             element: <LazyPage><ProspectsListPage /></LazyPage>,
+          },
+          {
+            path: '/prospects/inbox',
+            element: <LazyPage><SmartleadInboxPage /></LazyPage>,
           },
           {
             path: '/prospects/new',
