@@ -51,7 +51,7 @@ SEQUENCE = [
             "Bonjour {{first_name}},<br><br>"
             "Petit rappel : je cherche un {{profession}} partenaire sur {{ville}}. "
             "Le principe est simple, un particulier de votre zone qui cherche un {{profession}} "
-            "pour un projet vous appelle directement. Vous prenez ou non, vous décidez.<br><br>"
+            "pour un projet vous appelle directement.<br><br>"
             "Je finalise mon choix ces prochains jours. {{company_name}} en fait toujours partie.<br><br>"
             "On peut en parler quelques minutes ?<br><br>"
             "Thomas"
