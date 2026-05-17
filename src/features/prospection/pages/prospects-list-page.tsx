@@ -779,6 +779,49 @@ export function ProspectsListPage() {
                               {prospect.contact_firstname} {prospect.contact_name}
                             </span>
                           )}
+                          {(() => {
+                            const cf = prospect.custom_fields ?? {}
+                            const compRaw = cf.competitors_count_lsa
+                            const comp = typeof compRaw === 'number' ? compRaw : (typeof compRaw === 'string' && compRaw ? parseInt(compRaw, 10) : null)
+                            const slStatus = typeof cf.smartlead_status === 'string' ? cf.smartlead_status : null
+                            const slSentAt = typeof cf.smartlead_last_sent_at === 'string' ? cf.smartlead_last_sent_at : null
+                            if (comp == null && !slStatus) return null
+                            return (
+                              <div className="mt-1 flex items-center gap-1.5">
+                                {comp != null && (
+                                  <span
+                                    title={`${comp} concurrent${comp > 1 ? 's' : ''} Google LSA sur la zone`}
+                                    className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                                      comp === 0 ? 'bg-emerald-100 text-emerald-800' :
+                                      comp === 1 ? 'bg-green-100 text-green-800' :
+                                      comp === 2 ? 'bg-amber-100 text-amber-800' :
+                                      'bg-red-100 text-red-800'
+                                    }`}
+                                  >
+                                    ⚔ {comp}
+                                  </span>
+                                )}
+                                {slStatus && (
+                                  <span
+                                    title={`Smartlead : ${slStatus}${slSentAt ? ' · ' + new Date(slSentAt).toLocaleDateString('fr-FR') : ''}`}
+                                    className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                                      slStatus === 'replied' ? 'bg-purple-100 text-purple-800' :
+                                      slStatus === 'opened' ? 'bg-blue-100 text-blue-800' :
+                                      slStatus === 'bounced' ? 'bg-red-100 text-red-800' :
+                                      slStatus === 'unsubscribed' ? 'bg-slate-200 text-slate-700' :
+                                      'bg-slate-100 text-slate-700'
+                                    }`}
+                                  >
+                                    {slStatus === 'replied' ? '💬 RÉPONDU' :
+                                     slStatus === 'opened' ? '👁 ouvert' :
+                                     slStatus === 'bounced' ? '⚠ bounce' :
+                                     slStatus === 'unsubscribed' ? '✋ unsub' :
+                                     '📧 envoyé'}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })()}
                         </TableCell>
                         <TableCell>
                           <a
