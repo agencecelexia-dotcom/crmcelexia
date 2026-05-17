@@ -30,7 +30,7 @@ SEQUENCE = [
         "seq_delay_details": {"delay_in_days": 0},
         "subject": "{{ville}}, vous prenez encore des clients ?",
         "email_body": (
-            "Bonjour {{first_name}},<br><br>"
+            "{{opening}},<br><br>"
             "Je cherche UN {{profession}} fiable {{zone_label}} pour orienter des "
             "particuliers vers lui en direct. Un seul partenaire par secteur, pas plus.<br><br>"
             "Avant d'aller voir ailleurs, je préfère tester ceux déjà installés. "
@@ -48,7 +48,7 @@ SEQUENCE = [
         "seq_delay_details": {"delay_in_days": 3},
         "subject": "{{ville}}, votre place reste ouverte ?",
         "email_body": (
-            "Bonjour {{first_name}},<br><br>"
+            "{{opening}},<br><br>"
             "Petit rappel : je cherche un {{profession}} partenaire sur {{ville}}. "
             "Le principe est simple, un particulier de votre zone qui cherche un {{profession}} "
             "pour un projet vous appelle directement.<br><br>"
@@ -62,7 +62,7 @@ SEQUENCE = [
         "seq_delay_details": {"delay_in_days": 4},
         "subject": "{{ville}}, votre silence vaut un non ?",
         "email_body": (
-            "Bonjour {{first_name}},<br><br>"
+            "{{opening}},<br><br>"
             "Pas de réponse de votre côté. Je préfère vous demander franchement, "
             "vaut-il mieux que je raye {{company_name}} de ma sélection {{zone_label}} "
             "et que je regarde un autre {{profession}} ?<br><br>"
@@ -75,7 +75,7 @@ SEQUENCE = [
         "seq_delay_details": {"delay_in_days": 7},
         "subject": "dernière question, {{company_name}}",
         "email_body": (
-            "Bonjour {{first_name}},<br><br>"
+            "{{opening}},<br><br>"
             "Avant de clôturer mon tour des {{profession}}s à {{ville}}, une question "
             "simple, est-ce vous qui décidez de prendre de nouveaux chantiers chez "
             "{{company_name}}, ou je devrais parler à quelqu'un d'autre ?<br><br>"
@@ -128,17 +128,19 @@ def load_leads() -> list[dict]:
             if r.get("status") not in ("ok_insee", "ok_mentions"):
                 continue
             first = title_case(r.get("dirigeant_prenom", ""))
-            if not first or len(first) < 2:
-                continue
+            # Plus de skip si pas de prénom : on accepte tous les leads avec email
+            # mais on calcule le {{opening}} avec fallback.
+            opening = f"Bonjour {first}" if first and len(first) >= 2 else "Bonjour"
             o = orig.get(r["id"], {})
             leads.append({
-                "first_name": first,
+                "first_name": first or "",
                 "last_name": clean_nom(r.get("dirigeant_nom", "")),
                 "email": r["best_email"].strip().lower(),
                 "company_name": r.get("company_name", "").strip(),
                 "phone_number": o.get("phone", ""),
                 "website": r.get("website", ""),
                 "custom_fields": {
+                    "opening": opening,  # "Bonjour Romain" OU "Bonjour" — utilisé comme "{{opening}}," dans la séquence
                     "profession": normalize_profession(o.get("profession", "")),
                     "zone_label": r.get("zone_label") or "dans votre zone",
                     "ville": r.get("ville_enrichie") or "votre secteur",
