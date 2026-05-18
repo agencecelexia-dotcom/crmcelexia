@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase/client'
 import type { Client, Project, Devis, ProjectNote } from '@/types'
 import type { ClientStatus } from '@/types/enums'
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
+import { normalizePhone } from '@/lib/phone'
 
 export interface ClientFilters {
   search?: string
@@ -31,7 +32,16 @@ export async function getClients({
 
   if (filters.search) {
     const s = filters.search.replace(/[%_\\]/g, '\\$&')
-    query = query.or(`company_name.ilike.%${s}%,contact_name.ilike.%${s}%,phone.ilike.%${s}%`)
+    const sPhone = normalizePhone(filters.search)
+    const orParts = [
+      `company_name.ilike.%${s}%`,
+      `contact_name.ilike.%${s}%`,
+      `phone.ilike.%${s}%`,
+    ]
+    if (sPhone.length >= 4) {
+      orParts.push(`phone_normalized.ilike.%${sPhone}%`)
+    }
+    query = query.or(orParts.join(','))
   }
 
   if (filters.status && filters.status.length > 0) {

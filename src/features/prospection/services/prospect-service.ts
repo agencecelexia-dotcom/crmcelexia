@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase/client'
 import type { Prospect, ProspectFilters, PaginatedResponse } from '@/types'
 import { DEFAULT_PAGE_SIZE, N8N_SITE_DEPLOY_WEBHOOK } from '@/lib/constants'
+import { normalizePhone } from '@/lib/phone'
 
 interface GetProspectsParams {
   filters?: ProspectFilters
@@ -25,7 +26,17 @@ export async function getProspects({
   // Apply filters
   if (filters.search) {
     const s = filters.search.replace(/[%_\\]/g, '\\$&')
-    query = query.or(`company_name.ilike.%${s}%,phone.ilike.%${s}%,contact_name.ilike.%${s}%`)
+    const sPhone = normalizePhone(filters.search)
+    const orParts = [
+      `company_name.ilike.%${s}%`,
+      `phone.ilike.%${s}%`,
+      `contact_name.ilike.%${s}%`,
+    ]
+    if (sPhone.length >= 4) {
+      orParts.push(`phone_normalized.ilike.%${sPhone}%`)
+      orParts.push(`phone_secondary_normalized.ilike.%${sPhone}%`)
+    }
+    query = query.or(orParts.join(','))
   }
 
   if (filters.status && filters.status.length > 0) {
