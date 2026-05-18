@@ -1,0 +1,14 @@
+{
+  "total_leads": 3118,
+  "status_breakdown": {
+    "STARTED": 1822,
+    "INPROGRESS": 1295,
+    "COMPLETED": 1
+  },
+  "lead_status_breakdown": {
+    "?": 3118
+  },
+  "replied_count": 0,
+  "at_risk_count": 0,
+  "at_risk_emails": []
+}
