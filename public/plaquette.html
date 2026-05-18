@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#7C3AED" />
-  <title>Celexia — Plus de chantiers, sans lever le petit doigt</title>
-  <meta name="description" content="L'agence d'apport d'affaires pour artisans. Vous payez 10% uniquement sur ce que vous facturez. Zéro abonnement, zéro frais cachés." />
+  <title>Celexia — Publicité à la performance pour artisans</title>
+  <meta name="description" content="Génération d'appels qualifiés pour artisans. Vous payez uniquement les appels qui répondent à vos critères. De 10 € à 25 € par appel qualifié. Pas d'abonnement, pas d'engagement." />
   <link rel="icon" type="image/jpeg" href="/favicon.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -221,6 +221,42 @@
     }
     .roi-field input[type=range]:active::-webkit-slider-thumb{transform:scale(1.15)}
     .roi-field-hint{font-size:12px;color:var(--gray-3);margin-top:6px}
+    .roi-select{
+      width:100%;padding:14px 16px;border:1.5px solid var(--gray-2);border-radius:10px;
+      font-size:15px;font-family:inherit;font-weight:600;color:var(--ink);
+      background:var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%237C3AED' d='M6 8L0 0h12z'/%3E%3C/svg%3E") no-repeat right 18px center;
+      -webkit-appearance:none;appearance:none;cursor:pointer;transition:border-color .2s;
+    }
+    .roi-select:focus{outline:none;border-color:var(--violet)}
+    .roi-violet{color:#a78bfa !important}
+    .roi-green{color:#34d399 !important}
+    .roi-blue{color:#60a5fa !important}
+
+    .roi-projection{
+      background:var(--white);border-radius:24px;padding:36px;margin-top:24px;
+      box-shadow:var(--shadow-md);
+    }
+    .proj-title{font-size:18px;font-weight:700;margin-bottom:20px;text-align:center;color:var(--ink)}
+    .proj-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+    @media (max-width:600px){.proj-grid{grid-template-columns:repeat(2,1fr)}}
+    .proj-card{
+      background:var(--grad-soft);border:1.5px solid transparent;
+      border-radius:14px;padding:20px 14px;text-align:center;transition:all .2s;
+    }
+    .proj-card-hl{
+      background:var(--grad);border-color:var(--violet-d);
+    }
+    .proj-card-hl .proj-period,.proj-card-hl .proj-amount{color:var(--white)}
+    .proj-period{font-size:13px;color:var(--gray-3);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+    .proj-amount{font-size:20px;font-weight:800;color:var(--violet-d);font-variant-numeric:tabular-nums}
+
+    /* ============ CAL.COM ============ */
+    .cal-section{background:var(--gray-1);padding:90px 0}
+    .cal-wrap{
+      background:var(--white);border-radius:24px;padding:24px;
+      box-shadow:var(--shadow-lg);margin-top:48px;
+    }
+    #cal-embed{width:100%;min-height:680px;border-radius:16px;overflow:hidden}
 
     .roi-results{
       background:var(--ink);color:var(--white);border-radius:20px;padding:32px;
@@ -303,34 +339,34 @@
         <img src="/logocelexia.png" alt="Celexia" />
         <span>Celexia</span>
       </a>
-      <a href="#contact" class="nav-cta">Discuter de votre projet →</a>
+      <a href="#rdv" class="nav-cta">Réserver mon audit →</a>
     </div>
   </nav>
 
   <!-- ============ HERO ============ -->
   <section class="hero">
     <div class="container hero-content">
-      <div class="hero-badge">Agence d'apport d'affaires — Spécialiste artisans</div>
-      <h1>Plus de chantiers, <span class="grad">sans lever le petit doigt</span></h1>
+      <div class="hero-badge">Publicité à la performance — Spécialiste artisans</div>
+      <h1>Des appels qualifiés, <span class="grad">payés uniquement quand ils arrivent</span></h1>
       <p class="hero-sub">
-        On vous amène des prospects qualifiés et prêts à signer. Vous ne payez que <strong>10 % de commission</strong> sur ce qui rentre vraiment dans votre compte. Zéro abonnement, zéro frais d'installation, zéro engagement.
+        On vous place en tête des résultats Google sur votre zone et votre métier. Vous payez <strong>uniquement à l'appel qualifié</strong> (10 € à 25 € selon votre secteur). Pas d'abonnement, pas d'engagement, pas de budget pub à avancer.
       </p>
       <div class="hero-ctas">
         <a href="#calculateur" class="btn btn-primary">Calculer mon ROI →</a>
-        <a href="#contact" class="btn btn-secondary">Prendre rendez-vous</a>
+        <a href="#rdv" class="btn btn-secondary">Réserver mon audit gratuit</a>
       </div>
       <div class="hero-stats">
         <div class="hero-stat">
-          <div class="hero-stat-num">10 %</div>
-          <div class="hero-stat-label">Commission unique sur CA encaissé</div>
+          <div class="hero-stat-num">10-25 €</div>
+          <div class="hero-stat-label">Par appel qualifié selon secteur</div>
         </div>
         <div class="hero-stat">
           <div class="hero-stat-num">0 €</div>
-          <div class="hero-stat-label">Investissement de départ</div>
+          <div class="hero-stat-label">D'abonnement ou frais cachés</div>
         </div>
         <div class="hero-stat">
           <div class="hero-stat-num">7j</div>
-          <div class="hero-stat-label">Pour recevoir vos premiers leads</div>
+          <div class="hero-stat-label">Pour recevoir vos premiers appels</div>
         </div>
       </div>
     </div>
@@ -474,23 +510,23 @@
       <div class="trust-grid">
         <div class="trust-card fade-up">
           <div class="trust-card-num">0 €</div>
-          <h3>De frais d'installation</h3>
-          <p>Site, campagnes, équipe commerciale : on avance tout. Vous ne payez rien avant d'avoir signé votre premier chantier.</p>
-        </div>
-        <div class="trust-card fade-up">
-          <div class="trust-card-num">10 %</div>
-          <h3>De commission, point.</h3>
-          <p>Uniquement sur le CA réellement encaissé. Pas de frais cachés, pas d'abonnement, pas d'engagement annuel.</p>
+          <h3>De budget pub à avancer</h3>
+          <p>On finance et pilote toutes les campagnes Google Ads et Local Services Ads. Vous ne touchez pas à une régie publicitaire.</p>
         </div>
         <div class="trust-card fade-up">
           <div class="trust-card-num">100 %</div>
-          <h3>De transparence</h3>
-          <p>Vous voyez chaque lead, chaque appel, chaque devis dans votre espace artisan. Vous nous payez sur factures encaissées.</p>
+          <h3>Des appels filtrés</h3>
+          <p>Système anti-spam intelligent. Vous ne payez que les appels qui respectent vos critères : zone, type de projet, budget minimum.</p>
+        </div>
+        <div class="trust-card fade-up">
+          <div class="trust-card-num">24/7</div>
+          <h3>Dashboard temps réel</h3>
+          <p>Suivez vos appels, vos conversions et votre ROI en direct depuis votre espace client. Vous payez uniquement sur appels reçus.</p>
         </div>
         <div class="trust-card fade-up">
           <div class="trust-card-num">∞</div>
           <h3>De flexibilité</h3>
-          <p>Vous arrêtez quand vous voulez. Pas de clause de sortie, pas de pénalité. La confiance se mérite, elle ne s'impose pas.</p>
+          <p>Vous arrêtez ou suspendez quand vous voulez. Pas d'engagement de durée, pas de pénalité de sortie. La confiance se mérite.</p>
         </div>
       </div>
     </div>
@@ -510,45 +546,72 @@
           <p>Ajustez selon votre métier et votre zone.</p>
 
           <div class="roi-field">
-            <label>Panier moyen par chantier <span id="lblPanier">3 000 €</span></label>
+            <label>Quel est votre secteur d'activité&nbsp;?</label>
+            <select id="secteur" class="roi-select">
+              <option value="10">Jardinier (10 €/appel)</option>
+              <option value="12">Paysagiste (12 €/appel)</option>
+              <option value="12">Élagueur (12 €/appel)</option>
+              <option value="14">Peintre (14 €/appel)</option>
+              <option value="15" selected>Autre artisan (15 €/appel)</option>
+              <option value="16">Menuisier (16 €/appel)</option>
+              <option value="16">Carreleur (16 €/appel)</option>
+              <option value="18">Maçon (18 €/appel)</option>
+              <option value="20">Électricien (20 €/appel)</option>
+              <option value="22">Plombier (22 €/appel)</option>
+              <option value="22">Chauffagiste (22 €/appel)</option>
+              <option value="25">Couvreur (25 €/appel)</option>
+              <option value="25">Serrurier (25 €/appel)</option>
+              <option value="25">Pisciniste (25 €/appel)</option>
+            </select>
+          </div>
+
+          <div class="roi-field">
+            <label>Combien d'appels par mois&nbsp;? <span id="lblAppels">30 appels/mois</span></label>
+            <input type="range" id="appels" min="5" max="200" step="5" value="30" />
+            <div class="roi-field-hint">Selon votre zone et votre secteur.</div>
+          </div>
+
+          <div class="roi-field">
+            <label>Sur 100 appels, combien deviennent des devis&nbsp;? <span id="lblTxDevis">60 %</span></label>
+            <input type="range" id="txDevis" min="20" max="100" step="5" value="60" />
+          </div>
+
+          <div class="roi-field">
+            <label>Sur 100 devis, combien deviennent des clients&nbsp;? <span id="lblTxClient">40 %</span></label>
+            <input type="range" id="txClient" min="10" max="100" step="5" value="40" />
+          </div>
+
+          <div class="roi-field">
+            <label>Valeur moyenne d'un contrat <span id="lblPanier">3 000 €</span></label>
             <input type="range" id="panier" min="500" max="30000" step="100" value="3000" />
-            <div class="roi-field-hint">Le montant moyen d'un devis signé chez vous.</div>
-          </div>
-
-          <div class="roi-field">
-            <label>Nombre de leads qualifiés / mois <span id="lblLeads">15</span></label>
-            <input type="range" id="leads" min="2" max="60" step="1" value="15" />
-            <div class="roi-field-hint">Ce que vise Celexia selon votre zone et votre métier.</div>
-          </div>
-
-          <div class="roi-field">
-            <label>Taux de transformation <span id="lblTx">40 %</span></label>
-            <input type="range" id="taux" min="10" max="80" step="5" value="40" />
-            <div class="roi-field-hint">% de leads qui deviennent des chantiers signés (moyenne : 35-50 %).</div>
-          </div>
-
-          <div class="roi-field">
-            <label>Votre marge brute <span id="lblMarge">30 %</span></label>
-            <input type="range" id="marge" min="10" max="70" step="5" value="30" />
-            <div class="roi-field-hint">Ce qu'il reste après matériaux et main-d'œuvre.</div>
           </div>
         </div>
 
         <div class="roi-results">
-          <h3>Votre retour sur investissement</h3>
-          <div class="roi-row"><span class="roi-label">Chantiers signés / mois</span><span class="roi-value" id="rChantiers">6</span></div>
-          <div class="roi-row"><span class="roi-label">Chiffre d'affaires / mois</span><span class="roi-value" id="rCA">18 000 €</span></div>
-          <div class="roi-row"><span class="roi-label">Commission Celexia (10 %)</span><span class="roi-value" id="rCom">- 1 800 €</span></div>
-          <div class="roi-row"><span class="roi-label">CA net après commission</span><span class="roi-value" id="rNet">16 200 €</span></div>
-          <div class="roi-row"><span class="roi-label">Marge brute estimée</span><span class="roi-value" id="rMarge">4 860 €</span></div>
+          <h3>Vos résultats estimés</h3>
+          <div class="roi-row"><span class="roi-label">Prix par appel</span><span class="roi-value roi-violet" id="rPrix">15 €</span></div>
+          <div class="roi-row"><span class="roi-label">Coût total mensuel</span><span class="roi-value" id="rCout">450 €</span></div>
+          <div class="roi-row"><span class="roi-label">Clients gagnés / mois</span><span class="roi-value roi-green" id="rClients">7</span></div>
+          <div class="roi-row"><span class="roi-label">Chiffre d'affaires généré</span><span class="roi-value roi-blue" id="rCA">21 600 €</span></div>
           <div class="roi-highlight">
-            <div class="roi-label">Bénéfice annuel supplémentaire</div>
-            <div class="roi-value" id="rAnnuel">58 320 €</div>
+            <div class="roi-label">CA annuel projeté</div>
+            <div class="roi-value" id="rAnnuel">259 200 €</div>
           </div>
         </div>
       </div>
+
+      <div class="roi-projection fade-up">
+        <h3 class="proj-title">Projection sur 12 mois</h3>
+        <div class="proj-grid">
+          <div class="proj-card"><div class="proj-period">1 mois</div><div class="proj-amount" id="p1">21 600 €</div></div>
+          <div class="proj-card"><div class="proj-period">3 mois</div><div class="proj-amount" id="p3">64 800 €</div></div>
+          <div class="proj-card"><div class="proj-period">6 mois</div><div class="proj-amount" id="p6">129 600 €</div></div>
+          <div class="proj-card proj-card-hl"><div class="proj-period">12 mois</div><div class="proj-amount" id="p12">259 200 €</div></div>
+        </div>
+      </div>
+
       <div style="text-align:center;margin-top:32px">
-        <a href="#contact" class="btn btn-primary">Je veux ces résultats →</a>
+        <a href="#rdv" class="btn btn-primary">Réserver mon audit gratuit →</a>
       </div>
     </div>
   </section>
@@ -563,32 +626,46 @@
       <div class="faq-list">
         <details class="faq-item fade-up">
           <summary class="faq-q">Vraiment 0 € pour commencer ?</summary>
-          <div class="faq-a">Oui. On crée votre site, on lance les campagnes, on pré-qualifie vos leads. Vous ne payez rien tant qu'aucun chantier n'est signé. Notre intérêt est aligné avec le vôtre : on est payés seulement quand vous l'êtes.</div>
+          <div class="faq-a">Oui. On finance les campagnes, on gère le ciblage, on configure le tracking. Vous ne payez qu'à l'appel qualifié reçu. Pas de setup fee, pas de budget pub à avancer, pas d'abonnement mensuel.</div>
         </details>
         <details class="faq-item fade-up">
-          <summary class="faq-q">Comment je paie la commission ?</summary>
-          <div class="faq-a">Chaque mois, on récapitule les chantiers encaissés via notre portail. Vous validez, on émet une facture, vous la réglez. 10 % du CA HT encaissé, pas un centime de plus.</div>
+          <summary class="faq-q">Quel est le prix par appel ?</summary>
+          <div class="faq-a">Entre 10 € et 25 € par appel qualifié, selon votre secteur d'activité (concurrence et valeur moyenne d'un chantier). Utilisez le calculateur ci-dessus pour estimer votre coût exact selon votre métier.</div>
         </details>
         <details class="faq-item fade-up">
-          <summary class="faq-q">Et si je ne veux plus travailler avec Celexia ?</summary>
-          <div class="faq-a">Vous arrêtez quand vous voulez, du jour au lendemain. Aucune pénalité, aucune clause de sortie. Le site web reste à vous. La seule chose qu'on demande : nous reverser 10 % sur les chantiers déjà identifiés via nos campagnes (équité minimale).</div>
+          <summary class="faq-q">Comment je sais qu'un appel est qualifié ?</summary>
+          <div class="faq-a">On définit ensemble vos critères de qualification : zone d'intervention, type de projet, budget minimum. Notre système intelligent filtre automatiquement. Si un appel ne correspond pas à vos critères, vous ne payez rien.</div>
         </details>
         <details class="faq-item fade-up">
-          <summary class="faq-q">Combien de temps pour les premiers leads ?</summary>
-          <div class="faq-a">7 jours pour la mise en place complète (site + campagnes + portail). Les premiers leads arrivent en général dans les 10-14 jours suivants, selon votre zone et votre métier.</div>
+          <summary class="faq-q">Combien de temps pour les premiers appels ?</summary>
+          <div class="faq-a">7 jours pour la configuration complète (campagnes, fiche Google, tracking, dashboard). Les premiers appels arrivent en général dans les 10-14 jours suivants, selon votre zone et votre secteur.</div>
         </details>
         <details class="faq-item fade-up">
           <summary class="faq-q">Pour quels métiers ça marche ?</summary>
           <div class="faq-a">Paysagistes, élagueurs, plombiers, électriciens, couvreurs, maçons, peintres, menuisiers, jardiniers, piscinistes, chauffagistes… Tous les artisans du bâtiment et du paysage. Si votre panier moyen est ≥ 1 500 €, ça vaut largement le coup.</div>
         </details>
         <details class="faq-item fade-up">
-          <summary class="faq-q">Qui appelle les prospects ?</summary>
-          <div class="faq-a">Notre équipe commerciale interne, basée en France. Chaque lead est qualifié au téléphone (projet, budget, délais) avant de vous être transmis avec un RDV pré-pris dans votre agenda.</div>
+          <summary class="faq-q">Que se passe-t-il si je ne suis pas satisfait ?</summary>
+          <div class="faq-a">Aucun engagement de durée. Vous pouvez suspendre ou arrêter le service du jour au lendemain. Notre objectif est votre satisfaction — on travaille avec vous pour optimiser les résultats. La confiance se mérite, elle ne s'impose pas.</div>
         </details>
         <details class="faq-item fade-up">
           <summary class="faq-q">Vous travaillez en exclusivité ?</summary>
-          <div class="faq-a">Oui. Sur votre zone et votre métier, vous êtes notre unique partenaire. On ne sème pas vos leads chez vos concurrents — c'est ce qui fait la différence avec les annuaires en ligne.</div>
+          <div class="faq-a">Oui. Sur votre zone et votre métier, vous êtes notre unique partenaire. Vos appels n'arrivent pas chez vos concurrents — c'est ce qui fait la différence avec les annuaires en ligne où le même prospect est vendu à 5 artisans.</div>
         </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CAL.COM RDV ============ -->
+  <section class="cal-section" id="rdv">
+    <div class="container-sm">
+      <div class="section-header fade-up">
+        <div class="section-eyebrow">Audit gratuit</div>
+        <h2 class="section-title">Réservez votre créneau directement</h2>
+        <p class="section-sub">30 minutes en visio. On audite votre activité, on vous donne un prix par appel pour votre secteur, et on vous montre le ROI attendu. Sans engagement.</p>
+      </div>
+      <div class="cal-wrap fade-up">
+        <div style="width:100%;height:100%;overflow:auto" id="my-cal-inline-apport-d-affaires"></div>
       </div>
     </div>
   </section>
@@ -597,7 +674,7 @@
   <section class="final" id="contact">
     <div class="container-sm">
       <h2>Prêt à <span class="grad">arrêter de chasser</span> et à commencer à <span class="grad">choisir</span> ?</h2>
-      <p>Audit gratuit de 30 min — sans engagement. On vous dit ce qu'on peut faire pour vous, vous décidez.</p>
+      <p>Pas envie de réserver tout de suite ? Écrivez-nous directement, on revient vers vous sous 24 h.</p>
       <a href="mailto:agence.celexia@gmail.com?subject=Audit gratuit Celexia&body=Bonjour, je souhaite faire un audit gratuit de mon activité." class="btn btn-primary">📧 agence.celexia@gmail.com</a>
     </div>
   </section>
@@ -616,7 +693,8 @@
         <div>
           <h4>Naviguer</h4>
           <a href="#calculateur">Calculateur ROI</a>
-          <a href="#contact">Audit gratuit</a>
+          <a href="#rdv">Réserver un audit</a>
+          <a href="#contact">Nous écrire</a>
         </div>
         <div>
           <h4>Contact</h4>
@@ -631,37 +709,40 @@
   </footer>
 
   <script>
-    // ============ CALCULATEUR ROI ============
+    // ============ CALCULATEUR ROI (publicité performance) ============
     const fmt = n => new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(Math.round(n))+' €';
-    const fmtPct = n => n+' %';
     const $ = id => document.getElementById(id);
 
     function recompute(){
+      const prix = +$('secteur').value;
+      const appels = +$('appels').value;
+      const txDevis = +$('txDevis').value;
+      const txClient = +$('txClient').value;
       const panier = +$('panier').value;
-      const leads = +$('leads').value;
-      const taux = +$('taux').value;
-      const marge = +$('marge').value;
 
-      const chantiers = leads * taux / 100;
-      const ca = chantiers * panier;
-      const com = ca * 0.10;
-      const net = ca - com;
-      const margeEur = net * marge / 100;
-      const annuel = margeEur * 12;
+      const cout = appels * prix;
+      const devis = appels * txDevis / 100;
+      const clients = devis * txClient / 100;
+      const ca = clients * panier;
+      const annuel = ca * 12;
 
+      $('lblAppels').textContent = appels + ' appels/mois';
+      $('lblTxDevis').textContent = txDevis + ' %';
+      $('lblTxClient').textContent = txClient + ' %';
       $('lblPanier').textContent = fmt(panier);
-      $('lblLeads').textContent = leads;
-      $('lblTx').textContent = fmtPct(taux);
-      $('lblMarge').textContent = fmtPct(marge);
 
-      $('rChantiers').textContent = chantiers.toFixed(1).replace('.0','');
+      $('rPrix').textContent = prix + ' €';
+      $('rCout').textContent = fmt(cout);
+      $('rClients').textContent = Math.round(clients);
       $('rCA').textContent = fmt(ca);
-      $('rCom').textContent = '- '+fmt(com);
-      $('rNet').textContent = fmt(net);
-      $('rMarge').textContent = fmt(margeEur);
       $('rAnnuel').textContent = fmt(annuel);
+
+      $('p1').textContent = fmt(ca);
+      $('p3').textContent = fmt(ca * 3);
+      $('p6').textContent = fmt(ca * 6);
+      $('p12').textContent = fmt(annuel);
     }
-    ['panier','leads','taux','marge'].forEach(id => $(id).addEventListener('input', recompute));
+    ['secteur','appels','txDevis','txClient','panier'].forEach(id => $(id).addEventListener('input', recompute));
     recompute();
 
     // ============ FADE-UP ANIMATIONS ============
@@ -669,6 +750,18 @@
       entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('visible'); io.unobserve(e.target); }});
     }, { threshold:.15 });
     document.querySelectorAll('.fade-up').forEach(el => io.observe(el));
+  </script>
+
+  <!-- ============ CAL.COM INLINE EMBED ============ -->
+  <script type="text/javascript">
+    (function (C, A, L) { let p = function (a, ar) { a.q.push(ar); }; let d = C.document; C.Cal = C.Cal || function () { let cal = C.Cal; let ar = arguments; if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; } if (ar[0] === L) { const api = function () { p(api, arguments); }; const namespace = ar[1]; api.q = api.q || []; if(typeof namespace === "string"){cal.ns[namespace] = cal.ns[namespace] || api;p(cal.ns[namespace], ar);p(cal, ["initNamespace", namespace]);} else p(cal, ar); return;} p(cal, ar); }; })(window, "https://app.cal.com/embed/embed.js", "init");
+    Cal("init", "apport-d-affaires", {origin:"https://app.cal.com"});
+    Cal.ns["apport-d-affaires"]("inline", {
+      elementOrSelector:"#my-cal-inline-apport-d-affaires",
+      config: {"layout":"month_view","useSlotsViewOnSmallScreen":"true"},
+      calLink: "agence-celexia-1qyn93/apport-d-affaires",
+    });
+    Cal.ns["apport-d-affaires"]("ui", {"cssVarsPerTheme":{"light":{"cal-brand":"#7C3AED"},"dark":{"cal-brand":"#fafafa"}},"hideEventTypeDetails":false,"layout":"month_view"});
   </script>
 </body>
 </html>
