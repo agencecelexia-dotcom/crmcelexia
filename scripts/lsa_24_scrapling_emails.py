@@ -43,12 +43,9 @@ IN_CSV = ROOT / "data" / "lsa-23-firecrawl-input.csv"
 OUT_CSV = ROOT / "data" / "lsa-24-emails-scraped.csv"
 
 PROBE_PATHS = [
-    "",  # home
+    "",  # home (souvent l'email est dans le footer)
     "/contact",
-    "/nous-contacter",
     "/mentions-legales",
-    "/a-propos",
-    "/qui-sommes-nous",
 ]
 
 EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
@@ -182,10 +179,9 @@ def scrape_prospect(row: dict) -> dict:
         emails = extract_emails(html, domain_hint)
         if emails:
             all_found.extend(emails)
-            # Si on a un email "high" sur la home, pas la peine de continuer
-            if any(q == "high" for _, q in emails):
-                result["scraped_url"] = url
-                break
+            # Dès qu'on trouve UN email valide, on arrête (évite de bloquer sur sites lents)
+            result["scraped_url"] = url
+            break
 
     if all_found:
         # Dédup garde meilleure qualité
