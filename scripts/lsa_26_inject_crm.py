@@ -108,9 +108,8 @@ def main() -> None:
                 update_data["contact_name"] = di["dirigeant_nom"].strip().title()
             new_cf["dirigeant_qualite"] = di.get("dirigeant_qualite", "")
             new_cf["dirigeant_source"] = di.get("dirigeant_source", "")
-            # SIRET en colonne directe (pas uniquement custom_fields)
+            # SIRET uniquement dans custom_fields (la colonne a un UNIQUE qui peut clasher)
             if di.get("siret"):
-                update_data["siret"] = di["siret"]
                 new_cf["siret"] = di["siret"]
 
         if not update_data:
