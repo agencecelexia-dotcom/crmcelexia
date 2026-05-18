@@ -110,8 +110,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, paused: false, reason: 'lead not found in any Smartlead campaign' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
-  // 3. Pause le lead dans Smartlead
-  const pauseRes = await fetch(`https://server.smartlead.ai/api/v1/leads/${sl.lead_id}/pause-lead?api_key=${SMARTLEAD_API_KEY}`, {
+  // 3. Pause le lead dans Smartlead (endpoint correct = /campaigns/{cid}/leads/{lead_id}/pause)
+  const pauseRes = await fetch(`https://server.smartlead.ai/api/v1/campaigns/${sl.campaign_id}/leads/${sl.lead_id}/pause?api_key=${SMARTLEAD_API_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({}),
