@@ -193,6 +193,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", type=int, default=None)
     parser.add_argument("--prospect-timeout", type=int, default=20, help="Hard timeout par prospect (secondes)")
+    parser.add_argument("--shard", type=str, default=None, help="N/M pour partitionner ex '1/4' = 25% des prospects")
     args = parser.parse_args()
 
     with IN_CSV.open(encoding="utf-8") as f:
@@ -206,6 +207,13 @@ def main() -> None:
     print(f"Déjà scrapés    : {len(done)}")
 
     todo = [r for r in with_website if r["id"] not in done]
+
+    # Sharding : --shard 1/4 garde uniquement les prospects où hash(id) % 4 == 0
+    if args.shard:
+        shard_n, shard_total = (int(x) for x in args.shard.split("/"))
+        todo = [r for r in todo if hash(r["id"]) % shard_total == (shard_n - 1)]
+        print(f"Shard {shard_n}/{shard_total} : {len(todo)} prospects")
+
     if args.test:
         todo = todo[:args.test]
     print(f"À scraper       : {len(todo)}")
