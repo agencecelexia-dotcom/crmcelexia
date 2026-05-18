@@ -106,16 +106,31 @@ def email_quality(email: str, domain_hint: str = "") -> str:
     return "low"
 
 
+SKIP_DOMAINS = (
+    "facebook.com", "instagram.com", "linkedin.com", "twitter.com",
+    "x.com", "youtube.com", "tiktok.com", "pinterest.",
+    "google.com", "google.fr", "google.be", "maps.google",
+    "yelp.", "pagesjaunes.", "leboncoin.",
+)
+
+
+def is_skippable_domain(url: str) -> bool:
+    u = url.lower()
+    return any(d in u for d in SKIP_DOMAINS)
+
+
 def normalize_url(raw: str) -> str:
     if not raw:
         return ""
     raw = raw.strip()
     if not raw.startswith("http"):
         raw = "https://" + raw
+    if is_skippable_domain(raw):
+        return ""
     return raw
 
 
-def fetch_page(url: str, timeout: int = 12) -> str:
+def fetch_page(url: str, timeout: int = 10) -> str:
     """Fetch via Scrapling. Renvoie le HTML brut ou ''."""
     try:
         page = Fetcher.get(url, stealthy_headers=True, timeout=timeout, follow_redirects=True)
@@ -202,7 +217,8 @@ def load_done_ids() -> set[str]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", type=int, default=None, help="Test N prospects only")
-    parser.add_argument("--workers", type=int, default=8, help="Concurrent workers")
+    parser.add_argument("--workers", type=int, default=4, help="Concurrent workers")
+    parser.add_argument("--prospect-timeout", type=int, default=90, help="Max seconds per prospect")
     args = parser.parse_args()
 
     with IN_CSV.open(encoding="utf-8") as f:
@@ -244,15 +260,16 @@ def main() -> None:
         for fut in as_completed(futures):
             r = futures[fut]
             try:
-                result = fut.result()
+                # Hard timeout par prospect — évite de bloquer indéfiniment
+                result = fut.result(timeout=args.prospect_timeout)
             except Exception as e:
-                result = {**r, "best_email": "", "best_email_quality": "", "scraped_url": "", "all_emails": f"error:{e}"}
+                result = {**r, "best_email": "", "best_email_quality": "", "scraped_url": "", "all_emails": f"error:{type(e).__name__}"}
             writer.writerow(result)
             out_f.flush()
             processed += 1
             if result.get("best_email"):
                 found_emails += 1
-            if processed % 25 == 0:
+            if processed % 10 == 0:
                 rate = processed / max(time.time() - start, 1)
                 eta = (len(todo) - processed) / max(rate, 0.1)
                 print(f"  {processed}/{len(todo)} | trouvés={found_emails} ({100*found_emails/processed:.0f}%) | {rate:.1f}/s | ETA {eta/60:.0f}min")

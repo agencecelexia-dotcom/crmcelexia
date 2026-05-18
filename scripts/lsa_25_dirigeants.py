@@ -38,8 +38,8 @@ except ImportError:
     sys.exit(1)
 
 ROOT = Path(__file__).resolve().parent.parent
-IN_CSV_PREF = ROOT / "data" / "lsa-24-emails-scraped.csv"
-IN_CSV_FALLBACK = ROOT / "data" / "lsa-23-firecrawl-input.csv"
+# Toujours lire la source full (les 6182 prospects), pas le résultat partiel de lsa_24
+IN_CSV = ROOT / "data" / "lsa-23-firecrawl-input.csv"
 OUT_CSV = ROOT / "data" / "lsa-25-dirigeants.csv"
 
 API_GOUV = "https://recherche-entreprises.api.gouv.fr/search"
@@ -79,16 +79,31 @@ STOP_NAME_WORDS = {
 }
 
 
+SKIP_DOMAINS = (
+    "facebook.com", "instagram.com", "linkedin.com", "twitter.com",
+    "x.com", "youtube.com", "tiktok.com", "pinterest.",
+    "google.com", "google.fr", "google.be", "maps.google",
+    "yelp.", "pagesjaunes.", "leboncoin.",
+)
+
+
+def is_skippable_domain(url: str) -> bool:
+    u = url.lower()
+    return any(d in u for d in SKIP_DOMAINS)
+
+
 def normalize_url(raw: str) -> str:
     if not raw:
         return ""
     raw = raw.strip()
     if not raw.startswith("http"):
         raw = "https://" + raw
+    if is_skippable_domain(raw):
+        return ""
     return raw
 
 
-def fetch_text(url: str, timeout: int = 12) -> str:
+def fetch_text(url: str, timeout: int = 10) -> str:
     try:
         page = Fetcher.get(url, stealthy_headers=True, timeout=timeout, follow_redirects=True)
         if page and page.status == 200:
@@ -236,13 +251,13 @@ def load_done_ids() -> set[str]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", type=int, default=None)
-    parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--prospect-timeout", type=int, default=180)
     args = parser.parse_args()
 
-    in_csv = IN_CSV_PREF if IN_CSV_PREF.exists() else IN_CSV_FALLBACK
-    print(f"Input : {in_csv.relative_to(ROOT)}")
+    print(f"Input : {IN_CSV.relative_to(ROOT)}")
 
-    with in_csv.open(encoding="utf-8") as f:
+    with IN_CSV.open(encoding="utf-8") as f:
         all_rows = list(csv.DictReader(f))
     print(f"Total prospects : {len(all_rows)}")
 
@@ -279,16 +294,16 @@ def main() -> None:
         for fut in as_completed(futures):
             r = futures[fut]
             try:
-                result = fut.result()
+                result = fut.result(timeout=args.prospect_timeout)
             except Exception as e:
                 result = {**r, "dirigeant_prenom": "", "dirigeant_nom": "", "dirigeant_qualite": "",
-                         "siret": "", "dirigeant_source": f"error:{e}"[:50]}
+                         "siret": "", "dirigeant_source": f"error:{type(e).__name__}"[:50]}
             writer.writerow(result)
             out_f.flush()
             processed += 1
             if result.get("dirigeant_prenom"):
                 found_dirig += 1
-            if processed % 25 == 0:
+            if processed % 10 == 0:
                 rate = processed / max(time.time() - start, 1)
                 eta = (len(todo) - processed) / max(rate, 0.1)
                 print(f"  {processed}/{len(todo)} | dirig={found_dirig} ({100*found_dirig/processed:.0f}%) | {rate:.1f}/s | ETA {eta/60:.0f}min")
