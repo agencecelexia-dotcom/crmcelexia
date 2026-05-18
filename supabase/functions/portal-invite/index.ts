@@ -92,6 +92,15 @@ Deno.serve(async (req) => {
     const tempPassword = password || generateStrongPassword()
     const displayName = full_name || [client.contact_firstname, client.contact_name].filter(Boolean).join(' ') || client.company_name
 
+    // Récupération idempotente du user auth : si un essai précédent a créé
+    // l'utilisateur mais a échoué à le lier au client (cf bug trigger
+    // enforce_clients_artisan_invariants corrigé en migration 00103), on
+    // réutilise le user existant au lieu de planter avec "email already
+    // registered". On ne réutilise QUE si ce user n'est lié à AUCUN client
+    // (sinon c'est légitimement bloqué côté UI via client.user_id check).
+    let userId: string
+    let tempPasswordForResponse = tempPassword
+
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password: tempPassword,
@@ -104,12 +113,64 @@ Deno.serve(async (req) => {
     })
 
     if (authError) {
-      return new Response(JSON.stringify({ error: authError.message }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+      // Cas "email déjà enregistré" : on cherche le user existant, on vérifie
+      // qu'il n'est lié à aucun client, et on reset son password pour relancer
+      // l'invitation proprement.
+      const msg = (authError.message || '').toLowerCase()
+      const isDuplicate = msg.includes('already') && (msg.includes('registered') || msg.includes('exists'))
+      if (!isDuplicate) {
+        return new Response(JSON.stringify({ error: authError.message }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
 
-    const userId = authData.user.id
+      // Liste paginée des users (admin API), match exact email
+      // En pratique le user vient juste d'être créé, il est dans la 1ère page.
+      const { data: list, error: listError } = await supabase.auth.admin.listUsers({
+        page: 1, perPage: 1000,
+      })
+      if (listError) {
+        return new Response(JSON.stringify({ error: listError.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const existing = list.users.find((u) => u.email?.toLowerCase() === email.toLowerCase())
+      if (!existing) {
+        return new Response(JSON.stringify({ error: 'Email enregistré mais user introuvable (incohérence Supabase Auth)' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Vérifie qu'aucun client n'utilise déjà ce user_id
+      const { data: otherClient } = await supabase
+        .from('clients')
+        .select('id, company_name')
+        .eq('user_id', existing.id)
+        .maybeSingle()
+      if (otherClient && otherClient.id !== client_id) {
+        return new Response(JSON.stringify({
+          error: `Cet email est déjà utilisé par un autre client (${otherClient.company_name}). Choisis un autre email.`,
+        }), {
+          status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Reset password pour repartir d'un mdp connu (l'ancien était perdu)
+      const { error: updateError } = await supabase.auth.admin.updateUserById(existing.id, {
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: { role: 'artisan', full_name: displayName, client_id },
+      })
+      if (updateError) {
+        return new Response(JSON.stringify({ error: updateError.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      userId = existing.id
+      tempPasswordForResponse = tempPassword
+    } else {
+      userId = authData.user.id
+    }
 
     // Create profile manually (trigger may fail silently)
     await supabase
@@ -149,7 +210,7 @@ Deno.serve(async (req) => {
         client_id,
         subject: `Invitation portail Celexia - ${client.company_name}`,
         status: 'sent',
-        metadata: { invited_by: caller.id, temp_password: tempPassword },
+        metadata: { invited_by: caller.id, temp_password: tempPasswordForResponse },
       })
 
     // Envoi de l'email d'invitation via la pipeline DB email_schedule → Resend.
@@ -164,7 +225,7 @@ Deno.serve(async (req) => {
         client_firstname: client.contact_firstname || displayName,
         client_company: client.company_name,
         portal_email: email,
-        portal_password: tempPassword,
+        portal_password: tempPasswordForResponse,
         portal_url: 'https://crmcelexia.vercel.app/portal/auth',
       },
     })
@@ -173,8 +234,8 @@ Deno.serve(async (req) => {
       success: true,
       user_id: userId,
       email,
-      temp_password: tempPassword,
-      message: `Compte artisan créé pour ${displayName}. Mot de passe temporaire : ${tempPassword}`,
+      temp_password: tempPasswordForResponse,
+      message: `Compte artisan créé pour ${displayName}. Mot de passe temporaire : ${tempPasswordForResponse}`,
     }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
