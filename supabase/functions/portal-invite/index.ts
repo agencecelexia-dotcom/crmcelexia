@@ -103,13 +103,77 @@ Deno.serve(async (req) => {
       },
     })
 
-    if (authError) {
-      return new Response(JSON.stringify({ error: authError.message }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    let userId: string
+    let recoveredExisting = false
 
-    const userId = authData.user.id
+    if (authError) {
+      // Cas "email déjà enregistré" — la 1ère tentative a probablement créé le
+      // auth.user mais a échoué avant le lien client.user_id. On récupère le
+      // user existant et on reset son password pour pouvoir le transmettre.
+      const msg = authError.message?.toLowerCase() ?? ''
+      const isAlreadyRegistered =
+        msg.includes('already been registered') ||
+        msg.includes('already registered') ||
+        msg.includes('user already exists') ||
+        msg.includes('email_exists')
+
+      if (!isAlreadyRegistered) {
+        return new Response(JSON.stringify({ error: authError.message }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Trouve le user existant par email (paginé jusqu'à 1000)
+      let existing: { id: string; email?: string; user_metadata?: Record<string, unknown> } | undefined
+      for (let page = 1; page <= 5 && !existing; page++) {
+        const { data: list, error: listErr } = await supabase.auth.admin.listUsers({ page, perPage: 200 })
+        if (listErr || !list) break
+        existing = list.users.find((u) => (u.email ?? '').toLowerCase() === email.toLowerCase())
+        if ((list.users ?? []).length < 200) break
+      }
+      if (!existing) {
+        return new Response(JSON.stringify({ error: 'Email signalé comme déjà pris, mais user introuvable dans auth.users. Vérifie dans Supabase Studio > Auth > Users.' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Vérifie qu'il n'est pas déjà lié à un AUTRE client
+      const { data: otherClient } = await supabase
+        .from('clients')
+        .select('id, company_name')
+        .eq('user_id', existing.id)
+        .maybeSingle()
+      if (otherClient && otherClient.id !== client_id) {
+        return new Response(JSON.stringify({
+          error: `Cet email est déjà utilisé par un autre artisan : ${otherClient.company_name}. Utilise un email différent ou délie d'abord l'autre fiche client.`,
+        }), {
+          status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Reset le password pour pouvoir transmettre les nouveaux identifiants
+      const { error: updErr } = await supabase.auth.admin.updateUserById(existing.id, {
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+          ...(existing.user_metadata ?? {}),
+          role: 'artisan',
+          full_name: displayName,
+          client_id,
+        },
+      })
+      if (updErr) {
+        return new Response(JSON.stringify({ error: `Reset password a échoué : ${updErr.message}` }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      userId = existing.id
+      recoveredExisting = true
+      console.log(`[portal-invite] Recovered existing auth user ${userId} for ${email} (client ${client_id})`)
+    } else {
+      userId = authData!.user.id
+    }
 
     // Create profile manually (trigger may fail silently)
     await supabase
@@ -174,7 +238,10 @@ Deno.serve(async (req) => {
       user_id: userId,
       email,
       temp_password: tempPassword,
-      message: `Compte artisan créé pour ${displayName}. Mot de passe temporaire : ${tempPassword}`,
+      recovered_existing: recoveredExisting,
+      message: recoveredExisting
+        ? `Compte existant récupéré et relié à ${displayName}. Nouveau mot de passe : ${tempPassword}`
+        : `Compte artisan créé pour ${displayName}. Mot de passe temporaire : ${tempPassword}`,
     }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

@@ -280,22 +280,28 @@ function EmailStep({ enseigne, email, setEmail, processing, onBack, onInvite }: 
 }
 
 interface ResultStepProps {
-  inviteResult: { email: string; temp_password: string }
+  inviteResult: { email: string; temp_password: string; recovered_existing?: boolean }
   copied: boolean
   onCopy: () => void
   onClose: () => void
 }
 
 function ResultStep({ inviteResult, copied, onCopy, onClose }: ResultStepProps) {
+  const recovered = inviteResult.recovered_existing
   return (
     <>
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-          Compte créé avec succès
+          {recovered ? 'Compte existant récupéré' : 'Compte créé avec succès'}
         </DialogTitle>
       </DialogHeader>
       <div className="space-y-3">
+        {recovered && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+            ⚠ Cet email avait déjà un compte (création précédente partielle). On a relié ce compte à cette fiche client et regénéré un nouveau mot de passe.
+          </div>
+        )}
         <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4">
           <p className="text-sm font-medium text-emerald-900 mb-2">Un email a été envoyé à l'artisan avec ses identifiants.</p>
           <p className="text-xs text-emerald-700">Tu peux aussi les copier ci-dessous et les lui transmettre directement.</p>
@@ -360,7 +366,7 @@ export function PortalInviteDialog({ client, open, onOpenChange, onSuccess }: Pr
 
   // Email state
   const [email, setEmail] = useState('')
-  const [inviteResult, setInviteResult] = useState<{ email: string; temp_password: string } | null>(null)
+  const [inviteResult, setInviteResult] = useState<{ email: string; temp_password: string; recovered_existing?: boolean } | null>(null)
   const [copied, setCopied] = useState(false)
 
   // Init when dialog opens
@@ -433,9 +439,13 @@ export function PortalInviteDialog({ client, open, onOpenChange, onSuccess }: Pr
         client_commission_base: commissionBase,
       }
       const result = await inviteArtisanToPortal(client.id, email, undefined, contractData)
-      setInviteResult({ email: result.email, temp_password: result.temp_password })
+      setInviteResult({
+        email: result.email,
+        temp_password: result.temp_password,
+        recovered_existing: result.recovered_existing,
+      })
       setStep('result')
-      toast.success('Compte artisan créé !')
+      toast.success(result.recovered_existing ? 'Compte existant récupéré et relié !' : 'Compte artisan créé !')
     } catch (err) {
       toast.error((err as Error).message)
     } finally {

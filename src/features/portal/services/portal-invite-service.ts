@@ -7,6 +7,7 @@ interface InviteResult {
   email: string
   temp_password: string
   message: string
+  recovered_existing?: boolean
 }
 
 export async function inviteArtisanToPortal(

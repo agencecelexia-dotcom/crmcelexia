@@ -201,11 +201,38 @@ Deno.serve(async (req) => {
   if (status === 'opened') {
     newCf.smartlead_open_count = ((existing.smartlead_open_count as number) ?? 0) + 1
   }
+  // Si le prospect répond OU se désabonne, on doit IMMÉDIATEMENT stopper la séquence
+  // côté Smartlead — sinon il continue à recevoir les emails de relance.
+  // C'était un gap : on marquait `replied` en DB mais le lead Smartlead restait actif.
+  const mustPauseInSmartlead = status === 'replied' || status === 'unsubscribed'
   if (status === 'replied') {
     newCf.smartlead_reply_count = ((existing.smartlead_reply_count as number) ?? 0) + 1
     newCf.smartlead_last_reply_at = sentAt
     // Reset handled_at pour qu'il réapparaisse dans l'Inbox
     newCf.smartlead_handled_at = null
+  }
+
+  // Pause directement le lead via l'API Smartlead si on a le lead_id + campaign_id
+  // dans le payload du webhook (cas normal). Évite un round-trip de recherche.
+  const SMARTLEAD_API_KEY = Deno.env.get('SMARTLEAD_API_KEY')
+  if (mustPauseInSmartlead && SMARTLEAD_API_KEY && payload.lead_id && payload.campaign_id && !existing.smartlead_paused_at) {
+    try {
+      const pauseRes = await fetch(
+        `https://server.smartlead.ai/api/v1/campaigns/${payload.campaign_id}/leads/${payload.lead_id}/pause?api_key=${SMARTLEAD_API_KEY}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) },
+      )
+      if (pauseRes.ok) {
+        newCf.smartlead_paused_at = new Date().toISOString()
+        newCf.smartlead_pause_reason = `auto_pause_on_${status}`
+        newCf.smartlead_paused_lead_id = payload.lead_id
+        newCf.smartlead_paused_campaign_id = payload.campaign_id
+        console.log(`[smartlead-webhook] Auto-paused lead ${payload.lead_id} (campaign ${payload.campaign_id}) — reason: ${status}`)
+      } else {
+        console.error(`[smartlead-webhook] Pause failed: ${pauseRes.status} ${await pauseRes.text()}`)
+      }
+    } catch (e) {
+      console.error('[smartlead-webhook] Pause error:', e)
+    }
   }
 
   await supabase
