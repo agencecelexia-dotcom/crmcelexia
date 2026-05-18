@@ -31,15 +31,22 @@ export async function getClients({
     .is('deleted_at', null)
 
   if (filters.search) {
-    const s = filters.search.replace(/[%_\\]/g, '\\$&')
-    const sPhone = normalizePhone(filters.search)
+    const raw = filters.search.trim()
+    const s = raw.replace(/[%_\\]/g, '\\$&')
+    const sPhone = normalizePhone(raw)
     const orParts = [
       `company_name.ilike.%${s}%`,
       `contact_name.ilike.%${s}%`,
+      `contact_firstname.ilike.%${s}%`,
+      `contact_email.ilike.%${s}%`,
       `phone.ilike.%${s}%`,
+      `city.ilike.%${s}%`,
     ]
     if (sPhone.length >= 4) {
       orParts.push(`phone_normalized.ilike.%${sPhone}%`)
+    }
+    if (raw.includes('@')) {
+      orParts.unshift(`contact_email.eq.${raw.toLowerCase()}`)
     }
     query = query.or(orParts.join(','))
   }

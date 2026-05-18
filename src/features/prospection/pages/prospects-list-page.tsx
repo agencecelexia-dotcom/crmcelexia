@@ -417,7 +417,7 @@ export function ProspectsListPage() {
               <div className="relative flex-1 min-w-[160px] max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Rechercher..."
+                  placeholder="Société, email, téléphone, nom, ville, SIRET…"
                   value={search}
                   onChange={(e) => { setSearch(e.target.value) }}
                   className="pl-9 h-9"

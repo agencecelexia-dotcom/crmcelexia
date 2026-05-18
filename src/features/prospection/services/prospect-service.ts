@@ -25,16 +25,26 @@ export async function getProspects({
 
   // Apply filters
   if (filters.search) {
-    const s = filters.search.replace(/[%_\\]/g, '\\$&')
-    const sPhone = normalizePhone(filters.search)
+    const raw = filters.search.trim()
+    const s = raw.replace(/[%_\\]/g, '\\$&')
+    const sPhone = normalizePhone(raw)
     const orParts = [
       `company_name.ilike.%${s}%`,
       `phone.ilike.%${s}%`,
       `contact_name.ilike.%${s}%`,
+      `contact_firstname.ilike.%${s}%`,
+      `contact_email.ilike.%${s}%`,
+      `city.ilike.%${s}%`,
+      `siret.ilike.%${s}%`,
     ]
     if (sPhone.length >= 4) {
       orParts.push(`phone_normalized.ilike.%${sPhone}%`)
       orParts.push(`phone_secondary_normalized.ilike.%${sPhone}%`)
+    }
+    // Si la recherche ressemble à un email, on prend en priorité une égalité exacte
+    // (sans wildcards) — utile quand on colle l'email reçu pour retrouver le prospect.
+    if (raw.includes('@')) {
+      orParts.unshift(`contact_email.eq.${raw.toLowerCase()}`)
     }
     query = query.or(orParts.join(','))
   }
