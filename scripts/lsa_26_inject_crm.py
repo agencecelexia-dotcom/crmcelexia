@@ -94,21 +94,23 @@ def main() -> None:
         if em and not current.get("contact_email"):
             email = em["best_email"].strip().lower()
             quality = em.get("best_email_quality", "")
-            if email and quality in ("high", "medium"):
+            if email and quality in ("high", "medium", "low"):
                 update_data["contact_email"] = email
                 new_cf["email_quality"] = quality
                 new_cf["email_scraped_at"] = "2026-05-18"
                 new_cf["email_source"] = "scrapling"
 
-        # Dirigeant
+        # Dirigeant (colonnes : contact_firstname / contact_name)
         di = dirig_by_id.get(pid)
         if di and di.get("dirigeant_prenom"):
-            update_data["first_name"] = di["dirigeant_prenom"].strip().title()
+            update_data["contact_firstname"] = di["dirigeant_prenom"].strip().title()
             if di.get("dirigeant_nom"):
-                update_data["last_name"] = di["dirigeant_nom"].strip().title()
+                update_data["contact_name"] = di["dirigeant_nom"].strip().title()
             new_cf["dirigeant_qualite"] = di.get("dirigeant_qualite", "")
             new_cf["dirigeant_source"] = di.get("dirigeant_source", "")
+            # SIRET en colonne directe (pas uniquement custom_fields)
             if di.get("siret"):
+                update_data["siret"] = di["siret"]
                 new_cf["siret"] = di["siret"]
 
         if not update_data:
