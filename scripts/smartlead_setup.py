@@ -144,39 +144,67 @@ def load_leads(limit: int = 0) -> list[dict]:
             orig_index[r["id"]] = r
 
     leads: list[dict] = []
+    skipped = {"no_email": 0, "no_dirigeant": 0, "bad_status": 0, "no_first": 0,
+                "no_city": 0, "no_company": 0, "dup_first_last": 0}
     with LEADS_CSV.open(encoding="utf-8") as f:
         for r in csv.DictReader(f):
             # Ne garder que ceux avec dirigeant + email
-            if not r.get("dirigeant_full") or not r.get("best_email"):
+            if not r.get("best_email"):
+                skipped["no_email"] += 1
+                continue
+            if not r.get("dirigeant_full"):
+                skipped["no_dirigeant"] += 1
                 continue
             if r.get("status") not in ("ok_insee", "ok_mentions"):
+                skipped["bad_status"] += 1
                 continue
             orig = orig_index.get(r["id"], {})
 
             first_name = title_case(r.get("dirigeant_prenom", ""))
             last_name = clean_nom(r.get("dirigeant_nom", ""))
             profession = normalize_profession(orig.get("profession", ""))
+            company = (r.get("company_name") or "").strip()
+            ville = (r.get("ville_insee") or orig.get("city") or "").strip()
 
-            # Skip si pas de prénom utilisable (impossible de personnaliser)
+            # GARDE-FOUS qualité — tout lead poussé DOIT avoir :
+            #   ville (sinon subject "votre secteur..." spammy)
+            #   company_name (template utilise {{company_name}})
+            # Sinon on skip — pas de fallback bidon.
             if not first_name or len(first_name) < 2:
+                skipped["no_first"] += 1
                 continue
+            if not ville:
+                skipped["no_city"] += 1
+                continue
+            if not company:
+                skipped["no_company"] += 1
+                continue
+            # Dedupe : si first == last, garde juste first (évite "Pierre Pierre")
+            if first_name and last_name and first_name.lower() == last_name.lower():
+                last_name = ""
+                skipped["dup_first_last"] += 1
+
+            opening = f"Bonjour {first_name}"
 
             leads.append({
                 "first_name": first_name,
                 "last_name": last_name,
                 "email": r["best_email"].strip().lower(),
-                "company_name": r.get("company_name", "").strip(),
+                "company_name": company,
                 "phone_number": orig.get("phone", ""),
                 "website": r.get("website", ""),
                 "custom_fields": {
                     "profession": profession,
                     "dirigeant_source": r.get("dirigeant_source", ""),
                     "code_naf": r.get("code_naf", ""),
-                    "ville": r.get("ville_insee", "") or orig.get("city", ""),
+                    "ville": ville,
+                    "zone_label": f"à {ville}",
+                    "opening": opening,
                 },
             })
             if limit and len(leads) >= limit:
                 break
+    print(f"Skipped (qualité insuffisante) : {skipped}")
     return leads
 
 

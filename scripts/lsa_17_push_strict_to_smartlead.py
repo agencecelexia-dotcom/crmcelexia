@@ -85,34 +85,66 @@ def main() -> None:
             if ph and r.get("best_email"):
                 delivered_by_phone[ph] = r
 
-    # 3. Construit les leads à push
+    # 3. Construit les leads à push.
+    #    QUALITY GATE — on REFUSE de push un lead si :
+    #      - niche non mappable (SOCIETE_LABELS)
+    #      - ville absente (sinon subject "votre secteur, vous prenez ..." = spammy)
+    #      - email manquant
+    #    Les leads incomplets sont skip avec une raison loggée.
     leads = []
+    skipped: dict[str, int] = {"no_niche": 0, "no_city": 0, "no_email": 0,
+                                 "no_company": 0, "dup_first_last": 0}
     for ph, s in strict_by_phone.items():
         d = delivered_by_phone.get(ph)
         if not d:
             continue
-        niche = s["niche_strict"]
+
+        niche = s.get("niche_strict", "")
+        if niche not in SOCIETE_LABELS:
+            skipped["no_niche"] += 1
+            continue
         singular, plural = SOCIETE_LABELS[niche]
 
+        # Email obligatoire
+        email = (d.get("best_email") or "").strip().lower()
+        if not email or "@" not in email:
+            skipped["no_email"] += 1
+            continue
+
+        # Ville obligatoire : si manquante on REFUSE de push (pas de fallback bidon)
+        ville = (s.get("city_matched") or d.get("ville") or "").strip()
+        if not ville:
+            skipped["no_city"] += 1
+            continue
+
+        # First name : split sur espace, prend le premier mot, capitalize
         first = title_case((d.get("dirigeant_prenom", "") or "").split()[0]) if d.get("dirigeant_prenom") else ""
+        last = clean_nom(d.get("dirigeant_nom", ""))
+        # Dedup : si first == last, on garde juste first (évite "Bonjour Pierre Pierre")
+        if first and last and first.lower() == last.lower():
+            last = ""
+            skipped["dup_first_last"] += 1
+        # Opening adapté : "Bonjour Pierre" ou "Bonjour" si pas de first valide
         opening = f"Bonjour {first}" if first and len(first) >= 2 else "Bonjour"
 
-        # Clean company name (strip emojis + extra desc)
-        company = s.get("company_name", "").strip()[:80]
-
-        ville = s.get("city_matched") or d.get("ville") or "votre secteur"
+        # Clean company name (strip emojis + extra desc). Obligatoire pour le template.
+        company = (s.get("company_name") or "").strip()[:80]
+        if not company:
+            skipped["no_company"] += 1
+            continue
 
         leads.append({
             "first_name": first or "",
-            "last_name": clean_nom(d.get("dirigeant_nom", "")),
-            "email": d["best_email"].strip().lower(),
+            "last_name": last,
+            "email": email,
             "company_name": company,
             "phone_number": d.get("phone", "") or s.get("phone", ""),
             "website": s.get("website", ""),
             "custom_fields": {
                 "opening": opening,
                 "ville": ville,
-                "zone_label": "dans votre zone",
+                # zone_label dynamique — plus de "dans votre zone" générique
+                "zone_label": f"à {ville}",
                 "societe_label": singular,
                 "societes_label": plural,
                 "niche_strict": niche,
@@ -123,7 +155,11 @@ def main() -> None:
             },
         })
 
-    print(f"→ {len(leads)} strict prospects avec email à push vers Smartlead")
+    print(f"→ {len(leads)} strict prospects valides à push vers Smartlead")
+    print(f"  Skip (qualité insuffisante) :")
+    for reason, count in skipped.items():
+        if count:
+            print(f"    {reason:20s} : {count}")
 
     BATCH = 100
     total_added = 0
