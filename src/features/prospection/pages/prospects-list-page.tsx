@@ -103,11 +103,13 @@ export function ProspectsListPage() {
   const sp = (key: string, fallback = '') => searchParams.get(key) || fallback
 
   // Helper: update one or more params at once (replaces history entry)
+  // Note : on NE supprime PAS la valeur 'false' — elle est légitime pour `sd`
+  // (sortDesc=false signifie tri ascendant). Pour supprimer un param, passer `null`.
   const updateParams = useCallback((updates: Record<string, string | null>, resetPage = true) => {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
       for (const [k, v] of Object.entries(updates)) {
-        if (v === null || v === '' || v === 'all' || v === 'false') next.delete(k)
+        if (v === null || v === '' || v === 'all') next.delete(k)
         else next.set(k, v)
       }
       if (resetPage && !('p' in updates)) next.delete('p')
@@ -547,11 +549,22 @@ export function ProspectsListPage() {
                       type="checkbox"
                       checked={sortBy === 'competitors_count_lsa' && !sortDesc}
                       onChange={(e) => {
-                        if (e.target.checked) {
-                          updateParams({ sb: 'competitors_count_lsa', sd: 'false' }, false)
-                        } else {
-                          updateParams({ sb: null, sd: null }, false)
-                        }
+                        // updateParams supprime la valeur 'false' de l'URL (voir L110),
+                        // ce qui ferait retomber sortDesc sur son défaut 'true' (= décroissant).
+                        // On utilise donc setSearchParams direct pour préserver sd=false.
+                        const checked = e.target.checked
+                        setSearchParams(prev => {
+                          const next = new URLSearchParams(prev)
+                          if (checked) {
+                            next.set('sb', 'competitors_count_lsa')
+                            next.set('sd', 'false')
+                          } else {
+                            next.delete('sb')
+                            next.delete('sd')
+                          }
+                          next.delete('p')
+                          return next
+                        }, { replace: true })
                       }}
                       className="rounded border-input"
                     />

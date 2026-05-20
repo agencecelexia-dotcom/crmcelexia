@@ -23,6 +23,11 @@ export async function getProspects({
     .select('*, commercial:profiles!prospects_commercial_id_fkey(id, full_name, email), opportunities(id, status, deleted_at)', { count: 'exact' })
     .is('deleted_at', null)
 
+  // PostgREST ne permet pas deux paramètres `or=` au même niveau (le second
+  // écrase le premier). On accumule donc tous les groupes OR ici, puis on les
+  // combine en un seul `and(or(...),or(...))` envoyé via un unique `.or()`.
+  const orGroups: string[] = []
+
   // Apply filters
   if (filters.search) {
     const raw = filters.search.trim()
@@ -46,7 +51,7 @@ export async function getProspects({
     if (raw.includes('@')) {
       orParts.unshift(`contact_email.eq.${raw.toLowerCase()}`)
     }
-    query = query.or(orParts.join(','))
+    orGroups.push(`or(${orParts.join(',')})`)
   }
 
   if (filters.status && filters.status.length > 0) {
@@ -60,13 +65,11 @@ export async function getProspects({
   }
 
   if (filters.profession && filters.profession.length > 0) {
-    // Use ilike for case-insensitive matching
     if (filters.profession.length === 1) {
       query = query.ilike('profession', filters.profession[0])
     } else {
-      // Multiple professions: OR of ilike conditions
       const orConditions = filters.profession.map(p => `profession.ilike.${p}`).join(',')
-      query = query.or(orConditions)
+      orGroups.push(`or(${orConditions})`)
     }
   }
 
@@ -124,7 +127,20 @@ export async function getProspects({
         return `phone.like.${clean}%`
       })
       .join(',')
-    query = query.or(orClauses)
+    orGroups.push(`or(${orClauses})`)
+  }
+
+  // Apply OR groups combinés en un seul AND pour éviter le bug d'écrasement
+  // PostgREST des paramètres `or=` multiples.
+  if (orGroups.length === 1) {
+    // Un seul groupe : on peut envoyer son contenu directement à .or()
+    const inner = orGroups[0].slice(3, -1) // strip leading "or(" and trailing ")"
+    query = query.or(inner)
+  } else if (orGroups.length > 1) {
+    // Plusieurs groupes : combiner avec `and(...)` envoyé comme unique filtre
+    // PostgREST. Note : .or('and(...)') génère ?or=(and(...)) qui est
+    // sémantiquement équivalent à un AND top-level avec une seule clause.
+    query = query.or(`and(${orGroups.join(',')})`)
   }
 
   // Pagination
@@ -133,12 +149,19 @@ export async function getProspects({
 
   // Champs JSONB stockés dans custom_fields : on cible la clé via la syntaxe
   // Supabase `custom_fields->key` pour préserver le type numérique JSON.
-  const sortColumn = sortBy === 'competitors_count_lsa'
+  const isJsonbSort = sortBy === 'competitors_count_lsa'
+  const sortColumn = isJsonbSort
     ? 'custom_fields->competitors_count_lsa'
     : sortBy
 
   query = query
-    .order(sortColumn, { ascending: !sortDesc })
+    .order(sortColumn, {
+      ascending: !sortDesc,
+      // Pour les champs JSONB optionnels, on pousse les NULL en fin de liste
+      // quel que soit le sens de tri — sinon les prospects sans LSA renseigné
+      // apparaissent toujours en haut.
+      nullsFirst: isJsonbSort ? false : undefined,
+    })
     .range(from, to)
 
   const { data, error, count } = await query
