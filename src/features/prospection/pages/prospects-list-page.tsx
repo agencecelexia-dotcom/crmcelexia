@@ -238,7 +238,9 @@ export function ProspectsListPage() {
         setSortDesc((d) => !d)
         return column
       }
-      setSortDesc(true)
+      // Tri par défaut : ASC pour LSA (0, 1, 2, 3+...) car on veut voir
+      // d'abord les zones sans concurrence. DESC pour le reste (récent en haut).
+      setSortDesc(column !== 'competitors_count_lsa')
       return column
     })
   }, [])
@@ -349,7 +351,7 @@ export function ProspectsListPage() {
     }
   }, [prospects, selectedProspect?.id])
 
-  const colCount = (isFounder ? 10 : 9) + 1 // +1 for checkbox column
+  const colCount = (isFounder ? 11 : 10) + 1 // +1 for checkbox column (LSA column included)
 
   return (
     <div className="flex h-[calc(100vh-4rem)]">
@@ -686,6 +688,13 @@ export function ProspectsListPage() {
                   >
                     Ville {sortBy === 'city' && (sortDesc ? '↓' : '↑')}
                   </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50 text-center"
+                    onClick={() => handleSort('competitors_count_lsa')}
+                    title="Trier par nombre de concurrents Google LSA sur la zone"
+                  >
+                    LSA {sortBy === 'competitors_count_lsa' && (sortDesc ? '↓' : '↑')}
+                  </TableHead>
                   {isFounder && <TableHead>Commercial</TableHead>}
                   <TableHead
                     className="cursor-pointer hover:bg-muted/50 text-right"
@@ -854,6 +863,27 @@ export function ProspectsListPage() {
                         </TableCell>
                         <TableCell className="text-sm">{prospect.profession ?? '—'}</TableCell>
                         <TableCell className="text-sm">{prospect.city ?? '—'}</TableCell>
+                        <TableCell className="text-center">
+                          {(() => {
+                            const cf = prospect.custom_fields ?? {}
+                            const compRaw = cf.competitors_count_lsa
+                            const comp = typeof compRaw === 'number' ? compRaw : (typeof compRaw === 'string' && compRaw ? parseInt(compRaw, 10) : null)
+                            if (comp == null) return <span className="text-xs text-muted-foreground">—</span>
+                            return (
+                              <span
+                                title={`${comp} concurrent${comp > 1 ? 's' : ''} Google LSA sur la zone`}
+                                className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-xs font-semibold ${
+                                  comp === 0 ? 'bg-emerald-100 text-emerald-800' :
+                                  comp === 1 ? 'bg-green-100 text-green-800' :
+                                  comp === 2 ? 'bg-amber-100 text-amber-800' :
+                                  'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {comp}
+                              </span>
+                            )
+                          })()}
+                        </TableCell>
                         {isFounder && (
                           <TableCell className="text-sm" onClick={(e) => e.stopPropagation()}>
                             <DropdownMenu>

@@ -131,8 +131,14 @@ export async function getProspects({
   const from = (page - 1) * pageSize
   const to = from + pageSize - 1
 
+  // Champs JSONB stockés dans custom_fields : on cible la clé via la syntaxe
+  // Supabase `custom_fields->key` pour préserver le type numérique JSON.
+  const sortColumn = sortBy === 'competitors_count_lsa'
+    ? 'custom_fields->competitors_count_lsa'
+    : sortBy
+
   query = query
-    .order(sortBy, { ascending: !sortDesc })
+    .order(sortColumn, { ascending: !sortDesc })
     .range(from, to)
 
   const { data, error, count } = await query
