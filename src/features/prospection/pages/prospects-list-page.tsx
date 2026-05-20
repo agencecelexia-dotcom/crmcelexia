@@ -539,6 +539,24 @@ export function ProspectsListPage() {
                     />
                     Rappels aujourd'hui
                   </label>
+                  <label
+                    className="flex items-center gap-1.5 text-xs cursor-pointer"
+                    title="Affiche d'abord les prospects avec le moins de concurrents Google LSA (0, 1, 2, 3+...). N'affecte pas les autres filtres."
+                  >
+                    <input
+                      type="checkbox"
+                      checked={sortBy === 'competitors_count_lsa' && !sortDesc}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          updateParams({ sb: 'competitors_count_lsa', sd: 'false' }, false)
+                        } else {
+                          updateParams({ sb: null, sd: null }, false)
+                        }
+                      }}
+                      className="rounded border-input"
+                    />
+                    Trier par concurrence LSA (croissant)
+                  </label>
                 </div>
                 <div className="flex gap-2 flex-wrap items-center">
                   <div className="flex items-center gap-1.5">
