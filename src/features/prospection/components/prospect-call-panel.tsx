@@ -177,12 +177,8 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
 
   const [prospectNotes, setProspectNotes] = useState(prospect.notes ?? '')
   const [notesChanged, setNotesChanged] = useState(false)
-  const [showReminderInput, setShowReminderInput] = useState(false)
-  const [reminderDate, setReminderDate] = useState('')
-  const [reminderTime, setReminderTime] = useState('09:00')
-  const [reminderNote, setReminderNote] = useState('')
 
-  // "À rappeler" inline form state
+  // "À rappeler" inline form state (unifié : quick action ET bouton + Rappel pointent ici)
   const [rappelerOpen, setRappelerOpen] = useState(false)
   const [rappelerDate, setRappelerDate] = useState('')
   const [rappelerTime, setRappelerTime] = useState('09:00')
@@ -275,7 +271,14 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
   async function handleConfirmRappeler() {
     if (!profile || !rappelerDate || !rappelerNote.trim()) return
 
-    const newStatus = CALL_RESULT_TO_STATUS['reached_callback']
+    const currentStatus = prospect.status as ProspectStatus
+    const targetStatus = CALL_RESULT_TO_STATUS['reached_callback']
+    const validTargets = PROSPECT_STATUS_TRANSITIONS[currentStatus] ?? []
+    // Si la transition vers 'a_rappeler' n'est pas valide (ex: pipeline site_envoye),
+    // on conserve le statut actuel mais on log l'appel quand même.
+    const statusKept = !validTargets.includes(targetStatus) && currentStatus !== targetStatus
+    const newStatus: ProspectStatus = statusKept ? currentStatus : targetStatus
+
     const remindAt = new Date(`${rappelerDate}T${rappelerTime}:00`).toISOString()
 
     try {
@@ -294,19 +297,23 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
         note: rappelerNote.trim(),
       })
 
-      toast.success('Appel enregistré + rappel créé')
+      if (statusKept) {
+        toast.success(`Rappel planifié — statut conservé (${PROSPECT_STATUS_LABELS[currentStatus]})`)
+      } else {
+        toast.success('Appel enregistré + rappel créé')
 
-      // Register undo action to revert status
-      const previousStatus = prospect.status
-      setUndoAction({
-        label: `Annuler: ${prospect.company_name} → À rappeler`,
-        undo: async () => {
-          await updateProspect.mutateAsync({
-            id: prospect.id,
-            updates: { status: previousStatus },
-          })
-        },
-      })
+        // Register undo action to revert status only when status actually changed
+        const previousStatus = currentStatus
+        setUndoAction({
+          label: `Annuler: ${prospect.company_name} → À rappeler`,
+          undo: async () => {
+            await updateProspect.mutateAsync({
+              id: prospect.id,
+              updates: { status: previousStatus },
+            })
+          },
+        })
+      }
 
       setRappelerOpen(false)
       setRappelerDate('')
@@ -363,26 +370,6 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
       })
       setNotesChanged(false)
       toast.success('Notes sauvegardées')
-    } catch {
-      toast.error('Erreur')
-    }
-  }
-
-  async function handleAddReminder() {
-    if (!reminderDate || !profile) return
-
-    try {
-      const remindAt = new Date(`${reminderDate}T${reminderTime}:00`).toISOString()
-      await createReminder.mutateAsync({
-        prospect_id: prospect.id,
-        commercial_id: profile.id,
-        remind_at: remindAt,
-        note: reminderNote.trim() || null,
-      })
-      toast.success('Rappel créé')
-      setShowReminderInput(false)
-      setReminderDate('')
-      setReminderNote('')
     } catch {
       toast.error('Erreur')
     }
@@ -922,45 +909,12 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setShowReminderInput(!showReminderInput)}
+              onClick={() => setRappelerOpen(true)}
               className="h-7 text-xs"
             >
-              + Rappel
+              + À rappeler
             </Button>
           </div>
-
-          {showReminderInput && (
-            <div className="mb-3 p-3 rounded-lg border bg-muted/30 space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  value={reminderDate}
-                  onChange={(e) => setReminderDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="h-8 text-sm"
-                />
-                <ScrollTimePicker
-                  value={reminderTime}
-                  onChange={setReminderTime}
-                  className="h-8 text-sm w-24"
-                />
-              </div>
-              <Input
-                value={reminderNote}
-                onChange={(e) => setReminderNote(e.target.value)}
-                placeholder="Note..."
-                className="h-8 text-sm"
-              />
-              <Button
-                size="sm"
-                onClick={handleAddReminder}
-                disabled={!reminderDate || createReminder.isPending}
-                className="h-7 text-xs"
-              >
-                Créer
-              </Button>
-            </div>
-          )}
 
           {pendingReminders.length === 0 ? (
             <p className="text-xs text-muted-foreground">Aucun rappel en cours</p>

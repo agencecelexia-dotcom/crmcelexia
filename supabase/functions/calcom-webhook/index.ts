@@ -705,6 +705,26 @@ async function handleBookingCreated(
     .eq('id', prospectId)
     .in('status', ['nouveau', 'appele_sans_reponse', 'messagerie', 'site_en_attente', 'site_envoye', 'a_rappeler', 'negatif'])
 
+  // Log implicit call for the RDV so call_count / last_called_at reflect contact
+  // (post-update status is used as new_status so the trigger doesn't regress later stages)
+  const { data: prospectAfterUpdate } = await supabase
+    .from('prospects')
+    .select('status')
+    .eq('id', prospectId)
+    .single()
+  const currentStatus = prospectAfterUpdate?.status ?? 'rdv_pris'
+  const { error: callLogErr } = await supabase.rpc('log_call_and_update_prospect', {
+    p_prospect_id: prospectId,
+    p_commercial_id: commercialId,
+    p_result: 'reached_rdv',
+    p_new_status: currentStatus,
+    p_note: `RDV pris via Cal.com — ${bookingType === 'pub' ? 'Pub' : 'Site web'}`,
+    p_duration_seconds: null,
+  })
+  if (callLogErr) {
+    console.error(`[calcom-webhook] Failed to log implicit call:`, callLogErr)
+  }
+
   // Auto-create pub opportunity if booking type is pub and no pub opportunity exists yet
   if (bookingType === 'pub') {
     const { data: existingPubOpp } = await supabase
