@@ -103,6 +103,7 @@ export function PortalReviewsPage() {
   const [csvParsed, setCsvParsed] = useState<ParsedCsv | null>(null)
   const [csvMapping, setCsvMapping] = useState<CsvField[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   async function loadCampaigns() {
     if (!client) return
@@ -325,14 +326,9 @@ export function PortalReviewsPage() {
               <h2 className="font-semibold text-slate-900">Destinataires</h2>
               <p className="text-sm text-slate-500">{validRecipients.length} email{validRecipients.length > 1 ? 's' : ''} valide{validRecipients.length > 1 ? 's' : ''}</p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                <Upload className="h-4 w-4 mr-1" /> Importer CSV
-              </Button>
-              <Button variant="outline" onClick={addRow} size="sm">
-                <Plus className="h-4 w-4 mr-1" /> Ajouter
-              </Button>
-            </div>
+            <Button variant="outline" onClick={addRow} size="sm">
+              <Plus className="h-4 w-4 mr-1" /> Ajouter une ligne
+            </Button>
             <input
               ref={fileInputRef}
               type="file"
@@ -346,26 +342,61 @@ export function PortalReviewsPage() {
             />
           </div>
 
-          {/* Paste fallback */}
-          <details className="mb-4 bg-slate-50 rounded-lg p-3">
-            <summary className="cursor-pointer text-sm font-medium text-slate-700">Ou coller un texte (CSV/colonnes séparées)</summary>
-            <div className="mt-3">
-              <textarea
-                placeholder={`Prénom,Nom,Email,Projet\nMarie,Dupont,marie@exemple.fr,Pose de pergola\n...`}
-                className="w-full h-28 px-3 py-2 border border-slate-200 rounded-md text-sm font-mono"
-                onPaste={(e) => {
-                  const text = e.clipboardData.getData('text')
-                  if (text) {
-                    e.preventDefault()
-                    handlePastedCsv(text)
-                  }
-                }}
-                onChange={(e) => {
-                  if (e.target.value.includes('\n')) handlePastedCsv(e.target.value)
-                }}
-              />
+          {/* Drop zone CSV — drag & drop OR clic pour browser OR paste */}
+          {!csvParsed && (
+            <div
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+              onDragLeave={(e) => { e.preventDefault(); setIsDragging(false) }}
+              onDrop={(e) => {
+                e.preventDefault()
+                setIsDragging(false)
+                const f = e.dataTransfer.files?.[0]
+                if (!f) return
+                if (!f.name.toLowerCase().endsWith('.csv') && f.type && !f.type.includes('csv') && !f.type.includes('text')) {
+                  toast.error('Format non supporté. Glissez un fichier .csv')
+                  return
+                }
+                handleFile(f)
+              }}
+              onClick={() => fileInputRef.current?.click()}
+              className={`mb-4 cursor-pointer border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                isDragging
+                  ? 'border-amber-500 bg-amber-50'
+                  : 'border-slate-300 bg-slate-50 hover:border-amber-400 hover:bg-amber-50/50'
+              }`}
+            >
+              <Upload className={`h-8 w-8 mx-auto mb-2 ${isDragging ? 'text-amber-600' : 'text-slate-400'}`} />
+              <p className="text-sm font-medium text-slate-700">
+                {isDragging ? 'Lâchez le fichier ici' : 'Glissez votre CSV ici ou cliquez pour parcourir'}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                .csv — délimiteur auto-détecté (virgule, point-virgule, tabulation)
+              </p>
             </div>
-          </details>
+          )}
+
+          {/* Paste fallback */}
+          {!csvParsed && (
+            <details className="mb-4 bg-slate-50 rounded-lg p-3">
+              <summary className="cursor-pointer text-sm font-medium text-slate-700">Ou coller un texte (CSV / colonnes séparées)</summary>
+              <div className="mt-3">
+                <textarea
+                  placeholder={`Prénom,Nom,Email,Projet\nMarie,Dupont,marie@exemple.fr,Pose de pergola\n...`}
+                  className="w-full h-28 px-3 py-2 border border-slate-200 rounded-md text-sm font-mono"
+                  onPaste={(e) => {
+                    const text = e.clipboardData.getData('text')
+                    if (text) {
+                      e.preventDefault()
+                      handlePastedCsv(text)
+                    }
+                  }}
+                  onChange={(e) => {
+                    if (e.target.value.includes('\n')) handlePastedCsv(e.target.value)
+                  }}
+                />
+              </div>
+            </details>
+          )}
 
           {/* CSV mapping overlay */}
           {csvParsed && (
