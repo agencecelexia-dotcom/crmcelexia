@@ -40,18 +40,36 @@ function DocCard({ title, icon: Icon, status, statusColor, subtitle, path, missi
     else if (missing && onUpload) onUpload()
   }
 
+  // a11y : si la carte est interactive (download possible ou upload required),
+  // on rend un <button> avec aria-label explicite + focus visible + Enter/Space.
+  // Avant : <div onClick> non focusable au clavier → fail WCAG 2.1.1 (audit V2 C1).
+  const wrapperLabel = path
+    ? `Télécharger ${title}`
+    : missing && onUpload
+      ? `Téléverser ${title}`
+      : title
+
+  const Wrapper: 'button' | 'div' = interactive ? 'button' : 'div'
+  const wrapperProps = interactive
+    ? {
+        type: 'button' as const,
+        onClick: handleCardClick,
+        'aria-label': wrapperLabel,
+      }
+    : {}
+
   return (
-    <div
-      className={`p-card p-card-hoverable p-3.5 sm:p-5 ${interactive ? 'cursor-pointer' : ''}`}
-      onClick={interactive ? handleCardClick : undefined}
+    <Wrapper
+      className={`p-card p-card-hoverable p-3.5 sm:p-5 text-left ${interactive ? 'cursor-pointer w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1' : ''}`}
+      {...wrapperProps}
     >
       <div className="flex items-start gap-3 sm:gap-3.5">
         <div
           className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] sm:h-11 sm:w-11 sm:rounded-xl"
           style={{ background: 'var(--violet-100)', color: 'var(--violet-600)' }}
         >
-          <Icon size={18} className="sm:hidden" />
-          <Icon size={22} className="hidden sm:block" />
+          <Icon size={18} className="sm:hidden" aria-hidden="true" />
+          <Icon size={22} className="hidden sm:block" aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="mb-0.5 text-sm font-semibold text-[var(--gray-900)] sm:text-[15px]">{title}</div>
@@ -69,19 +87,22 @@ function DocCard({ title, icon: Icon, status, statusColor, subtitle, path, missi
             </span>
           )}
           {missing && onUpload && (
-            <button
-              type="button"
-              className="btn btn-secondary mt-2.5"
+            <span
+              role="button"
+              tabIndex={0}
+              className="btn btn-secondary mt-2.5 inline-flex"
               style={{ padding: '6px 12px', fontSize: 12 }}
+              aria-label={`Téléverser ${title}`}
               onClick={e => { e.stopPropagation(); onUpload() }}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onUpload() } }}
             >
-              <Upload size={13} /> Téléverser
-            </button>
+              <Upload size={13} aria-hidden="true" /> Téléverser
+            </span>
           )}
         </div>
-        {path && <Download size={16} className="mt-1 flex-shrink-0 text-[var(--gray-400)]" />}
+        {path && <Download size={16} className="mt-1 flex-shrink-0 text-[var(--gray-400)]" aria-hidden="true" />}
       </div>
-    </div>
+    </Wrapper>
   )
 }
 

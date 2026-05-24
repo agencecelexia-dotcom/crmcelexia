@@ -813,23 +813,45 @@ export function PortalQuoteEditorPage() {
           </div>
 
           <div className="p-card flex flex-col gap-2" style={{ padding: 14 }}>
-            <button type="button" className="btn btn-secondary" onClick={handleSave} disabled={busy || isReadOnly}>
-              <CheckCircle2 size={14} /> Enregistrer
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={handlePreview} disabled={busy}>
-              <Eye size={14} /> Aperçu PDF
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={handleDownload} disabled={busy}>
-              <FileDown size={14} /> Télécharger PDF
-            </button>
-            {currentStatus === 'draft' && (
-              <button type="button" className="btn btn-primary" onClick={() => markAs('sent')} disabled={busy}>
-                <Send size={14} /> Marquer comme envoyé
-              </button>
-            )}
+            {/* Validation : un devis vide (pas de description ET total = 0) ne
+                peut pas être envoyé/signé. Évite l'envoi accidentel de PDF 0 €
+                sans contenu (audit V2 C2). */}
+            {(() => {
+              const hasContent = items.some(it => (it.description || '').trim().length > 0)
+              const hasAmount = totals.ttc > 0
+              const sendable = hasContent && hasAmount
+              const sendableReason = !hasContent
+                ? "Ajoutez au moins une prestation avec une description"
+                : !hasAmount
+                  ? "Le total TTC doit être > 0"
+                  : ''
+              return (
+                <>
+                  <button type="button" className="btn btn-secondary" onClick={handleSave} disabled={busy || isReadOnly}>
+                    <CheckCircle2 size={14} /> Enregistrer
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={handlePreview} disabled={busy || !sendable} title={!sendable ? sendableReason : ''}>
+                    <Eye size={14} /> Aperçu PDF
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={handleDownload} disabled={busy || !sendable} title={!sendable ? sendableReason : ''}>
+                    <FileDown size={14} /> Télécharger PDF
+                  </button>
+                  {currentStatus === 'draft' && (
+                    <button type="button" className="btn btn-primary" onClick={() => markAs('sent')} disabled={busy || !sendable} title={!sendable ? sendableReason : ''}>
+                      <Send size={14} /> Marquer comme envoyé
+                    </button>
+                  )}
+                  {!sendable && currentStatus === 'draft' && (
+                    <div className="text-xs text-[var(--amber-600)] mt-1">
+                      {sendableReason}
+                    </div>
+                  )}
+                </>
+              )
+            })()}
             {currentStatus === 'sent' && (
               <>
-                <button type="button" className="btn btn-primary" onClick={() => setSignOpen(true)} disabled={busy}>
+                <button type="button" className="btn btn-primary" onClick={() => setSignOpen(true)} disabled={busy || totals.ttc <= 0} title={totals.ttc <= 0 ? 'Le total TTC doit être > 0' : ''}>
                   <CheckCircle2 size={14} /> Marquer comme signé
                 </button>
                 <button
