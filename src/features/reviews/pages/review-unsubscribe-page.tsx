@@ -11,12 +11,19 @@ export function ReviewUnsubscribePage() {
       setState('error')
       return
     }
-    supabase.rpc('review_request_unsubscribe', { p_token: token })
-      .then(({ data, error }) => {
+    let cancelled = false
+    async function run() {
+      try {
+        const { data, error } = await supabase.rpc('review_request_unsubscribe', { p_token: token })
+        if (cancelled) return
         if (error || !data) setState('error')
         else setState('success')
-      })
-      .catch(() => setState('error'))
+      } catch {
+        if (!cancelled) setState('error')
+      }
+    }
+    run()
+    return () => { cancelled = true }
   }, [token])
 
   return (
