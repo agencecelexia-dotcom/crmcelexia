@@ -3,6 +3,7 @@ import { supabase, supabaseMisconfigured } from '@/lib/supabase/client'
 import { fetchProfileById } from '@/lib/supabase/profile-cache'
 import { AuthContext, type AuthContextType } from '../hooks/use-auth'
 import type { Session } from '@supabase/supabase-js'
+import type { Profile } from '@/types'
 
 // fetchProfileById → utilise désormais le cache shared profile-cache.ts
 // pour dedupe avec PortalAuthProvider (bug audit Cowork M1 : 4× requête
