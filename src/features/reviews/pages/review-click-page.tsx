@@ -13,6 +13,20 @@ export function ReviewClickPage() {
   const { token } = useParams<{ token: string }>()
   const [error, setError] = useState<string | null>(null)
 
+  // Empêche l'indexation par Google (pages avec tokens éphémères).
+  useEffect(() => {
+    document.title = 'Redirection — Celexia'
+    let meta = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null
+    if (!meta) {
+      meta = document.createElement('meta')
+      meta.name = 'robots'
+      document.head.appendChild(meta)
+    }
+    const prev = meta.content
+    meta.content = 'noindex, nofollow'
+    return () => { meta!.content = prev }
+  }, [])
+
   useEffect(() => {
     if (!token) {
       setError('Lien invalide')

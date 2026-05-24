@@ -12,7 +12,27 @@ export function PortalLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [forgotLoading, setForgotLoading] = useState(false)
   const navigate = useNavigate()
+
+  async function handleForgotPassword() {
+    if (!email || !email.includes('@')) {
+      toast.error('Saisissez d\'abord votre email')
+      return
+    }
+    setForgotLoading(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/portal/auth`,
+      })
+      if (error) throw error
+      toast.success('Un lien de réinitialisation vient d\'être envoyé à votre email.')
+    } catch (err) {
+      toast.error(describeError(err))
+    } finally {
+      setForgotLoading(false)
+    }
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -120,6 +140,15 @@ export function PortalLoginPage() {
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
               Se connecter
+            </button>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={forgotLoading}
+              className="text-center text-[13px] text-[var(--violet-600)] hover:underline"
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+            >
+              {forgotLoading ? 'Envoi…' : 'Mot de passe oublié ?'}
             </button>
           </form>
         </div>

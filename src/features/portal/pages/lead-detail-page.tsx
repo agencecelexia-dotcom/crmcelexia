@@ -12,7 +12,22 @@ import { getCommissionTerms, formatCommissionTerms, calcCommission } from '../li
 import {
   PORTAL_LEAD_STATUS_LABELS,
   PORTAL_LEAD_STATUS_VAR_COLORS,
+  type PortalLeadStatus,
 } from '@/types/enums'
+
+// Remplace les valeurs brutes d'enum dans les descriptions d'événements
+// par leurs libellés UI (ex: "qualifie" → "Qualifié"). Évite les fuites
+// de noms internes dans le timeline (audit V2 m3).
+function humanizeEventDescription(desc: string): string {
+  const statuses: PortalLeadStatus[] = ['nouveau', 'qualifie', 'devis', 'signe', 'perdu']
+  let out = desc
+  for (const s of statuses) {
+    const label = PORTAL_LEAD_STATUS_LABELS[s]
+    // Match 'qualifie', "qualifie", or barewords surrounded by spaces/punctuation
+    out = out.replace(new RegExp(`['"]${s}['"]`, 'g'), `« ${label} »`)
+  }
+  return out
+}
 import {
   AlertDialog,
   AlertDialogAction,
@@ -216,7 +231,7 @@ export function PortalLeadDetailPage() {
                       <CheckCircle2 size={10} />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 2, gap: 8 }}>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--gray-900)' }}>{ev.description}</div>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--gray-900)' }}>{humanizeEventDescription(ev.description)}</div>
                       <div
                         title={formatDateTime(ev.created_at)}
                         style={{ fontSize: 12, color: 'var(--gray-500)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}
