@@ -43,72 +43,99 @@ function slugifyCompany(name: string): string {
     .slice(0, 40)
 }
 
+/**
+ * Pick le greeting + subject selon les données disponibles.
+ * On évite "cher client" générique et on s'adapte naturellement.
+ */
+function pickWording(firstName: string | null, lastName: string | null, companyName: string) {
+  const fn = (firstName || '').trim()
+  const ln = (lastName || '').trim()
+
+  if (fn && fn.length >= 2) {
+    return {
+      greeting: `Bonjour ${fn},`,
+      subject: `${fn}, une question rapide sur votre expérience`,
+    }
+  }
+  // Sans first name : on reste sur "Bonjour," neutre + subject avec société
+  return {
+    greeting: `Bonjour,`,
+    subject: `Une question rapide sur votre expérience avec ${companyName}`,
+  }
+}
+
 function buildEmail(opts: {
-  firstName: string
+  firstName: string | null
+  lastName: string | null
   companyName: string
   projectContext: string | null
   reviewLink: string
   unsubscribeLink: string
-  customIntro: string | null
 }) {
-  const { firstName, companyName, projectContext, reviewLink, unsubscribeLink, customIntro } = opts
+  const { firstName, lastName, companyName, projectContext, reviewLink, unsubscribeLink } = opts
 
-  const subject = `Merci ${firstName}, votre avis compte pour ${companyName}`
+  const { greeting, subject } = pickWording(firstName, lastName, companyName)
 
-  const projectLine = projectContext
-    ? `pour <strong>${escapeHtml(projectContext)}</strong>`
-    : 'pour votre projet'
-
-  const introHtml = customIntro
-    ? escapeHtml(customIntro)
-    : `On espère que tout s'est bien passé ${projectLine} et que vous êtes satisfait du travail.`
+  // Phrase "contexte projet" optionnelle si l'artisan a renseigné. Si rien :
+  // on reste neutre temporellement pour que ça marche pour un client récent
+  // OU un client d'il y a un an.
+  const contextLine = projectContext
+    ? `suite à <strong>${escapeHtml(projectContext)}</strong>, `
+    : ''
 
   const html = `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${escapeHtml(subject)}</title></head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#0F172A">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f8fafc;padding:32px 12px"><tr><td align="center">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-<tr><td style="background:#0F172A;color:#ffffff;padding:28px 32px">
-<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;opacity:0.7">${escapeHtml(companyName)}</div>
-<div style="font-size:22px;font-weight:700;margin-top:6px;line-height:1.3">Bonjour ${escapeHtml(firstName)},</div>
+<tr><td style="padding:28px 32px 0">
+<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#64748b">${escapeHtml(companyName)}</div>
+<div style="font-size:20px;font-weight:600;margin-top:8px;color:#0F172A;line-height:1.3">${escapeHtml(greeting)}</div>
 </td></tr>
-<tr><td style="padding:28px 32px">
-<p style="font-size:15px;line-height:1.6;margin:0 0 16px">${introHtml}</p>
-<p style="font-size:15px;line-height:1.6;margin:0 0 20px">Un avis sur Google nous aide énormément à continuer à servir d'autres particuliers comme vous. <strong>Ça prend 2 minutes</strong> et c'est précieux pour nous.</p>
+<tr><td style="padding:20px 32px 8px">
+<p style="font-size:15px;line-height:1.65;margin:0 0 14px;color:#334155">
+Chez ${escapeHtml(companyName)}, ${contextLine}nous prenons le temps de récolter quelques retours auprès de nos clients pour comprendre comment notre travail vous a servi et continuer à nous améliorer.
+</p>
+<p style="font-size:15px;line-height:1.65;margin:0 0 24px;color:#334155">
+Si vous avez 2 minutes, votre retour nous serait très utile.
+</p>
 
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:24px 0">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:8px 0 24px">
 <tr><td align="center">
-<a href="${escapeHtml(reviewLink)}" style="display:inline-block;background:#FFC107;color:#0F172A;padding:16px 32px;border-radius:8px;font-weight:700;text-decoration:none;font-size:16px">★ Laisser un avis sur Google</a>
+<a href="${escapeHtml(reviewLink)}" style="display:inline-block;background:#0F172A;color:#ffffff;padding:14px 32px;border-radius:8px;font-weight:600;text-decoration:none;font-size:15px">Partager mon expérience</a>
 </td></tr>
 </table>
 
-<p style="font-size:14px;line-height:1.6;color:#475569;margin:24px 0 0">
-Vous n'avez pas été satisfait à 100% ? Répondez simplement à cet email, on règle ça avant tout.
+<p style="font-size:14px;line-height:1.6;color:#64748b;margin:0 0 20px">
+Si quelque chose n'a pas été parfait, répondez simplement à cet email, on en discute en direct.
 </p>
 
-<p style="font-size:14px;line-height:1.6;color:#0F172A;margin:24px 0 0;border-top:1px solid #e2e8f0;padding-top:20px">
-Merci d'avance,<br><strong>${escapeHtml(companyName)}</strong>
+<p style="font-size:14px;line-height:1.6;color:#0F172A;margin:0;border-top:1px solid #e2e8f0;padding-top:20px">
+Merci,<br><strong>${escapeHtml(companyName)}</strong>
 </p>
-
-<p style="font-size:11px;color:#94a3b8;line-height:1.5;margin:24px 0 0;border-top:1px solid #e2e8f0;padding-top:14px;text-align:center">
+</td></tr>
+<tr><td style="padding:18px 32px 28px">
+<p style="font-size:11px;color:#94a3b8;line-height:1.5;margin:0;text-align:center;border-top:1px solid #f1f5f9;padding-top:14px">
 Vous recevez cet email parce que ${escapeHtml(companyName)} vous a contacté suite à une prestation.<br>
-<a href="${escapeHtml(unsubscribeLink)}" style="color:#94a3b8">Ne plus recevoir d'emails</a>
+<a href="${escapeHtml(unsubscribeLink)}" style="color:#94a3b8;text-decoration:underline">Ne plus recevoir d'emails de ${escapeHtml(companyName)}</a>
 </p>
-</td></tr></table>
+</td></tr>
+</table>
 </td></tr></table>
 </body></html>`
 
-  const text = `Bonjour ${firstName},
+  const projectTextLine = projectContext ? `suite à ${projectContext}, ` : ''
+  const text = `${greeting}
 
-${customIntro || `On espère que tout s'est bien passé ${projectContext ? `pour ${projectContext}` : 'pour votre projet'} et que vous êtes satisfait du travail.`}
+Chez ${companyName}, ${projectTextLine}nous prenons le temps de récolter quelques retours auprès de nos clients pour comprendre comment notre travail vous a servi et continuer à nous améliorer.
 
-Un avis sur Google nous aide énormément à continuer à servir d'autres particuliers comme vous. Ça prend 2 minutes et c'est précieux pour nous.
+Si vous avez 2 minutes, votre retour nous serait très utile.
 
-Laisser un avis : ${reviewLink}
+Partager mon expérience : ${reviewLink}
 
-Vous n'avez pas été satisfait à 100% ? Répondez simplement à cet email, on règle ça avant tout.
+Si quelque chose n'a pas été parfait, répondez simplement à cet email, on en discute en direct.
 
-Merci d'avance,
+Merci,
 ${companyName}
 
 ---
@@ -148,10 +175,11 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'campaign_id_required' }), { status: 400, headers: corsHeaders })
   }
 
-  // Fetch campaign + verify ownership
+  // Fetch campaign + verify ownership. Note: custom_intro reste en DB mais
+  // n'est plus utilisé dans le template depuis la v2 (lock du copy côté admin).
   const { data: campaign, error: cErr } = await supabase
     .from('review_campaigns')
-    .select('id, client_id, google_review_url, custom_intro, status, clients(id, company_name, user_id)')
+    .select('id, client_id, google_review_url, status, clients(id, company_name, user_id)')
     .eq('id', payload.campaign_id)
     .single()
 
@@ -200,17 +228,16 @@ Deno.serve(async (req) => {
   let sent = 0
   let failed = 0
   for (const req of (requests ?? [])) {
-    const firstName = req.recipient_firstname || req.recipient_name || 'cher client'
     const reviewLink = `${CRM_BASE}/r/${req.token}`
     const unsubscribeLink = `${CRM_BASE}/r/${req.token}/unsubscribe`
 
     const { subject, html, text } = buildEmail({
-      firstName,
+      firstName: req.recipient_firstname,
+      lastName: req.recipient_name,
       companyName: client.company_name,
       projectContext: req.project_context,
       reviewLink,
       unsubscribeLink,
-      customIntro: campaign.custom_intro,
     })
 
     try {

@@ -5,19 +5,13 @@ import { supabase } from '@/lib/supabase/client'
 /**
  * Page publique /r/:token
  *
- * Appelée quand un client final clique sur le lien "Laisser un avis" dans
- * l'email envoyé par un artisan. La page :
- *   1. Affiche un loader "On vous redirige vers Google..."
- *   2. Appelle l'RPC `review_request_click` qui logue le clic et retourne
- *      l'URL Google de la fiche artisan
- *   3. Redirige le navigateur vers cette URL Google
- *
- * Si le token est invalide → message d'erreur sobre.
+ * Tracking + redirect quasi instantané vers la fiche Google de l'artisan.
+ * On affiche un splash minimal (au cas où la RPC mette > 500ms) puis
+ * window.location.replace dès que la RPC a répondu.
  */
 export function ReviewClickPage() {
   const { token } = useParams<{ token: string }>()
   const [error, setError] = useState<string | null>(null)
-  const [companyName, setCompanyName] = useState<string>('')
 
   useEffect(() => {
     if (!token) {
@@ -33,13 +27,14 @@ export function ReviewClickPage() {
           setError("Ce lien n'est plus valide ou a déjà été utilisé.")
           return
         }
-        const row = data[0]
-        setCompanyName(row.company_name || '')
-        // Redirige après 1.2s pour laisser le temps d'afficher
-        setTimeout(() => {
-          if (!cancelled) window.location.href = row.google_review_url
-        }, 1200)
-      } catch (e) {
+        const url = data[0]?.google_review_url
+        if (!url) {
+          setError("Lien Google manquant pour cette campagne.")
+          return
+        }
+        // Redirect immédiat — pas de timeout.
+        window.location.replace(url)
+      } catch {
         if (!cancelled) setError("Une erreur est survenue, réessayez dans quelques minutes.")
       }
     }
@@ -51,7 +46,6 @@ export function ReviewClickPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
         <div className="max-w-md text-center bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-          <div className="text-5xl mb-4">⚠</div>
           <h1 className="text-xl font-semibold text-slate-900 mb-2">Lien invalide</h1>
           <p className="text-sm text-slate-600">{error}</p>
         </div>
@@ -59,21 +53,12 @@ export function ReviewClickPage() {
     )
   }
 
+  // Splash minimaliste pendant la RPC (~200-400ms typique).
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-      <div className="max-w-md text-center bg-white border border-slate-200 rounded-2xl p-10 shadow-sm">
-        <div className="flex justify-center mb-4">
-          <div className="text-4xl text-amber-400">★ ★ ★ ★ ★</div>
-        </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-3">Merci !</h1>
-        <p className="text-slate-700 text-base mb-6">
-          {companyName ? `${companyName} vous remercie.` : 'Merci de votre confiance.'}
-          <br />
-          On vous redirige vers Google pour laisser votre avis...
-        </p>
-        <div className="flex justify-center">
-          <div className="w-8 h-8 border-2 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-white p-6">
+      <div className="text-center">
+        <div className="w-6 h-6 mx-auto border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+        <p className="mt-3 text-sm text-slate-500">Redirection…</p>
       </div>
     </div>
   )
