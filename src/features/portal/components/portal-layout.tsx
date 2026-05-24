@@ -122,9 +122,11 @@ export function PortalLayout() {
   return (
     <div className="portal-root">
       <div className="flex min-h-screen bg-[var(--gray-50)]">
-        {/* Sidebar desktop (md+) */}
+        {/* Sidebar desktop (xl+). Avant : md+ mais sur 800-1024px la sidebar
+            volait ~240px de viewport et tronquait les cards kanban (bug
+            audit Cowork Mn4/Mn3). On la cache jusqu'à xl (1280px). */}
         <aside
-          className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col border-r border-[var(--gray-200)] bg-white md:flex"
+          className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col border-r border-[var(--gray-200)] bg-white xl:flex"
           aria-label="Navigation principale"
         >
           <SidebarContent
@@ -161,10 +163,10 @@ export function PortalLayout() {
           {/* Topbar */}
           <header className="flex min-h-12 items-center justify-between gap-2 border-b border-[var(--gray-200)] bg-white px-3 py-2 sm:min-h-14 sm:px-4 md:px-6 md:py-3.5">
             <div className="flex min-w-0 flex-1 items-center gap-2">
-              {/* Hamburger (mobile only) */}
+              {/* Hamburger (mobile + tablet, jusqu'à xl) */}
               <button
                 type="button"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[var(--gray-700)] hover:bg-[var(--gray-100)] md:hidden"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[var(--gray-700)] hover:bg-[var(--gray-100)] xl:hidden"
                 onClick={() => setSidebarOpen(true)}
                 aria-label="Ouvrir le menu"
               >

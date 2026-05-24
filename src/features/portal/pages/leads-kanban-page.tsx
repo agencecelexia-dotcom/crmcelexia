@@ -19,6 +19,20 @@ import {
   PORTAL_LEAD_STATUS_ORDER,
   type PortalLeadStatus,
 } from '@/types/enums'
+import type { PortalLead } from '@/types'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
 
 const COLS: PortalLeadStatus[] = PORTAL_LEAD_STATUS_ORDER
 
@@ -91,6 +105,120 @@ function StatusChangeMenu({ currentStatus, onChange, leadName }: StatusChangeMen
   )
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// KanbanColumn — receveur de drop via useDroppable
+// ─────────────────────────────────────────────────────────────────────────────
+
+type KanbanColumnProps = {
+  col: PortalLeadStatus
+  isOver: boolean
+  collapsed: boolean
+  label: string
+  color: string
+  count: number
+  isPerdu: boolean
+  perduOpen: boolean
+  togglePerdu: () => void
+  children: React.ReactNode
+}
+
+function KanbanColumn({ col, isOver, collapsed, label, color, count, isPerdu, togglePerdu, children }: KanbanColumnProps) {
+  const { setNodeRef } = useDroppable({ id: col })
+  return (
+    <div
+      ref={setNodeRef}
+      className={isOver ? 'kanban-col drop-target' : 'kanban-col'}
+      style={{ flex: collapsed ? '0 0 72px' : '0 0 280px', opacity: isPerdu ? 0.85 : 1, maxHeight: 'calc(100vh - 220px)' }}
+    >
+      <div
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px 10px', cursor: isPerdu ? 'pointer' : 'default' }}
+        onClick={() => isPerdu && togglePerdu()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+          {!collapsed && <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--gray-700)' }}>{label}</span>}
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-500)', background: 'white', padding: '2px 8px', borderRadius: 999, border: '1px solid var(--gray-200)' }}>{count}</span>
+        </div>
+        {isPerdu && <ChevronDown size={14} />}
+      </div>
+      {!collapsed && children}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KanbanCard — élément draggable via useDraggable
+// ─────────────────────────────────────────────────────────────────────────────
+
+type KanbanCardProps = {
+  lead: PortalLead
+  onChangeStatus: (newStatus: string) => void
+  onOpen: () => void
+}
+
+function KanbanCard({ lead, onChangeStatus, onOpen }: KanbanCardProps) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: lead.id,
+    data: { status: lead.status },
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`kanban-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 ${isDragging ? 'dragging' : ''}`}
+      role="button"
+      aria-label={`Lead ${lead.name} — ${lead.work_type}`}
+      onClick={(e) => {
+        if (isDragging) return
+        // Ne pas ouvrir si on a clické dans le menu Status (les enfants stopPropagation)
+        if ((e.target as HTMLElement).closest('[role="menu"]')) return
+        onOpen()
+      }}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+        <div
+          className="truncate"
+          style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)', minWidth: 0, flex: 1, wordBreak: 'normal', overflowWrap: 'normal' }}
+          title={lead.name}
+        >{lead.name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          {lead.is_urgent && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#DC2626', flexShrink: 0, marginTop: 5, boxShadow: '0 0 0 3px rgba(220,38,38,0.15)' }} />}
+          <StatusChangeMenu
+            currentStatus={lead.status}
+            leadName={lead.name}
+            onChange={onChangeStatus}
+          />
+        </div>
+      </div>
+      <div
+        className="line-clamp-2"
+        style={{ fontSize: 12, color: 'var(--gray-600)', marginBottom: 8, lineHeight: 1.45, wordBreak: 'normal', overflowWrap: 'normal' }}
+        title={lead.work_type}
+      >{lead.work_type}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--gray-500)', marginBottom: 8 }}>
+        <Phone size={12} />{lead.phone}
+      </div>
+      {lead.amount_estimated && (
+        <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: lead.status === 'signe' ? 'var(--emerald-600)' : 'var(--gray-900)', marginBottom: 8 }}>
+          {lead.amount_estimated.toLocaleString('fr-FR')} €
+        </div>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span className={`p-tag ${lead.source === 'lsa' ? 'p-tag-violet' : ''}`} style={{ fontSize: 10, padding: '2px 7px', background: lead.source === 'lsa' ? 'var(--blue-100)' : 'var(--gray-100)', color: lead.source === 'lsa' ? 'var(--blue-600)' : 'var(--gray-600)', border: 'none' }}>
+          {lead.source === 'lsa' ? 'Celexia' : 'Bouche-à-oreille'}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export function PortalLeadsKanbanPage() {
   const { client } = usePortalAuth()
   const { data: leads, isLoading } = usePortalLeads(client?.id)
@@ -100,10 +228,35 @@ export function PortalLeadsKanbanPage() {
 
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
-  const [dragId, setDragId] = useState<string | null>(null)
-  const [dropCol, setDropCol] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [overCol, setOverCol] = useState<string | null>(null)
   const [perduOpen, setPerduOpen] = useState(false)
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
+
+  // Sensors @dnd-kit — supportent souris, tactile et clavier (a11y).
+  // PointerSensor activation distance 8px = on évite de déclencher le drag
+  // au moindre tap. TouchSensor delay 200ms = on distingue scroll vertical
+  // mobile et drag intentionnel.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(KeyboardSensor),
+  )
+
+  function handleDragStart(e: DragStartEvent) {
+    setActiveId(String(e.active.id))
+  }
+
+  function handleDragEnd(e: DragEndEvent) {
+    setActiveId(null)
+    setOverCol(null)
+    const draggedId = String(e.active.id)
+    const overId = e.over?.id ? String(e.over.id) : null
+    if (!overId) return
+    const lead = leads?.find(l => l.id === draggedId)
+    if (!lead || lead.status === overId) return
+    updateStatus.mutate({ id: draggedId, newStatus: overId, oldStatus: lead.status })
+  }
 
   // New lead form
   // Source forcée à 'bao' : un lead créé manuellement par l'artisan est
@@ -120,15 +273,6 @@ export function PortalLeadsKanbanPage() {
     const q = search.toLowerCase()
     return leads.filter(l => l.name.toLowerCase().includes(q) || l.work_type.toLowerCase().includes(q))
   }, [leads, search])
-
-  function onDrop(col: string) {
-    if (!dragId) return
-    const lead = leads?.find(l => l.id === dragId)
-    if (!lead || lead.status === col) { setDragId(null); setDropCol(null); return }
-    updateStatus.mutate({ id: dragId, newStatus: col, oldStatus: lead.status })
-    setDragId(null)
-    setDropCol(null)
-  }
 
   function changeStatus(leadId: string, newStatus: string) {
     const lead = leads?.find(l => l.id === leadId)
@@ -165,7 +309,40 @@ export function PortalLeadsKanbanPage() {
 
   useEscClose(showModal, () => { setShowModal(false); resetForm() })
 
-  if (isLoading) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>Chargement...</div>
+  // Skeleton kanban pendant le fetch — évite le full-screen spinner qui faisait
+  // sauter le layout (bug audit Cowork M2). On rend header + 5 colonnes
+  // squelettes pour signaler "ça charge mais ça vient".
+  if (isLoading) {
+    return (
+      <div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-5">
+          <div className="min-w-0 flex-1">
+            <h1 className="font-display text-xl font-bold sm:text-2xl md:text-[26px]">Leads</h1>
+            <div className="mt-1 h-3 w-32 rounded bg-[var(--gray-100)] animate-pulse" />
+          </div>
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-2" aria-busy="true" aria-label="Chargement des leads">
+          {[0, 1, 2, 3, 4].map((col) => (
+            <div key={col} className="shrink-0 w-[260px]">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="h-4 w-20 rounded bg-[var(--gray-200)] animate-pulse" />
+                <div className="h-4 w-6 rounded bg-[var(--gray-100)] animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                {[0, 1, 2].map((card) => (
+                  <div key={card} className="rounded-lg bg-white border border-[var(--gray-100)] p-3">
+                    <div className="h-3 w-3/4 rounded bg-[var(--gray-100)] animate-pulse mb-2" />
+                    <div className="h-3 w-1/2 rounded bg-[var(--gray-100)] animate-pulse mb-3" />
+                    <div className="h-2 w-1/3 rounded bg-[var(--gray-100)] animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -192,18 +369,21 @@ export function PortalLeadsKanbanPage() {
           <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)', pointerEvents: 'none' }}><Search size={16} /></span>
           <input
             className="input w-full"
+            type="search"
             placeholder="Rechercher un lead…"
+            aria-label="Rechercher un lead"
             style={{ paddingLeft: 38, fontSize: 16 }}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          <div style={{ display: 'flex', background: 'var(--gray-100)', borderRadius: 8, padding: 3 }}>
+          <div role="group" aria-label="Choix du mode d'affichage" style={{ display: 'flex', background: 'var(--gray-100)', borderRadius: 8, padding: 3 }}>
             <button
               onClick={() => setView('kanban')}
               className="btn"
               aria-label="Vue Kanban"
+              aria-pressed={view === 'kanban'}
               style={{ padding: '6px 12px', fontSize: 13, background: view === 'kanban' ? 'white' : 'transparent', color: view === 'kanban' ? 'var(--violet-700)' : 'var(--gray-600)', boxShadow: view === 'kanban' ? 'var(--shadow-btn)' : 'none' }}
             >
               <LayoutGrid size={14} /> Kanban
@@ -212,6 +392,7 @@ export function PortalLeadsKanbanPage() {
               onClick={() => setView('list')}
               className="btn"
               aria-label="Vue Liste"
+              aria-pressed={view === 'list'}
               style={{ padding: '6px 12px', fontSize: 13, background: view === 'list' ? 'white' : 'transparent', color: view === 'list' ? 'var(--violet-700)' : 'var(--gray-600)', boxShadow: view === 'list' ? 'var(--shadow-btn)' : 'none' }}
             >
               <List size={14} /> Liste
@@ -220,97 +401,66 @@ export function PortalLeadsKanbanPage() {
         </div>
       </div>
 
-      {/* Kanban view */}
+      {/* Kanban view — @dnd-kit (souris + tactile + clavier). Le DragOverlay
+          rend la card pendant le drag avec un offset propre. */}
       {view === 'kanban' ? (
-        <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 12 }}>
-          {COLS.map(col => {
-            const colLeads = filtered.filter(l => l.status === col)
-            const collapsed = col === 'perdu' && !perduOpen
-            const m = { ...PORTAL_LEAD_STATUS_VAR_COLORS[col], label: PORTAL_LEAD_STATUS_LABELS[col] }
-            return (
-              <div
-                key={col}
-                className={dropCol === col ? 'kanban-col drop-target' : 'kanban-col'}
-                onDragOver={e => { e.preventDefault(); setDropCol(col) }}
-                onDragLeave={() => setDropCol(null)}
-                onDrop={() => onDrop(col)}
-                style={{ flex: collapsed ? '0 0 72px' : '0 0 280px', opacity: col === 'perdu' ? 0.85 : 1, maxHeight: 'calc(100vh - 220px)' }}
-              >
-                <div
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px 10px', cursor: col === 'perdu' ? 'pointer' : 'default' }}
-                  onClick={() => col === 'perdu' && setPerduOpen(o => !o)}
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragOver={(e) => setOverCol(e.over?.id ? String(e.over.id) : null)}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => { setActiveId(null); setOverCol(null) }}
+        >
+          <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 12 }}>
+            {COLS.map(col => {
+              const colLeads = filtered.filter(l => l.status === col)
+              const collapsed = col === 'perdu' && !perduOpen
+              const m = { ...PORTAL_LEAD_STATUS_VAR_COLORS[col], label: PORTAL_LEAD_STATUS_LABELS[col] }
+              return (
+                <KanbanColumn
+                  key={col}
+                  col={col}
+                  isOver={overCol === col}
+                  collapsed={collapsed}
+                  label={m.label}
+                  color={m.color}
+                  count={colLeads.length}
+                  isPerdu={col === 'perdu'}
+                  perduOpen={perduOpen}
+                  togglePerdu={() => setPerduOpen(o => !o)}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: m.color }} />
-                    {!collapsed && <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--gray-700)' }}>{m.label}</span>}
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-500)', background: 'white', padding: '2px 8px', borderRadius: 999, border: '1px solid var(--gray-200)' }}>{colLeads.length}</span>
-                  </div>
-                  {col === 'perdu' && <ChevronDown size={14} />}
-                </div>
-                {!collapsed && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', padding: 4 }}>
                     {colLeads.map(lead => (
-                      <div
+                      <KanbanCard
                         key={lead.id}
-                        className={`kanban-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-1 ${dragId === lead.id ? 'dragging' : ''}`}
-                        draggable
-                        tabIndex={0}
-                        role="button"
-                        aria-label={`Lead ${lead.name} — ${lead.work_type}`}
-                        onDragStart={() => setDragId(lead.id)}
-                        onDragEnd={() => setDragId(null)}
-                        onClick={() => navigate(`/portal/leads/${lead.id}`)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            navigate(`/portal/leads/${lead.id}`)
-                          }
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
-                          <div
-                            className="truncate"
-                            style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)', minWidth: 0, flex: 1, wordBreak: 'normal', overflowWrap: 'normal' }}
-                            title={lead.name}
-                          >{lead.name}</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                            {lead.is_urgent && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#DC2626', flexShrink: 0, marginTop: 5, boxShadow: '0 0 0 3px rgba(220,38,38,0.15)' }} />}
-                            <StatusChangeMenu
-                              currentStatus={lead.status}
-                              leadName={lead.name}
-                              onChange={newStatus => changeStatus(lead.id, newStatus)}
-                            />
-                          </div>
-                        </div>
-                        <div
-                          className="line-clamp-2"
-                          style={{ fontSize: 12, color: 'var(--gray-600)', marginBottom: 8, lineHeight: 1.45, wordBreak: 'normal', overflowWrap: 'normal' }}
-                          title={lead.work_type}
-                        >{lead.work_type}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--gray-500)', marginBottom: 8 }}>
-                          <Phone size={12} />{lead.phone}
-                        </div>
-                        {lead.amount_estimated && (
-                          <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: col === 'signe' ? 'var(--emerald-600)' : 'var(--gray-900)', marginBottom: 8 }}>
-                            {lead.amount_estimated.toLocaleString('fr-FR')} €
-                          </div>
-                        )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className={`p-tag ${lead.source === 'lsa' ? 'p-tag-violet' : ''}`} style={{ fontSize: 10, padding: '2px 7px', background: lead.source === 'lsa' ? 'var(--blue-100)' : 'var(--gray-100)', color: lead.source === 'lsa' ? 'var(--blue-600)' : 'var(--gray-600)', border: 'none' }}>
-                            {lead.source === 'lsa' ? 'Celexia' : 'Bouche-à-oreille'}
-                          </span>
-                        </div>
-                      </div>
+                        lead={lead}
+                        onChangeStatus={(s) => changeStatus(lead.id, s)}
+                        onOpen={() => navigate(`/portal/leads/${lead.id}`)}
+                      />
                     ))}
                     {colLeads.length === 0 && (
                       <div style={{ padding: 16, textAlign: 'center', fontSize: 12, color: 'var(--gray-400)', border: '1px dashed var(--gray-200)', borderRadius: 8 }}>Déposer un lead ici</div>
                     )}
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                </KanbanColumn>
+              )
+            })}
+          </div>
+          <DragOverlay>
+            {activeId ? (
+              (() => {
+                const lead = leads?.find(l => l.id === activeId)
+                if (!lead) return null
+                return (
+                  <div className="kanban-card" style={{ width: 260, cursor: 'grabbing', opacity: 0.95, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 6 }}>{lead.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--gray-600)' }}>{lead.work_type}</div>
+                  </div>
+                )
+              })()
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       ) : (
         /* List view */
         <div className="p-card" style={{ padding: 0, overflow: 'hidden' }}>

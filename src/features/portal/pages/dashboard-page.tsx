@@ -12,7 +12,8 @@ export function PortalDashboardPage() {
   const { data: stats } = usePortalLeadStats(client?.id)
   const { data: leads } = usePortalLeads(client?.id)
   const { data: roi } = useRoiStats(client?.id)
-  const firstName = profile?.full_name?.split(' ')[0] || 'artisan'
+  const rawFirstName = profile?.full_name?.split(' ')[0] || 'artisan'
+  const firstName = rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1).toLowerCase()
 
   // Build activity from leads. Tri par updated_at desc (activité réelle)
   // au lieu de created_at, sinon un signé récent disparaît si 5 nouveaux

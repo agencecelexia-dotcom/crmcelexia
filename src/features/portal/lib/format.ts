@@ -5,9 +5,11 @@
 /**
  * Formate un montant en euros au format français (ex: "1 234 €").
  * Pas d'arrondi, pas de décimales.
+ * Utilise un NBSP ( ) avant € pour éviter que le symbole saute à
+ * la ligne tout seul sur mobile étroit (bug audit Cowork Mn2).
  */
 export function formatEur(n: number): string {
-  return n.toLocaleString('fr-FR') + ' €'
+  return n.toLocaleString('fr-FR') + ' €'
 }
 
 export interface CommissionTerms {

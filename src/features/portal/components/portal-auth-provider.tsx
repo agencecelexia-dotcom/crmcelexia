@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase/client'
+import { fetchProfileById } from '@/lib/supabase/profile-cache'
 import type { Session } from '@supabase/supabase-js'
 import type { Profile, Client } from '@/types'
 import { PortalAuthContext, type PortalOnboarding } from '../hooks/use-portal-auth'
@@ -13,14 +14,10 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
 
   const fetchPortalData = useCallback(async (userId: string) => {
     try {
-      // Fetch profile
-      const { data: profileData, error: profileErr } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-      if (profileErr) console.error('[portal] profile fetch:', profileErr)
-      setProfile(profileData as Profile | null)
+      // Fetch profile via cache shared (dedupe avec AuthProvider).
+      // Évite 2 requêtes profiles parallèles au mount du portail.
+      const profileData = await fetchProfileById(userId)
+      setProfile(profileData)
 
       if (!profileData) return
 
