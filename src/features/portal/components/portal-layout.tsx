@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalShortcuts } from '../hooks/use-portal-shortcuts'
-import { Home, LayoutGrid, Euro, FolderOpen, KeyRound, LogOut, Menu, FileText, Settings } from 'lucide-react'
+import { Home, LayoutGrid, Euro, FolderOpen, KeyRound, LogOut, Menu, FileText, Settings, Star } from 'lucide-react'
 import { ChangePasswordDialog } from './change-password-dialog'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import '../portal.css'
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/portal/devis', label: 'Devis', icon: FileText },
   { to: '/portal/commission', label: 'Commission', icon: Euro },
   { to: '/portal/documents', label: 'Documents', icon: FolderOpen },
+  { to: '/portal/reviews', label: 'Avis Google', icon: Star },
   { to: '/portal/parametres', label: 'Paramètres', icon: Settings },
 ] as const
 

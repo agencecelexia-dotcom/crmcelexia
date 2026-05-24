@@ -63,6 +63,13 @@ const ConfirmRdvPage = lazy(() => import('@/features/rdv-public/pages/confirm-rd
 const CancelRdvPage = lazy(() => import('@/features/rdv-public/pages/cancel-rdv-page').then(m => ({ default: m.CancelRdvPage })))
 const RescheduleRdvPage = lazy(() => import('@/features/rdv-public/pages/reschedule-rdv-page').then(m => ({ default: m.RescheduleRdvPage })))
 
+// Public review pages (no auth, token-based)
+const ReviewClickPage = lazy(() => import('@/features/reviews/pages/review-click-page').then(m => ({ default: m.ReviewClickPage })))
+const ReviewUnsubscribePage = lazy(() => import('@/features/reviews/pages/review-unsubscribe-page').then(m => ({ default: m.ReviewUnsubscribePage })))
+
+// Portal artisan reviews page
+const PortalReviewsPage = lazy(() => import('@/features/portal/pages/reviews/portal-reviews-page').then(m => ({ default: m.PortalReviewsPage })))
+
 function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[400px]">
@@ -80,6 +87,10 @@ export const router = createBrowserRouter([
   { path: '/rdv/confirmer', element: <LazyPage><ConfirmRdvPage /></LazyPage> },
   { path: '/rdv/annuler', element: <LazyPage><CancelRdvPage /></LazyPage> },
   { path: '/rdv/replanifier', element: <LazyPage><RescheduleRdvPage /></LazyPage> },
+
+  // ── Public review pages (token-based, depuis emails artisan) ──
+  { path: '/r/:token', element: <LazyPage><ReviewClickPage /></LazyPage> },
+  { path: '/r/:token/unsubscribe', element: <LazyPage><ReviewUnsubscribePage /></LazyPage> },
 
   // ── Portal artisan (separate auth flow) ──
   {
@@ -119,6 +130,7 @@ export const router = createBrowserRouter([
               { path: '/portal/devis', element: <LazyPage><PortalQuotesListPage /></LazyPage> },
               { path: '/portal/devis/nouveau', element: <LazyPage><PortalQuoteEditorPage /></LazyPage> },
               { path: '/portal/devis/:id', element: <LazyPage><PortalQuoteEditorPage /></LazyPage> },
+              { path: '/portal/reviews', element: <LazyPage><PortalReviewsPage /></LazyPage> },
               { path: '/portal/parametres', element: <LazyPage><PortalSettingsPage /></LazyPage> },
             ],
           },
