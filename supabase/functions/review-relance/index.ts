@@ -202,6 +202,14 @@ interface ReqRow {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
+  // Garde-fou week-end : pas d'envoi samedi/dimanche (heure Paris).
+  const parisFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', weekday: 'short' })
+  const parisDay = parisFmt.format(new Date())
+  if (parisDay === 'Sat' || parisDay === 'Sun') {
+    return new Response(JSON.stringify({ ok: true, skipped: 'weekend_paris', day: parisDay }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  }
+
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
   const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const RESEND_KEY = Deno.env.get('RESEND_API_KEY')!
