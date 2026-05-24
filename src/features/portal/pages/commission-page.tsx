@@ -104,11 +104,11 @@ export function PortalCommissionPage() {
           <tbody>
             {signedLeads.map(l => (
               <tr key={l.id}>
-                <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', color: 'var(--gray-700)' }}>{l.signed_at || '—'}</td>
+                <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', color: 'var(--gray-700)', whiteSpace: 'nowrap' }}>{l.signed_at ? new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(l.signed_at)) : '—'}</td>
                 <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', fontWeight: 600, color: 'var(--gray-900)' }}>{l.name}</td>
                 <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', color: 'var(--gray-700)' }}>{l.work_type}</td>
-                <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', textAlign: 'right', color: 'var(--gray-900)' }}>{formatEur(l.signed_amount!)}</td>
-                <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', textAlign: 'right', fontWeight: 600, color: 'var(--violet-700)' }}>{formatEur(l.commission_amount || 0)}</td>
+                <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', textAlign: 'right', color: 'var(--gray-900)', whiteSpace: 'nowrap' }}>{formatEur(l.signed_amount!)}</td>
+                <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', textAlign: 'right', fontWeight: 600, color: 'var(--violet-700)', whiteSpace: 'nowrap' }}>{formatEur(l.commission_amount || 0)}</td>
                 <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
                   <CommissionStatusCell lead={l} onDeclare={() => setConfirmLead(l)} />
                 </td>
@@ -117,8 +117,8 @@ export function PortalCommissionPage() {
             {signedLeads.length > 0 && (
               <tr style={{ background: 'var(--gray-50)' }}>
                 <td colSpan={3} style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--gray-900)' }}>Total</td>
-                <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--gray-900)' }}>{formatEur(totalCa)}</td>
-                <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--violet-700)' }}>{formatEur(totalCommission)}</td>
+                <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--gray-900)', whiteSpace: 'nowrap' }}>{formatEur(totalCa)}</td>
+                <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--violet-700)', whiteSpace: 'nowrap' }}>{formatEur(totalCommission)}</td>
                 <td style={{ padding: '14px 16px' }} />
               </tr>
             )}

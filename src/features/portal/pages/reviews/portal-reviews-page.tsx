@@ -309,12 +309,23 @@ export function PortalReviewsPage() {
             </div>
             <div>
               <Label className="text-sm font-semibold">Lien de votre fiche Google *</Label>
-              <Input value={googleUrl} onChange={(e) => setGoogleUrl(e.target.value)}
-                     placeholder="https://g.page/r/CxxxxxxxEAE/review"
-                     className="mt-1.5 font-mono text-sm" />
-              <p className="text-xs text-slate-500 mt-1.5">
-                Dans Google Business Profile → "Demander des avis" → copiez le lien partagé.
+              <Input
+                type="url"
+                value={googleUrl}
+                onChange={(e) => setGoogleUrl(e.target.value)}
+                placeholder="https://g.page/r/CxxxxxxxEAE/review"
+                pattern="https?://(g\.page|maps\.app\.goo\.gl|www\.google\.com/maps).+"
+                className="mt-1.5 font-mono text-sm"
+                aria-describedby="google-url-hint"
+              />
+              <p id="google-url-hint" className="text-xs text-slate-500 mt-1.5">
+                Dans Google Business Profile → "Demander des avis" → copiez le lien partagé (format <code>https://g.page/r/...</code> ou <code>https://maps.app.goo.gl/...</code>).
               </p>
+              {googleUrl.length > 8 && !/^https?:\/\/(g\.page|maps\.app\.goo\.gl|www\.google\.com\/maps)/.test(googleUrl) && (
+                <p role="alert" className="text-xs text-amber-600 mt-1.5">
+                  ⚠ Ce lien ne ressemble pas à une URL Google Maps / Business Profile. Vérifiez que c'est bien le lien d'avis de votre propre fiche.
+                </p>
+              )}
             </div>
           </div>
         </Card>

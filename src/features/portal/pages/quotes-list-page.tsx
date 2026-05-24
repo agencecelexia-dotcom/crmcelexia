@@ -67,7 +67,7 @@ export function PortalQuotesListPage() {
 
 
       {/* Filters */}
-      <div className="mb-4 -mx-1 flex flex-nowrap gap-1.5 overflow-x-auto pb-1 sm:mb-5 sm:flex-wrap sm:overflow-visible">
+      <div role="group" aria-label="Filtrer les devis par statut" className="mb-4 -mx-1 flex flex-nowrap gap-1.5 overflow-x-auto pb-1 sm:mb-5 sm:flex-wrap sm:overflow-visible">
         {FILTERS.map((f) => {
           const active = filter === f.key
           return (
@@ -75,6 +75,7 @@ export function PortalQuotesListPage() {
               key={f.key}
               type="button"
               onClick={() => setFilter(f.key)}
+              aria-pressed={active}
               className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                 active
                   ? 'bg-[var(--violet-600)] text-white'

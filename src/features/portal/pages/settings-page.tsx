@@ -177,47 +177,47 @@ export function PortalSettingsPage() {
               )}
             </div>
 
-            <Field label="Raison sociale" value={s.company_legal_name ?? ''} onSave={(v) => patch({ company_legal_name: v || null })} placeholder="Ex : Plomberie Dupont SARL" />
+            <Field label="Raison sociale" name="organization" autoComplete="organization" value={s.company_legal_name ?? ''} onSave={(v) => patch({ company_legal_name: v || null })} placeholder="Ex : Plomberie Dupont SARL" />
             <SelectField
               label="Forme juridique"
               value={s.company_form ?? ''}
               options={[...COMPANY_FORMS]}
               onSave={(v) => patch({ company_form: v || null })}
             />
-            <Field label="Adresse" value={s.company_address ?? ''} onSave={(v) => patch({ company_address: v || null })} placeholder="12 rue des Lilas" />
+            <Field label="Adresse" name="street-address" autoComplete="street-address" value={s.company_address ?? ''} onSave={(v) => patch({ company_address: v || null })} placeholder="12 rue des Lilas" />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-[140px_1fr]">
-              <Field label="Code postal" value={s.company_postal_code ?? ''} onSave={(v) => patch({ company_postal_code: v || null })} placeholder="75001" />
-              <Field label="Ville" value={s.company_city ?? ''} onSave={(v) => patch({ company_city: v || null })} placeholder="Paris" />
+              <Field label="Code postal" name="postal-code" autoComplete="postal-code" inputMode="numeric" pattern="\d{5}" value={s.company_postal_code ?? ''} onSave={(v) => patch({ company_postal_code: v || null })} placeholder="75001" />
+              <Field label="Ville" name="address-level2" autoComplete="address-level2" value={s.company_city ?? ''} onSave={(v) => patch({ company_city: v || null })} placeholder="Paris" />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Téléphone" value={s.company_phone ?? ''} onSave={(v) => patch({ company_phone: v || null })} placeholder="06 12 34 56 78" />
-              <Field label="Email" value={s.company_email ?? ''} onSave={(v) => patch({ company_email: v || null })} placeholder="contact@…" />
+              <Field label="Téléphone" name="tel" type="tel" autoComplete="tel" inputMode="tel" value={s.company_phone ?? ''} onSave={(v) => patch({ company_phone: v || null })} placeholder="06 12 34 56 78" />
+              <Field label="Email" name="email" type="email" autoComplete="email" inputMode="email" value={s.company_email ?? ''} onSave={(v) => patch({ company_email: v || null })} placeholder="contact@…" />
             </div>
-            <Field label="Site web" value={s.company_website ?? ''} onSave={(v) => patch({ company_website: v || null })} placeholder="https://…" />
+            <Field label="Site web" name="url" type="url" autoComplete="url" inputMode="url" value={s.company_website ?? ''} onSave={(v) => patch({ company_website: v || null })} placeholder="https://…" />
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="SIRET" value={s.siret ?? ''} onSave={(v) => patch({ siret: v || null })} placeholder="14 chiffres" />
-              <Field label="SIREN" value={s.siren ?? ''} onSave={(v) => patch({ siren: v || null })} placeholder="9 chiffres" />
+              <Field label="SIRET" name="siret" inputMode="numeric" pattern="\d{14}" value={s.siret ?? ''} onSave={(v) => patch({ siret: v || null })} placeholder="14 chiffres" />
+              <Field label="SIREN" name="siren" inputMode="numeric" pattern="\d{9}" value={s.siren ?? ''} onSave={(v) => patch({ siren: v || null })} placeholder="9 chiffres" />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Code APE / NAF" value={s.ape_code ?? ''} onSave={(v) => patch({ ape_code: v || null })} placeholder="4322A" />
-              <Field label="RCS (ville)" value={s.rcs_city ?? ''} onSave={(v) => patch({ rcs_city: v || null })} placeholder="Paris" />
+              <Field label="Code APE / NAF" name="ape-code" value={s.ape_code ?? ''} onSave={(v) => patch({ ape_code: v || null })} placeholder="4322A" />
+              <Field label="RCS (ville)" name="rcs-city" value={s.rcs_city ?? ''} onSave={(v) => patch({ rcs_city: v || null })} placeholder="Paris" />
             </div>
-            <Field label="N° TVA intracommunautaire" value={s.vat_number ?? ''} onSave={(v) => patch({ vat_number: v || null })} placeholder="FR 12 345 678 901" />
+            <Field label="N° TVA intracommunautaire" name="vat-number" pattern="FR\d{11}" value={s.vat_number ?? ''} onSave={(v) => patch({ vat_number: v || null })} placeholder="FR 12 345 678 901" />
           </section>
 
           {/* ── Assurance décennale ── */}
           <section id="insurance" className="p-card" style={{ padding: 20 }}>
             <h2 className="mb-4 font-display text-base font-bold text-[var(--gray-900)] sm:text-lg">Assurance décennale</h2>
-            <Field label="Assureur" value={s.decennale_provider ?? ''} onSave={(v) => patch({ decennale_provider: v || null })} placeholder="Ex : MAAF Pro" />
-            <Field label="N° de police" value={s.decennale_policy ?? ''} onSave={(v) => patch({ decennale_policy: v || null })} placeholder="Numéro de contrat" />
+            <Field label="Assureur" name="decennale-provider" value={s.decennale_provider ?? ''} onSave={(v) => patch({ decennale_provider: v || null })} placeholder="Ex : MAAF Pro" />
+            <Field label="N° de police" name="decennale-policy" value={s.decennale_policy ?? ''} onSave={(v) => patch({ decennale_policy: v || null })} placeholder="Numéro de contrat" />
           </section>
 
           {/* ── RIB ── */}
           <section id="rib" className="p-card" style={{ padding: 20 }}>
             <h2 className="mb-4 font-display text-base font-bold text-[var(--gray-900)] sm:text-lg">Coordonnées bancaires</h2>
-            <Field label="IBAN" value={s.iban ?? ''} onSave={(v) => patch({ iban: v || null })} placeholder="FR76 …" />
-            <Field label="BIC / SWIFT" value={s.bic ?? ''} onSave={(v) => patch({ bic: v || null })} placeholder="BNPAFRPP" />
+            <Field label="IBAN" name="iban" masked value={s.iban ?? ''} onSave={(v) => patch({ iban: v || null })} placeholder="FR76 …" />
+            <Field label="BIC / SWIFT" name="bic" value={s.bic ?? ''} onSave={(v) => patch({ bic: v || null })} placeholder="BNPAFRPP" />
           </section>
 
           {/* ── Devis (défauts) ── */}
@@ -289,23 +289,49 @@ export function PortalSettingsPage() {
 
 function Field({
   label, value, onSave, placeholder, type = 'text',
+  autoComplete, inputMode, pattern, name, masked,
 }: {
   label: string; value: string; onSave: (v: string) => void; placeholder?: string; type?: string
+  autoComplete?: string
+  inputMode?: 'text' | 'numeric' | 'tel' | 'email' | 'url' | 'decimal' | 'search' | 'none'
+  pattern?: string
+  name?: string
+  masked?: boolean  // ex: IBAN — n'affiche pas la valeur en clair par défaut
 }) {
   const [v, setV] = useState(value)
+  const [reveal, setReveal] = useState(false)
   useEffect(() => { setV(value) }, [value])
+  const fieldId = name || label.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  const effectiveType = masked && !reveal && v ? 'password' : type
   return (
     <div className="mb-3">
-      <label className="label-input">{label}</label>
-      <input
-        className="input"
-        type={type}
-        value={v}
-        placeholder={placeholder}
-        onChange={(e) => setV(e.target.value)}
-        onBlur={() => { if (v !== value) onSave(v) }}
-        style={{ fontSize: 16 }}
-      />
+      <label htmlFor={fieldId} className="label-input">{label}</label>
+      <div style={{ position: 'relative' }}>
+        <input
+          id={fieldId}
+          name={name || fieldId}
+          className="input"
+          type={effectiveType}
+          inputMode={inputMode}
+          pattern={pattern}
+          autoComplete={autoComplete}
+          value={v}
+          placeholder={placeholder}
+          onChange={(e) => setV(e.target.value)}
+          onBlur={() => { if (v !== value) onSave(v) }}
+          style={{ fontSize: 16, paddingRight: masked ? 70 : undefined }}
+        />
+        {masked && v && (
+          <button
+            type="button"
+            onClick={() => setReveal(r => !r)}
+            aria-label={reveal ? 'Masquer la valeur' : 'Afficher la valeur'}
+            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: 'var(--gray-500)', fontSize: 12, cursor: 'pointer', padding: '4px 8px' }}
+          >
+            {reveal ? 'Masquer' : 'Afficher'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
