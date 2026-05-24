@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, FileText } from 'lucide-react'
+import { Plus, FileText, Upload } from 'lucide-react'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { useQuotesList } from '../hooks/use-quotes'
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from '@/types/enums'
 import type { QuoteStatus } from '@/types'
 import { formatDateShort } from '@/lib/format'
+import { UploadExternalQuoteDialog } from '../components/upload-external-quote-dialog'
+import { useQueryClient } from '@tanstack/react-query'
 
 const FILTERS: Array<{ key: 'all' | QuoteStatus; label: string }> = [
   { key: 'all', label: 'Tous' },
@@ -19,7 +21,9 @@ const FILTERS: Array<{ key: 'all' | QuoteStatus; label: string }> = [
 export function PortalQuotesListPage() {
   const { client } = usePortalAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [filter, setFilter] = useState<'all' | QuoteStatus>('all')
+  const [uploadOpen, setUploadOpen] = useState(false)
   const { data: quotes, isLoading } = useQuotesList(
     client?.id,
     filter === 'all' ? undefined : filter,
@@ -33,15 +37,34 @@ export function PortalQuotesListPage() {
           <h1 className="font-display text-xl font-bold leading-tight sm:text-2xl md:text-[26px]">Devis</h1>
           <p className="mt-0.5 text-xs text-[var(--gray-500)] sm:text-sm">Vos devis envoyés et brouillons</p>
         </div>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => navigate('/portal/devis/nouveau')}
-          style={{ minHeight: 40 }}
-        >
-          <Plus size={16} /> <span className="hidden sm:inline">Nouveau devis</span><span className="sm:hidden">Nouveau</span>
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setUploadOpen(true)}
+            style={{ minHeight: 40, background: '#fff', border: '1px solid var(--gray-200)' }}
+          >
+            <Upload size={16} /> <span className="hidden sm:inline">Importer un PDF</span><span className="sm:hidden">PDF</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navigate('/portal/devis/nouveau')}
+            style={{ minHeight: 40 }}
+          >
+            <Plus size={16} /> <span className="hidden sm:inline">Nouveau devis</span><span className="sm:hidden">Nouveau</span>
+          </button>
+        </div>
       </div>
+
+      <UploadExternalQuoteDialog
+        open={uploadOpen}
+        onOpenChange={setUploadOpen}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['quotes', client?.id] })
+        }}
+      />
+
 
       {/* Filters */}
       <div className="mb-4 -mx-1 flex flex-nowrap gap-1.5 overflow-x-auto pb-1 sm:mb-5 sm:flex-wrap sm:overflow-visible">
