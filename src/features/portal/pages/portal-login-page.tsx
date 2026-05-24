@@ -103,7 +103,7 @@ export function PortalLoginPage() {
         </div>
 
         <div className="p-card p-6 sm:p-7">
-          <form onSubmit={handleLogin} className="grid gap-4">
+          <form onSubmit={handleLogin} method="post" className="grid gap-4">
             <div>
               <label className="label-input" htmlFor="portal-login-email">Email</label>
               <input

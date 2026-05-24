@@ -92,6 +92,11 @@ export function PortalCommissionPage() {
 
       {/* Detail table */}
       <div className="p-card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
+        {/* Indicateur scroll horizontal mobile — sinon les artisans ne voient
+            pas la colonne Statut + les boutons "J'ai payé" (audit V2 M6). */}
+        <p className="text-[11px] text-[var(--gray-500)] italic px-4 py-2 border-b border-[var(--gray-100)] lg:hidden">
+          ↔ Faites défiler le tableau horizontalement pour voir la colonne Statut.
+        </p>
         <div className="overflow-x-auto">
         <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 14 }}>
           <thead>
@@ -160,14 +165,16 @@ export function PortalCommissionPage() {
       <div className="p-card" style={{ overflow: 'hidden' }}>
         <button
           onClick={() => setExplainerOpen(o => !o)}
+          aria-expanded={explainerOpen}
+          aria-controls="commission-explainer-content"
           style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '18px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
         >
-          <Info size={18} style={{ color: 'var(--violet-600)', flexShrink: 0 }} />
+          <Info size={18} style={{ color: 'var(--violet-600)', flexShrink: 0 }} aria-hidden="true" />
           <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--gray-900)' }}>Comment fonctionne la commission ?</span>
-          <ChevronDown size={16} style={{ color: 'var(--gray-400)', transform: explainerOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+          <ChevronDown size={16} style={{ color: 'var(--gray-400)', transform: explainerOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} aria-hidden="true" />
         </button>
         {explainerOpen && (
-          <div style={{ padding: '0 20px 20px', display: 'grid', gap: 12 }}>
+          <div id="commission-explainer-content" style={{ padding: '0 20px 20px', display: 'grid', gap: 12 }}>
             {[
               ['1', 'Celexia vous génère des leads qualifiés.'],
               ['2', 'Vous décrochez, vendez et marquez le lead comme "signé" avec le montant du devis.'],
