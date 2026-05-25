@@ -86,8 +86,9 @@ import {
 import { toast } from 'sonner'
 import { useOpportunitiesForClient } from '@/features/opportunities/hooks/use-opportunities'
 import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STATUS_COLORS } from '@/types/enums'
-import { Zap, UserPlus, Workflow, Inbox, FileSignature, TrendingUp, Sparkles, Euro } from 'lucide-react'
+import { Zap, UserPlus, Workflow, Inbox, FileSignature, TrendingUp, Sparkles, Euro, Upload } from 'lucide-react'
 import { PortalInviteDialog } from '@/features/portal/components/portal-invite-dialog'
+import { ImportLsaLeadsDialog } from '../components/import-lsa-leads-dialog'
 import { AccompagnementStepper } from '@/components/shared/accompagnement-stepper'
 import { StepValidationDialog } from '@/features/accompagnement/components/step-validation-dialog'
 import { useStepsForClient, useClientKpis, usePortalDocsForClient } from '@/features/accompagnement/hooks/use-accompagnement'
@@ -135,6 +136,7 @@ export function ClientDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [editData, setEditData] = useState<Record<string, string>>({})
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  const [lsaImportOpen, setLsaImportOpen] = useState(false)
   const [stepDialogOpen, setStepDialogOpen] = useState(false)
   const [selectedStep, setSelectedStep] = useState<ClientAccompagnementStep | null>(null)
 
@@ -237,6 +239,14 @@ export function ClientDetailPage() {
                     onClick={() => window.open(`/portal/dashboard?as_client=${client.id}`, '_blank')}
                   >
                     <Workflow className="mr-1 h-4 w-4" /> Voir le portail
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-violet-300 text-violet-700 hover:bg-violet-50"
+                    onClick={() => setLsaImportOpen(true)}
+                  >
+                    <Upload className="mr-1 h-4 w-4" /> Importer CSV LSA
                   </Button>
                 </>
               )}
@@ -459,6 +469,14 @@ export function ClientDetailPage() {
         open={inviteDialogOpen}
         onOpenChange={setInviteDialogOpen}
         onSuccess={() => window.location.reload()}
+      />
+
+      {/* Import CSV LSA — pousse les leads Google Local Services dans le portail artisan */}
+      <ImportLsaLeadsDialog
+        open={lsaImportOpen}
+        onOpenChange={setLsaImportOpen}
+        clientId={client.id}
+        clientName={client.company_name}
       />
 
       {/* Accompagnement step validation dialog */}
