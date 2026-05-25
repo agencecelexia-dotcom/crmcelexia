@@ -86,7 +86,7 @@ import {
 import { toast } from 'sonner'
 import { useOpportunitiesForClient } from '@/features/opportunities/hooks/use-opportunities'
 import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STATUS_COLORS } from '@/types/enums'
-import { Zap, UserPlus, Workflow, Inbox, FileSignature, TrendingUp, Sparkles, Euro, Upload } from 'lucide-react'
+import { Zap, UserPlus, Workflow, Inbox, FileSignature, TrendingUp, Sparkles, Euro } from 'lucide-react'
 import { PortalInviteDialog } from '@/features/portal/components/portal-invite-dialog'
 import { ImportLsaLeadsDialog } from '../components/import-lsa-leads-dialog'
 import { AccompagnementStepper } from '@/components/shared/accompagnement-stepper'
