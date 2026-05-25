@@ -3,12 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLead, usePortalLeadEvents, useUpdatePortalLead, useDeletePortalLead, useMarkPortalLeadSigned } from '../hooks/use-portal-leads'
+import { useLeadInvoices } from '../hooks/use-lead-invoices'
 import { ArrowLeft, Phone, MapPin, Calendar, CheckCircle2, Trash2, FileText, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase/client'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { LeadInvoicesSection } from '../components/lead-invoices-section'
+import { ProjectTimeline } from '../components/project-timeline/project-timeline'
 import { getCommissionTerms, formatCommissionTerms, calcCommission } from '../lib/format'
+import type { Quote } from '@/types'
 import {
   PORTAL_LEAD_STATUS_LABELS,
   PORTAL_LEAD_STATUS_VAR_COLORS,
@@ -81,6 +84,27 @@ export function PortalLeadDetailPage() {
     },
     enabled: !!id && lead?.status === 'signe',
   })
+
+  // Tous les devis liés au lead (pour la timeline projet, audit V3).
+  // On charge tout — natifs + externes, signés ou non — pour que la timeline
+  // ait toutes les sources de vérité dispo.
+  const { data: leadQuotes } = useQuery({
+    queryKey: ['lead-quotes', id],
+    queryFn: async (): Promise<Quote[]> => {
+      const { data, error } = await supabase
+        .from('quotes')
+        .select('*')
+        .eq('portal_lead_id', id!)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+      if (error) return []
+      return (data ?? []) as Quote[]
+    },
+    enabled: !!id,
+  })
+
+  // Factures chantier (timeline + section existante)
+  const { data: leadInvoices } = useLeadInvoices(id)
 
   if (isLoading || !lead) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--gray-400)' }}>Chargement...</div>
 
@@ -220,7 +244,16 @@ export function PortalLeadDetailPage() {
             />
           </div>
 
-          {/* Timeline */}
+          {/* Timeline projet unifiée — audit V3. Remplacera à terme le bloc
+              "Historique" brut situé juste en-dessous (gardé 1 sprint en
+              rétrocompat pour debug). */}
+          <ProjectTimeline
+            lead={lead}
+            quotes={leadQuotes ?? []}
+            invoices={leadInvoices ?? []}
+          />
+
+          {/* Timeline (Historique brut — déprécié au profit de ProjectTimeline) */}
           <div className="p-card" style={{ padding: 20 }}>
             <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)', marginBottom: 14 }}>Historique</h3>
             {events && events.length > 0 ? (
