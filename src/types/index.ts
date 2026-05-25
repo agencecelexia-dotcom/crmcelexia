@@ -473,7 +473,7 @@ export interface PortalLead {
   work_type: string
   amount_estimated: number | null
   source: 'lsa' | 'bao'
-  status: 'nouveau' | 'qualifie' | 'devis' | 'signe' | 'perdu'
+  status: 'nouveau' | 'qualifie' | 'devis' | 'signe' | 'perdu' | 'clos'
   signed_amount: number | null
   /** Date de signature (DATE, format "YYYY-MM-DD", pas un timestamp). Pas
    *  de fuseau horaire — interpréter comme jour calendaire Paris. */
@@ -487,6 +487,10 @@ export interface PortalLead {
   commission_paid_at: string | null
   commission_validated_by: string | null
   commission_admin_notes: string | null
+  // Migration 00110 : dates de cycle de vie pour timeline projet unifiée
+  commission_invoiced_at: string | null
+  project_completed_at: string | null
+  closed_at: string | null
   notes: string | null
   is_urgent: boolean
   created_at: string
@@ -577,6 +581,10 @@ export interface Quote {
   signed_signature_data: string | null
   sent_at: string | null
   viewed_at: string | null
+  // Migration 00108 : devis uploadé en PDF externe (créé hors CRM)
+  is_external: boolean
+  external_pdf_path: string | null
+  external_filename: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null
