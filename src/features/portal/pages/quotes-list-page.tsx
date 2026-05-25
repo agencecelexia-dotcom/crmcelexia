@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Plus, FileText, Upload } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Plus, FileText, Upload, Info, ArrowRight } from 'lucide-react'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { useQuotesList } from '../hooks/use-quotes'
 import { QUOTE_STATUS_COLORS, QUOTE_STATUS_LABELS } from '@/types/enums'
@@ -65,6 +65,25 @@ export function PortalQuotesListPage() {
         }}
       />
 
+      {/* Bandeau dépréciation soft — pointer les artisans vers la fiche projet
+          où le devis est désormais affiché dans son contexte (lead → devis →
+          commission → livraison). Cette page reste utile pour la recherche
+          multi-leads et l'import de PDF externes. */}
+      <div className="mb-5 flex flex-col gap-2 rounded-lg border border-violet-200 bg-violet-50 p-3 text-xs text-violet-900 sm:flex-row sm:items-center sm:justify-between sm:text-sm">
+        <div className="flex items-start gap-2">
+          <Info size={16} className="mt-0.5 shrink-0 text-violet-600" aria-hidden="true" />
+          <span>
+            Le devis est maintenant visible <strong>directement sur la fiche de chaque projet</strong>,
+            avec toutes les étapes (devis → signature → commission → livraison).
+          </span>
+        </div>
+        <Link
+          to="/portal/leads"
+          className="inline-flex items-center gap-1 self-start rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 ring-1 ring-violet-200 hover:bg-violet-100 sm:self-auto"
+        >
+          Voir mes projets <ArrowRight size={12} aria-hidden="true" />
+        </Link>
+      </div>
 
       {/* Filters */}
       <div role="group" aria-label="Filtrer les devis par statut" className="mb-4 -mx-1 flex flex-nowrap gap-1.5 overflow-x-auto pb-1 sm:mb-5 sm:flex-wrap sm:overflow-visible">

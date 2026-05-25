@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePortalAuth } from '../hooks/use-portal-auth'
 import { usePortalLeads, usePortalLeadStats, useDeclareCommissionPaid } from '../hooks/use-portal-leads'
-import { Euro, CheckCircle2, TrendingUp, Info, ChevronDown, Clock, AlertCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Euro, CheckCircle2, TrendingUp, Info, ChevronDown, Clock, AlertCircle, ArrowRight } from 'lucide-react'
 import { PortalKpiCard } from '../components/portal-kpi-card'
 import { formatEur, getCommissionTerms, formatCommissionTerms } from '../lib/format'
 import { supabase } from '@/lib/supabase/client'
@@ -56,6 +57,25 @@ export function PortalCommissionPage() {
   return (
     <div>
       <h1 className="font-display mb-4 text-xl font-bold sm:mb-5 sm:text-2xl md:text-[26px]">Commission</h1>
+
+      {/* Bandeau dépréciation soft — la commission est désormais visible
+          étape par étape dans la fiche projet de chaque lead. Cette page
+          reste utile comme vue agrégée multi-leads (totaux, restes à payer). */}
+      <div className="mb-5 flex flex-col gap-2 rounded-lg border border-violet-200 bg-violet-50 p-3 text-xs text-violet-900 sm:flex-row sm:items-center sm:justify-between sm:text-sm">
+        <div className="flex items-start gap-2">
+          <Info size={16} className="mt-0.5 shrink-0 text-violet-600" aria-hidden="true" />
+          <span>
+            Le détail de chaque commission est maintenant <strong>centralisé sur la fiche de chaque projet</strong>.
+            Cette page reste utile comme vue agrégée de tous vos chantiers.
+          </span>
+        </div>
+        <Link
+          to="/portal/leads"
+          className="inline-flex items-center gap-1 self-start rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-violet-700 ring-1 ring-violet-200 hover:bg-violet-100 sm:self-auto"
+        >
+          Voir mes projets <ArrowRight size={12} aria-hidden="true" />
+        </Link>
+      </div>
 
       {/* KPI row */}
       <div className="mb-5 grid grid-cols-1 gap-2.5 sm:mb-7 sm:grid-cols-3 sm:gap-4">
