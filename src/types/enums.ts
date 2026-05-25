@@ -651,6 +651,7 @@ export const PORTAL_LEAD_STATUS = {
   DEVIS: 'devis',
   SIGNE: 'signe',
   PERDU: 'perdu',
+  CLOS: 'clos',
 } as const
 
 export type PortalLeadStatus = (typeof PORTAL_LEAD_STATUS)[keyof typeof PORTAL_LEAD_STATUS]
@@ -661,6 +662,7 @@ export const PORTAL_LEAD_STATUS_LABELS: Record<PortalLeadStatus, string> = {
   devis: 'Devis envoyé',
   signe: 'Signé',
   perdu: 'Perdu',
+  clos: 'Clôturé',
 }
 
 export const PORTAL_LEAD_STATUS_COLORS: Record<PortalLeadStatus, string> = {
@@ -669,6 +671,7 @@ export const PORTAL_LEAD_STATUS_COLORS: Record<PortalLeadStatus, string> = {
   devis: 'bg-amber-100 text-amber-700',
   signe: 'bg-emerald-100 text-emerald-700',
   perdu: 'bg-gray-100 text-gray-600',
+  clos: 'bg-slate-200 text-slate-700',
 }
 
 // Couleurs CSS vars pour les badges/pastilles du portail (kanban + détail lead).
@@ -680,6 +683,7 @@ export const PORTAL_LEAD_STATUS_VAR_COLORS: Record<PortalLeadStatus, { color: st
   devis: { color: 'var(--amber-600)', bg: 'var(--amber-100)' },
   signe: { color: 'var(--emerald-600)', bg: 'var(--emerald-100)' },
   perdu: { color: 'var(--gray-500)', bg: 'var(--gray-100)' },
+  clos: { color: 'var(--slate-700)', bg: 'var(--slate-200)' },
 }
 
 // Pipeline actif (sans perdu) — utilisé pour les conversions, stats, etc.
