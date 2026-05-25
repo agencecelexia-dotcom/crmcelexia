@@ -356,10 +356,10 @@ export function PortalLeadDetailPage() {
             </button>
           )}
 
-          {/* Delete — uniquement pour les leads BAO (l'artisan ne peut pas
-              supprimer les leads envoyés par Celexia, le trigger DB le bloque
-              aussi côté serveur) */}
-          {lead.source === 'bao' && (
+          {/* Delete — pour les leads dont l'artisan est propriétaire (BAO +
+              site web). Les leads LSA viennent de Celexia et ne peuvent pas
+              être supprimés (trigger DB le bloque côté serveur). */}
+          {(lead.source === 'bao' || lead.source === 'site_web') && (
             <button className="btn" style={{ width: '100%', background: 'white', color: '#DC2626', border: '1.5px solid #FECACA', padding: '10px 18px', fontSize: 14, fontWeight: 600 }} onClick={() => setDeleteOpen(true)}>
               <Trash2 size={16} /> Supprimer ce lead
             </button>

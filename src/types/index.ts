@@ -472,7 +472,7 @@ export interface PortalLead {
   city: string | null
   work_type: string
   amount_estimated: number | null
-  source: 'lsa' | 'bao'
+  source: 'lsa' | 'bao' | 'site_web'
   status: 'nouveau' | 'qualifie' | 'devis' | 'signe' | 'perdu' | 'clos'
   signed_amount: number | null
   /** Date de signature (DATE, format "YYYY-MM-DD", pas un timestamp). Pas

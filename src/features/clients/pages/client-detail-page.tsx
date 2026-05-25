@@ -89,6 +89,8 @@ import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_STATUS_COLORS } from '@/types/en
 import { Zap, UserPlus, Workflow, Inbox, FileSignature, TrendingUp, Sparkles, Euro } from 'lucide-react'
 import { PortalInviteDialog } from '@/features/portal/components/portal-invite-dialog'
 import { ImportLsaLeadsDialog } from '../components/import-lsa-leads-dialog'
+import { ClientApiKeysDialog } from '../components/client-api-keys-dialog'
+import { Key } from 'lucide-react'
 import { AccompagnementStepper } from '@/components/shared/accompagnement-stepper'
 import { StepValidationDialog } from '@/features/accompagnement/components/step-validation-dialog'
 import { useStepsForClient, useClientKpis, usePortalDocsForClient } from '@/features/accompagnement/hooks/use-accompagnement'
@@ -137,6 +139,7 @@ export function ClientDetailPage() {
   const [editData, setEditData] = useState<Record<string, string>>({})
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [lsaImportOpen, setLsaImportOpen] = useState(false)
+  const [apiKeysOpen, setApiKeysOpen] = useState(false)
   const [stepDialogOpen, setStepDialogOpen] = useState(false)
   const [selectedStep, setSelectedStep] = useState<ClientAccompagnementStep | null>(null)
 
@@ -247,6 +250,14 @@ export function ClientDetailPage() {
                     onClick={() => setLsaImportOpen(true)}
                   >
                     <Upload className="mr-1 h-4 w-4" /> Importer CSV LSA
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-violet-300 text-violet-700 hover:bg-violet-50"
+                    onClick={() => setApiKeysOpen(true)}
+                  >
+                    <Key className="mr-1 h-4 w-4" /> Clés API site web
                   </Button>
                 </>
               )}
@@ -475,6 +486,14 @@ export function ClientDetailPage() {
       <ImportLsaLeadsDialog
         open={lsaImportOpen}
         onOpenChange={setLsaImportOpen}
+        clientId={client.id}
+        clientName={client.company_name}
+      />
+
+      {/* Clés API — pour connecter un site vitrine externe au portail */}
+      <ClientApiKeysDialog
+        open={apiKeysOpen}
+        onOpenChange={setApiKeysOpen}
         clientId={client.id}
         clientName={client.company_name}
       />

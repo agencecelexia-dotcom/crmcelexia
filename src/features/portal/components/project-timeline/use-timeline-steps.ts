@@ -200,7 +200,10 @@ export function buildTimelineSteps(
     // Méta-données contextuelles (affichées sous le label)
     const meta: TimelineStep['meta'] = {}
     if (d.key === 'lead_arrived') {
-      meta.source = lead.source === 'lsa' ? 'Celexia' : 'Bouche-à-oreille'
+      meta.source =
+        lead.source === 'lsa' ? 'Celexia'
+        : lead.source === 'site_web' ? 'Site web'
+        : 'Bouche-à-oreille'
     }
     if (d.key === 'quote_sent' && sentQuote) {
       meta.quote_number = sentQuote.quote_number

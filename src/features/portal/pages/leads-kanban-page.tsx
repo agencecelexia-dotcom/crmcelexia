@@ -5,6 +5,7 @@ import { usePortalLeads, useCreatePortalLead, useUpdatePortalLeadStatus } from '
 import { Plus, Search, LayoutGrid, List, Phone, X, ChevronDown, MoreVertical, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { useEscClose } from '../lib/use-esc-close'
+import { getLeadSourceMeta } from '../lib/lead-source'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -337,9 +338,14 @@ export function PortalLeadsKanbanPage() {
                           </div>
                         )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className={`p-tag ${lead.source === 'lsa' ? 'p-tag-violet' : ''}`} style={{ fontSize: 10, padding: '2px 7px', background: lead.source === 'lsa' ? 'var(--blue-100)' : 'var(--gray-100)', color: lead.source === 'lsa' ? 'var(--blue-600)' : 'var(--gray-600)', border: 'none' }}>
-                            {lead.source === 'lsa' ? 'Celexia' : 'Bouche-à-oreille'}
-                          </span>
+                          {(() => {
+                            const meta = getLeadSourceMeta(lead.source)
+                            return (
+                              <span className="p-tag" style={{ fontSize: 10, padding: '2px 7px', background: meta.bg, color: meta.color, border: 'none' }}>
+                                {meta.label}
+                              </span>
+                            )
+                          })()}
                         </div>
                       </div>
                     ))}
@@ -374,7 +380,10 @@ export function PortalLeadsKanbanPage() {
                     <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', color: 'var(--gray-700)' }}>{l.work_type}</td>
                     <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)', color: 'var(--gray-700)' }}>{l.amount_estimated ? l.amount_estimated.toLocaleString('fr-FR') + ' €' : '—'}</td>
                     <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
-                      <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: l.source === 'lsa' ? 'var(--blue-100)' : 'var(--gray-100)', color: l.source === 'lsa' ? 'var(--blue-600)' : 'var(--gray-600)' }}>{l.source === 'lsa' ? 'Celexia' : 'Bouche-à-oreille'}</span>
+                      {(() => {
+                        const meta = getLeadSourceMeta(l.source)
+                        return <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: meta.bg, color: meta.color }}>{meta.label}</span>
+                      })()}
                     </td>
                     <td style={{ padding: '14px 16px', borderBottom: '1px solid var(--gray-100)' }}>
                       <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 999, fontWeight: 600, background: PORTAL_LEAD_STATUS_VAR_COLORS[l.status]?.bg, color: PORTAL_LEAD_STATUS_VAR_COLORS[l.status]?.color }}>{PORTAL_LEAD_STATUS_LABELS[l.status]}</span>
