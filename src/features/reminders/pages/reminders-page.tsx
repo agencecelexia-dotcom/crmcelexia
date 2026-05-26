@@ -17,7 +17,11 @@ import {
   Check,
   Phone,
   ExternalLink,
+  Printer,
+  Calendar,
+  Hourglass,
 } from 'lucide-react'
+import { useNoShowRdvsToRecall, useForgottenProspects } from '../hooks/use-recall-pool'
 import {
   REMINDER_CONTEXT_LABELS,
   REMINDER_CONTEXT_COLORS,
@@ -193,7 +197,10 @@ function ReminderSection({ title, icon, reminders, colorClass, onComplete, isPen
 export function RemindersPage() {
   const { isFounder } = useAuth()
   const { data: reminders, isLoading } = useAllReminders()
+  const { data: noShowRdvs } = useNoShowRdvsToRecall()
+  const { data: forgottenProspects } = useForgottenProspects(100)
   const completeReminder = useCompleteReminder()
+  const navigate = useNavigate()
 
   async function handleComplete(id: string, prospectId: string) {
     try {
@@ -215,26 +222,44 @@ export function RemindersPage() {
   }, [reminders])
 
   const totalActive = overdue.length + today.length + upcoming.length
+  const totalRecallPool = totalActive + (noShowRdvs?.length ?? 0) + (forgottenProspects?.length ?? 0)
 
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 px-6 py-4 border-b bg-background">
+      <div className="flex items-center gap-3 px-6 py-4 border-b bg-background print:hidden">
         <Bell className="h-5 w-5 text-muted-foreground" />
         <h1 className="text-xl font-semibold">Rappels</h1>
         {totalActive > 0 && (
           <Badge className="bg-red-500 text-white text-xs">{totalActive}</Badge>
         )}
         {isFounder && (
-          <Badge variant="outline" className="ml-auto text-xs">Équipe complète</Badge>
+          <Badge variant="outline" className="text-xs">Équipe complète</Badge>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => window.print()}
+          className="ml-auto"
+          title="Imprimer la liste"
+        >
+          <Printer className="h-4 w-4 mr-1.5" /> Imprimer
+        </Button>
+      </div>
+
+      {/* Header version impression — minimal */}
+      <div className="hidden print:block px-6 py-3 border-b">
+        <h1 className="text-lg font-bold">Liste des rappels à passer</h1>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Édité le {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+        </p>
       </div>
 
       {isLoading ? (
         <div className="flex-1 p-6 space-y-3">
           {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20 rounded-lg" />)}
         </div>
-      ) : totalActive === 0 ? (
+      ) : totalRecallPool === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-6 gap-3">
           <Check className="h-10 w-10 text-green-500" />
           <p className="text-lg font-medium text-muted-foreground">Aucun rappel en attente</p>
@@ -296,6 +321,120 @@ export function RemindersPage() {
                     />
                   )
                 })}
+              </div>
+            )}
+
+            {/* RDV à rattraper — no-show / annulés avec recall_status à traiter */}
+            {noShowRdvs && noShowRdvs.length > 0 && (
+              <div className="space-y-2 pt-4">
+                <Separator className="print:hidden" />
+                <div className="flex items-center gap-2 px-1 py-2 rounded-lg bg-amber-50 text-amber-800">
+                  <Calendar className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-semibold">RDV à rattraper</span>
+                  <Badge variant="secondary" className="ml-auto text-xs h-5">{noShowRdvs.length}</Badge>
+                </div>
+                <div className="space-y-2 pl-1">
+                  {noShowRdvs.map((rdv) => {
+                    const p = rdv.prospect
+                    if (!p) return null
+                    const fullName = [p.contact_firstname, p.contact_name].filter(Boolean).join(' ')
+                    return (
+                      <div
+                        key={rdv.id}
+                        className="flex items-start gap-3 rounded-lg border border-l-4 border-l-amber-400 p-3 bg-background"
+                      >
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold text-amber-800">
+                              RDV {formatDate(rdv.scheduled_at)}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">
+                              {rdv.recall_status === 'in_progress' ? 'Relance en cours' : 'À relancer'}
+                            </span>
+                            {rdv.recall_attempts > 0 && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {rdv.recall_attempts} tentative{rdv.recall_attempts > 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => navigate(`/prospects/${p.id}`)}
+                            className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors print:no-underline"
+                          >
+                            <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                            {p.company_name}
+                            {fullName && <span className="text-xs text-muted-foreground">· {fullName}</span>}
+                            <span className="text-xs text-muted-foreground">· {p.phone}</span>
+                            <ExternalLink className="h-3 w-3 text-muted-foreground print:hidden" />
+                          </button>
+                          {(rdv.no_show_reason || rdv.notes) && (
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {rdv.no_show_reason || rdv.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Prospects oubliés — next_reminder_at dépassé sans reminder actif */}
+            {forgottenProspects && forgottenProspects.length > 0 && (
+              <div className="space-y-2 pt-4">
+                <Separator className="print:hidden" />
+                <div className="flex items-center gap-2 px-1 py-2 rounded-lg bg-purple-50 text-purple-800">
+                  <Hourglass className="h-4 w-4 text-purple-600" />
+                  <span className="text-sm font-semibold">Opportunités à ré-ouvrir</span>
+                  <Badge variant="secondary" className="ml-auto text-xs h-5">{forgottenProspects.length}</Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground px-1">
+                  Prospects avec un rappel prévu dans le passé mais aucune action depuis. Souvent des « rappelez-moi plus tard » oubliés.
+                </p>
+                <div className="space-y-2 pl-1">
+                  {forgottenProspects.map((p) => {
+                    const fullName = [p.contact_firstname, p.contact_name].filter(Boolean).join(' ')
+                    return (
+                      <div
+                        key={p.id}
+                        className="flex items-start gap-3 rounded-lg border border-l-4 border-l-purple-400 p-3 bg-background"
+                      >
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold text-purple-800">
+                              Prévu {formatDate(p.next_reminder_at)}
+                            </span>
+                            {p.last_called_at && (
+                              <span className="text-[10px] text-muted-foreground">
+                                Dernier appel : {formatDate(p.last_called_at)}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => navigate(`/prospects/${p.id}`)}
+                            className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors text-left"
+                          >
+                            <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate">
+                              {p.company_name}
+                              {fullName && <span className="text-xs text-muted-foreground"> · {fullName}</span>}
+                              {p.profession && <span className="text-xs text-muted-foreground"> · {p.profession}</span>}
+                            </span>
+                            <span className="text-xs text-muted-foreground font-mono shrink-0">{p.phone}</span>
+                            <ExternalLink className="h-3 w-3 text-muted-foreground print:hidden" />
+                          </button>
+                          {p.city && (
+                            <p className="text-[11px] text-muted-foreground">{p.city}</p>
+                          )}
+                          {p.notes && (
+                            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{p.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </div>

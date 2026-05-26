@@ -39,3 +39,11 @@ supabase/.temp/
 iban/
 
 credentials.md
+
+# Secrets téléchargés depuis GCP Console (OAuth client JSON)
+client_secret_*.json
+client_secret_*.apps.googleusercontent.com.json
+
+# Exports CSV contenant des numéros / PII
+leads-inbox.csv
+*-inbox.csv
