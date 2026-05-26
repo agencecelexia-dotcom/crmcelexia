@@ -29,11 +29,10 @@ const corsHeaders = {
 const CRM_URL = Deno.env.get('CRM_BASE_URL') ?? 'https://crmcelexia.vercel.app'
 
 const PSYCHO = [
-  "Plus tôt vous bouclez ces points, plus tôt vos premiers clients arrivent.",
-  "Notre engagement c'est la rapidité, chaque jour qui passe c'est un client en moins dans votre pipeline.",
+  "Plus tôt ces points sont bouclés, plus tôt vos premiers clients arrivent.",
   "Vous avez signé pour un apport d'affaires, il ne manque que ça pour qu'on commence à vous envoyer du chiffre.",
   "Le système est prêt à tourner pour vous, dès que ces points sont validés on lance.",
-  "L'effort qu'il vous reste est minime, mais il bloque tout le reste.",
+  "L'effort qu'il reste est minime, mais il bloque la mise en place.",
 ]
 
 interface OnboardingRow {
@@ -74,32 +73,14 @@ function escapeHtml(s: string): string {
   )
 }
 
-function urgencyFor(daysSinceActivated: number, relanceCount: number) {
-  if (daysSinceActivated >= 9 || relanceCount >= 9) {
-    return {
-      level: 'last' as const,
-      line: "Dernière relance. Sans action sous 24h, votre portail est désactivé et un autre artisan de votre zone récupère votre créneau.",
-      subject_suffix: 'dernière relance avant fermeture',
-    }
-  }
-  if (daysSinceActivated >= 7 || relanceCount >= 7) {
-    return {
-      level: 'high' as const,
-      line: "Il reste 48h. Passé ce délai, votre dossier est mis en pause et votre place proposée à un autre artisan de votre zone.",
-      subject_suffix: '48h pour finaliser votre apport d\'affaires',
-    }
-  }
-  if (daysSinceActivated >= 5 || relanceCount >= 5) {
-    return {
-      level: 'medium' as const,
-      line: "Il nous reste 5 jours d'attente acceptable avant de proposer votre place à un autre artisan de votre zone.",
-      subject_suffix: null,
-    }
-  }
+/**
+ * Ton de la relance : neutre, sans deadline ni menace de désactivation.
+ * On rappelle juste ce qui manque + l'invitation à finaliser rapidement.
+ * Aucune mention de "48h", "dernière relance", "fermeture", "récupère votre créneau".
+ */
+function reminderTone(_daysSinceActivated: number, _relanceCount: number) {
   return {
-    level: 'soft' as const,
-    line: "Plus c'est rapide, plus vite vous démarrez.",
-    subject_suffix: null,
+    line: "Faites-le au plus vite pour qu'on puisse lancer la mise en place de votre côté.",
   }
 }
 
@@ -114,21 +95,18 @@ function buildEmail(opts: {
   const { first_name, missing, daysSinceActivated, relanceCount, loginEmail, magicLink } = opts
   const n = missing.length
   const psycho = PSYCHO[relanceCount % PSYCHO.length]
-  const u = urgencyFor(daysSinceActivated, relanceCount)
+  const u = reminderTone(daysSinceActivated, relanceCount)
 
-  let subject: string
-  if (u.level === 'last') subject = `${first_name}, ${u.subject_suffix}`
-  else if (u.level === 'high') subject = `${first_name}, ${u.subject_suffix}`
-  else if (u.level === 'medium') subject = `${first_name}, il reste ${n} étape${n > 1 ? 's' : ''} pour démarrer (jour ${daysSinceActivated + 1})`
-  else subject = `${first_name}, il reste ${n} étape${n > 1 ? 's' : ''} pour démarrer`
+  // Subject neutre — ne mentionne ni jour, ni deadline, ni "dernière relance"
+  const subject = `${first_name}, il reste ${n} étape${n > 1 ? 's' : ''} pour démarrer`
 
   const itemsHtml = missing.map(m =>
     `<tr><td style="padding:6px 0 6px 8px;border-left:3px solid #d97706;font-size:14px;line-height:1.5;color:#0F172A">${escapeHtml(m)}</td></tr>`
   ).join('')
   const itemsText = missing.map(m => `  - ${m}`).join('\n')
-  const isUrgent = u.level === 'high' || u.level === 'last'
-  const urgBg = isUrgent ? '#fee2e2' : '#f1f5f9'
-  const urgFg = isUrgent ? '#991b1b' : '#475569'
+  // Bloc d'invitation neutre (gris), pas rouge — pas d'effet urgence visuelle
+  const urgBg = '#f1f5f9'
+  const urgFg = '#475569'
 
   const html = `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${escapeHtml(subject)}</title></head>
@@ -286,7 +264,7 @@ Deno.serve(async (req) => {
           continue
         }
       }
-      missing.push("La validation finale de notre équipe (faite sous 24h dès vos étapes complétées)")
+      missing.push("La validation finale de notre équipe (dès que vos étapes sont complétées de votre côté)")
     }
 
     // Magic link pour auto-login
