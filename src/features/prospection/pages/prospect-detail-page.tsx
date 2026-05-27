@@ -253,6 +253,30 @@ export function ProspectDetailPage() {
     return typeof v === 'number' ? v : (typeof v === 'string' && v ? parseInt(v, 10) : null)
   }, [prospect])
 
+  // Note Google (étoiles) + nombre d'avis Google — affichés en tête de fiche
+  const googleRating = useMemo(() => {
+    const v = prospect?.custom_fields?.google_rating
+    if (typeof v === 'number') return v
+    if (typeof v === 'string' && v) {
+      const n = parseFloat(String(v).replace(',', '.'))
+      return Number.isNaN(n) ? null : n
+    }
+    return null
+  }, [prospect])
+  const googleReviewCount = useMemo(() => {
+    const v = prospect?.custom_fields?.google_review_count
+    if (typeof v === 'number') return v
+    if (typeof v === 'string' && v) {
+      const n = parseInt(String(v), 10)
+      return Number.isNaN(n) ? null : Math.abs(n)
+    }
+    return null
+  }, [prospect])
+  const googleMapsUrl = useMemo(() => {
+    const v = prospect?.custom_fields?.google_maps_url
+    return typeof v === 'string' && v ? v : null
+  }, [prospect])
+
   // Date dernier email envoyé via Smartlead
   const smartleadSentAt = useMemo(() => {
     const v = prospect?.custom_fields?.smartlead_last_sent_at
@@ -560,6 +584,36 @@ export function ProspectDetailPage() {
             >
               ⚔️ {competitorsLsa} concurrent{competitorsLsa > 1 ? 's' : ''} LSA
             </Badge>
+          )}
+          {(googleRating != null || googleReviewCount != null) && (
+            googleMapsUrl ? (
+              <a
+                href={googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Voir la fiche Google${googleReviewCount != null ? ` (${googleReviewCount} avis)` : ''}`}
+                className="inline-flex"
+              >
+                <Badge className={`text-xs ${
+                  googleRating != null && googleRating >= 4.5 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                  googleRating != null && googleRating >= 4.0 ? 'bg-amber-100 text-amber-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                  ⭐ {googleRating != null ? googleRating.toFixed(1).replace('.', ',') : '?'} {googleReviewCount != null ? `· ${googleReviewCount} avis` : ''}
+                </Badge>
+              </a>
+            ) : (
+              <Badge
+                title={`Note Google · ${googleReviewCount ?? 0} avis`}
+                className={`text-xs ${
+                  googleRating != null && googleRating >= 4.5 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                  googleRating != null && googleRating >= 4.0 ? 'bg-amber-100 text-amber-800' :
+                  'bg-red-100 text-red-800'
+                }`}
+              >
+                ⭐ {googleRating != null ? googleRating.toFixed(1).replace('.', ',') : '?'} {googleReviewCount != null ? `· ${googleReviewCount} avis` : ''}
+              </Badge>
+            )
           )}
           {smartleadSentAt && (
             <Badge

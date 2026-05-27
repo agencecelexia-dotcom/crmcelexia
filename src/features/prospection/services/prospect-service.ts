@@ -149,10 +149,13 @@ export async function getProspects({
 
   // Champs JSONB stockés dans custom_fields : on cible la clé via la syntaxe
   // Supabase `custom_fields->key` pour préserver le type numérique JSON.
-  const isJsonbSort = sortBy === 'competitors_count_lsa'
-  const sortColumn = isJsonbSort
-    ? 'custom_fields->competitors_count_lsa'
-    : sortBy
+  const JSONB_SORT_KEYS: Record<string, string> = {
+    competitors_count_lsa: 'custom_fields->competitors_count_lsa',
+    google_rating: 'custom_fields->google_rating',
+    google_review_count: 'custom_fields->google_review_count',
+  }
+  const isJsonbSort = sortBy in JSONB_SORT_KEYS
+  const sortColumn = isJsonbSort ? JSONB_SORT_KEYS[sortBy] : sortBy
 
   query = query
     .order(sortColumn, {

@@ -353,7 +353,7 @@ export function ProspectsListPage() {
     }
   }, [prospects, selectedProspect?.id])
 
-  const colCount = (isFounder ? 11 : 10) + 1 // +1 for checkbox column (LSA column included)
+  const colCount = (isFounder ? 12 : 11) + 1 // +1 for checkbox column (LSA + Google rating columns included)
 
   return (
     <div className="flex h-[calc(100vh-4rem)]">
@@ -726,6 +726,13 @@ export function ProspectsListPage() {
                   >
                     LSA {sortBy === 'competitors_count_lsa' && (sortDesc ? '↓' : '↑')}
                   </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/50 text-center whitespace-nowrap"
+                    onClick={() => handleSort('google_rating')}
+                    title="Trier par note Google"
+                  >
+                    ⭐ Google {sortBy === 'google_rating' && (sortDesc ? '↓' : '↑')}
+                  </TableHead>
                   {isFounder && <TableHead>Commercial</TableHead>}
                   <TableHead
                     className="cursor-pointer hover:bg-muted/50 text-right"
@@ -911,6 +918,30 @@ export function ProspectsListPage() {
                                 }`}
                               >
                                 {comp}
+                              </span>
+                            )
+                          })()}
+                        </TableCell>
+                        <TableCell className="text-center text-sm whitespace-nowrap">
+                          {(() => {
+                            const cf = prospect.custom_fields ?? {}
+                            const rRaw = cf.google_rating
+                            const cRaw = cf.google_review_count
+                            const rating = typeof rRaw === 'number' ? rRaw : (typeof rRaw === 'string' && rRaw ? parseFloat(String(rRaw).replace(',', '.')) : null)
+                            const reviewCount = typeof cRaw === 'number' ? cRaw : (typeof cRaw === 'string' && cRaw ? parseInt(String(cRaw), 10) : null)
+                            if (rating == null && reviewCount == null) return <span className="text-xs text-muted-foreground">—</span>
+                            return (
+                              <span className="inline-flex items-baseline gap-1" title={`${rating ?? '?'} ⭐ · ${reviewCount ?? 0} avis`}>
+                                {rating != null && (
+                                  <span className={`font-semibold ${rating >= 4.5 ? 'text-emerald-700' : rating >= 4 ? 'text-amber-700' : 'text-red-700'}`}>
+                                    {rating.toFixed(1).replace('.', ',')}
+                                  </span>
+                                )}
+                                {reviewCount != null && (
+                                  <span className="text-xs text-muted-foreground">
+                                    ({reviewCount})
+                                  </span>
+                                )}
                               </span>
                             )
                           })()}
