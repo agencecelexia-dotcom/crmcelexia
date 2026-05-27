@@ -234,6 +234,13 @@ export async function generateContract(data: ContractData, options?: { clientSig
   drawParagraph(state, `Cette commission est calculée et exigible sur le montant ${commissionBase} des contrats conclus, indépendamment des délais de règlement effectifs entre le Client et ses propres clients.`)
   drawParagraph(state, `Aucune mensualité fixe ni frais de mise en place ne sont dus par le Client qui bénéficie pour les services rendus d'une rémunération uniquement au résultat.`)
 
+  drawSubHeading(state, '4.1 bis — Définition et identification des Leads')
+  drawParagraph(state, `Au sens du présent contrat, un « Lead » désigne tout numéro de téléphone (et coordonnées associées) qui parvient au Client via le système publicitaire mis en place par Agence Celexia. Le Client y a accès en permanence depuis l'interface du portail Agence Celexia, qui permet d'identifier les Leads et de les distinguer des autres contacts du Client. Seuls les Leads ainsi identifiés donnent lieu à commission au profit d'Agence Celexia.`)
+  drawParagraph(state, `A contrario, aucune commission n'est due sur :`)
+  drawBullet(state, `les clients existants du Client antérieurs à la signature du présent contrat ;`)
+  drawBullet(state, `les contacts obtenus par bouche-à-oreille, recommandation directe ou prospection personnelle du Client. Ces contacts peuvent être ajoutés manuellement par le Client dans le portail Agence Celexia sous la mention « Bouche-à-oreille » à des fins de suivi commercial interne, sans donner lieu à commission.`)
+  drawParagraph(state, `En cas de doute sur l'origine d'un contact, la mention figurant dans le portail Agence Celexia fait foi.`)
+
   drawSubHeading(state, '4.2 — Suivi et attribution des Leads')
   drawParagraph(state, `Agence Celexia, au moyen du système digital qu'elle met en œuvre (visibilité), génère de nouveaux contacts pour le Client ; ces nouveaux contacts sont appelés « Leads ».`)
   drawParagraph(state, `Le suivi des Leads repose sur un système de traçabilité des contacts entrants mis en place par Agence Celexia, que le Client s'engage à confirmer chaque fin de mois en adressant à Agence Celexia un mail avec 1/ la liste des Leads et 2/ la liste des Leads convertis (ceux avec lesquels un contrat a été signé) et le montant ${commissionBase} de chaque contrat signé.`)
