@@ -427,8 +427,43 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
               const comp = typeof compRaw === 'number' ? compRaw : (typeof compRaw === 'string' && compRaw ? parseInt(compRaw, 10) : null)
               const slStatus = typeof cf.smartlead_status === 'string' ? cf.smartlead_status : null
               const slSentAt = typeof cf.smartlead_last_sent_at === 'string' ? cf.smartlead_last_sent_at : null
+              const rRaw = cf.google_rating
+              const cRaw = cf.google_review_count
+              const gRating = typeof rRaw === 'number' ? rRaw : (typeof rRaw === 'string' && rRaw ? parseFloat(String(rRaw).replace(',', '.')) : null)
+              const gReviews = typeof cRaw === 'number' ? cRaw : (typeof cRaw === 'string' && cRaw ? Math.abs(parseInt(String(cRaw), 10)) : null)
+              const gMaps = typeof cf.google_maps_url === 'string' ? cf.google_maps_url : null
               return (
                 <>
+                  {(gRating != null || gReviews != null) && (
+                    gMaps ? (
+                      <a
+                        href={gMaps}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Voir sur Google · ${gReviews ?? 0} avis`}
+                        className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold hover:opacity-90 ${
+                          gRating != null && gRating >= 4.5 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                          gRating != null && gRating >= 4.0 ? 'bg-amber-100 text-amber-800' :
+                          'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        ⭐ {gRating != null ? gRating.toFixed(1).replace('.', ',') : '?'}
+                        {gReviews != null && ` · ${gReviews} avis`}
+                      </a>
+                    ) : (
+                      <span
+                        title={`Note Google · ${gReviews ?? 0} avis`}
+                        className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${
+                          gRating != null && gRating >= 4.5 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                          gRating != null && gRating >= 4.0 ? 'bg-amber-100 text-amber-800' :
+                          'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        ⭐ {gRating != null ? gRating.toFixed(1).replace('.', ',') : '?'}
+                        {gReviews != null && ` · ${gReviews} avis`}
+                      </span>
+                    )
+                  )}
                   {comp != null && (
                     <span
                       title="Nombre de concurrents Google Local Services Ads sur la zone"
