@@ -570,6 +570,59 @@ export function ProspectsListPage() {
                     />
                     Trier par concurrence LSA (croissant)
                   </label>
+                  <label
+                    className="flex items-center gap-1.5 text-xs cursor-pointer"
+                    title="Affiche d'abord les prospects avec le plus d'avis Google (les plus reconnus / matures)."
+                  >
+                    <input
+                      type="checkbox"
+                      checked={sortBy === 'google_review_count' && sortDesc}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        setSearchParams(prev => {
+                          const next = new URLSearchParams(prev)
+                          if (checked) {
+                            next.set('sb', 'google_review_count')
+                            // sortDesc=true est le défaut → on n'a pas besoin de set 'sd'
+                            next.delete('sd')
+                          } else {
+                            next.delete('sb')
+                            next.delete('sd')
+                          }
+                          next.delete('p')
+                          return next
+                        }, { replace: true })
+                      }}
+                      className="rounded border-input"
+                    />
+                    Trier par avis Google (décroissant)
+                  </label>
+                  <label
+                    className="flex items-center gap-1.5 text-xs cursor-pointer"
+                    title="Affiche d'abord les prospects avec la meilleure note Google."
+                  >
+                    <input
+                      type="checkbox"
+                      checked={sortBy === 'google_rating' && sortDesc}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        setSearchParams(prev => {
+                          const next = new URLSearchParams(prev)
+                          if (checked) {
+                            next.set('sb', 'google_rating')
+                            next.delete('sd')
+                          } else {
+                            next.delete('sb')
+                            next.delete('sd')
+                          }
+                          next.delete('p')
+                          return next
+                        }, { replace: true })
+                      }}
+                      className="rounded border-input"
+                    />
+                    Trier par note Google (décroissant)
+                  </label>
                 </div>
                 <div className="flex gap-2 flex-wrap items-center">
                   <div className="flex items-center gap-1.5">
