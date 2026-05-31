@@ -19,6 +19,7 @@ import {
   PROSPECT_STATUS_COLORS,
   CALL_RESULT_LABELS,
   RDV_TYPE_LABELS,
+  COUNTRY_LABELS,
 } from '@/types/enums'
 import { StatusBadge } from '@/components/shared/status-badge'
 import { Button } from '@/components/ui/button'
@@ -432,8 +433,17 @@ export function ProspectCallPanel({ prospect, onClose, onCallLogged }: ProspectC
               const gRating = typeof rRaw === 'number' ? rRaw : (typeof rRaw === 'string' && rRaw ? parseFloat(String(rRaw).replace(',', '.')) : null)
               const gReviews = typeof cRaw === 'number' ? cRaw : (typeof cRaw === 'string' && cRaw ? Math.abs(parseInt(String(cRaw), 10)) : null)
               const gMaps = typeof cf.google_maps_url === 'string' ? cf.google_maps_url : null
+              const country = typeof cf.country === 'string' ? cf.country : null
               return (
                 <>
+                  {country && COUNTRY_LABELS[country] && (
+                    <span
+                      title={`Pays : ${country}`}
+                      className="inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold bg-indigo-100 text-indigo-800"
+                    >
+                      {COUNTRY_LABELS[country]}
+                    </span>
+                  )}
                   {(gRating != null || gReviews != null) && (
                     gMaps ? (
                       <a

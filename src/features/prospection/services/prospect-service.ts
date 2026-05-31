@@ -81,6 +81,10 @@ export async function getProspects({
     query = query.eq('commercial_id', filters.commercial_id)
   }
 
+  if (filters.country) {
+    query = query.eq('custom_fields->>country', filters.country)
+  }
+
   if (filters.import_id) {
     query = query.eq('import_id', filters.import_id)
   }

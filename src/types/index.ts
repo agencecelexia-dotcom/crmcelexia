@@ -458,6 +458,7 @@ export interface ProspectFilters {
   last_called_from?: string
   last_called_to?: string
   phone_prefixes?: string[]
+  country?: string  // Filtre pays via custom_fields.country (ex: "Suisse", "France")
 }
 
 // ── Portal Lead ──

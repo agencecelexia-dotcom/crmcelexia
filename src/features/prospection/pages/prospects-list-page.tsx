@@ -11,6 +11,7 @@ import {
   PROSPECT_STATUS_COLORS,
   PROSPECT_STATUS_ROW_COLORS,
   PROFESSION_CATEGORIES,
+  COUNTRY_LABELS,
   OPPORTUNITY_STATUS_LABELS,
   OPPORTUNITY_STATUS_COLORS,
   type OpportunityStatus,
@@ -174,6 +175,10 @@ export function ProspectsListPage() {
   const commercialFilter = sp('com') || 'all'
   const setCommercialFilter = useCallback((v: string) => updateParams({ com: v }), [updateParams])
 
+  // Filtre pays (custom_fields.country) : 'all' | 'France' | 'Suisse'
+  const countryFilter = sp('cnt') || 'all'
+  const setCountryFilter = useCallback((v: string) => updateParams({ cnt: v }), [updateParams])
+
   const sortBy = sp('sb', 'created_at')
   const setSortBy = useCallback((v: string | ((prev: string) => string)) => {
     if (typeof v === 'function') {
@@ -225,6 +230,7 @@ export function ProspectsListPage() {
     last_called_from: lastCalledFrom || undefined,
     last_called_to: lastCalledTo || undefined,
     phone_prefixes: phonePrefixes.length > 0 ? phonePrefixes : undefined,
+    country: countryFilter !== 'all' ? countryFilter : undefined,
   }
 
   const { data, isLoading, isFetching } = useProspects({
@@ -266,8 +272,9 @@ export function ProspectsListPage() {
     if (lastCalledFrom) c++
     if (lastCalledTo) c++
     if (phonePrefixes.length > 0) c++
+    if (countryFilter !== 'all') c++
     return c
-  }, [statusFilter, commercialFilter, cityFilter, professionCategory, neverCalled, hasOverdue, hasReminderToday, dateFrom, dateTo, lastCalledFrom, lastCalledTo, phonePrefixes])
+  }, [statusFilter, commercialFilter, cityFilter, professionCategory, neverCalled, hasOverdue, hasReminderToday, dateFrom, dateTo, lastCalledFrom, lastCalledTo, phonePrefixes, countryFilter])
 
   // Clear selection when page/filters change
   useEffect(() => {
@@ -510,6 +517,17 @@ export function ProspectsListPage() {
                     <SelectContent className="max-h-60 overflow-y-auto">
                       <SelectItem value="all">Tous les métiers</SelectItem>
                       {Object.entries(PROFESSION_CATEGORIES).map(([key, { label }]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={countryFilter} onValueChange={setCountryFilter}>
+                    <SelectTrigger className="w-[140px] h-8 text-sm" title="Filtrer par pays (tag custom_fields.country)">
+                      <SelectValue placeholder="Pays..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous les pays</SelectItem>
+                      {Object.entries(COUNTRY_LABELS).map(([key, label]) => (
                         <SelectItem key={key} value={key}>{label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -882,9 +900,18 @@ export function ProspectsListPage() {
                             const cRaw = cf.google_review_count
                             const gRating = typeof rRaw === 'number' ? rRaw : (typeof rRaw === 'string' && rRaw ? parseFloat(String(rRaw).replace(',', '.')) : null)
                             const gReviews = typeof cRaw === 'number' ? cRaw : (typeof cRaw === 'string' && cRaw ? Math.abs(parseInt(String(cRaw), 10)) : null)
-                            if (comp == null && !slStatus && gRating == null && gReviews == null) return null
+                            const country = typeof cf.country === 'string' ? cf.country : null
+                            if (comp == null && !slStatus && gRating == null && gReviews == null && !country) return null
                             return (
                               <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                {country && COUNTRY_LABELS[country] && (
+                                  <span
+                                    title={`Pays : ${country}`}
+                                    className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-indigo-100 text-indigo-800"
+                                  >
+                                    {COUNTRY_LABELS[country]}
+                                  </span>
+                                )}
                                 {(gRating != null || gReviews != null) && (
                                   <span
                                     title={`Note Google ${gRating != null ? gRating.toFixed(1).replace('.', ',') : '?'} sur ${gReviews ?? 0} avis`}

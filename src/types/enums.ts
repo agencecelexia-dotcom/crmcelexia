@@ -55,6 +55,14 @@ export const PROFESSION_CATEGORIES = {
 
 export type ProfessionCategory = keyof typeof PROFESSION_CATEGORIES
 
+// Pays des prospects (stocké dans custom_fields.country).
+// Utilisé pour le filtre "Pays" + badge UI dans la liste/fiche prospect.
+export const COUNTRY_LABELS: Record<string, string> = {
+  France: '🇫🇷 France',
+  Suisse: '🇨🇭 Suisse',
+}
+export type ProspectCountry = keyof typeof COUNTRY_LABELS
+
 // Row background colors for prospect list (renforcés + bordure gauche colorée)
 export const PROSPECT_STATUS_ROW_COLORS: Record<ProspectStatus, string> = {
   nouveau: 'bg-gray-100/80 border-l-4 border-l-gray-400',
