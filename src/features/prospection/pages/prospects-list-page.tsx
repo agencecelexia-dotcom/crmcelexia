@@ -474,6 +474,16 @@ export function ProspectsListPage() {
               )}
 
               <Button
+                variant={countryFilter === 'Suisse' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setCountryFilter(countryFilter === 'Suisse' ? 'all' : 'Suisse')}
+                className={`gap-1 h-9 ${countryFilter === 'Suisse' ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : ''}`}
+                title="Afficher uniquement les prospects Suisses"
+              >
+                🇨🇭 Suisse
+              </Button>
+
+              <Button
                 variant={showAdvanced ? 'secondary' : 'outline'}
                 size="sm"
                 onClick={() => setShowAdvanced((v) => !v)}
