@@ -46,6 +46,7 @@ export const PROFESSION_CATEGORIES = {
   paysagiste:  { label: 'Paysagiste',              patterns: ['%paysag%', '%jardin%'] },
   pisciniste:  { label: 'Constructeur de piscine', patterns: ['%piscin%'] },
   couvreur:    { label: 'Couvreur',                patterns: ['%couvr%', '%toitur%', '%zingu%'] },
+  cvc:         { label: 'CVC (Chauffage/Clim)',    patterns: ['%cvc%', '%clim%', '%ventilat%'] },
   plombier:    { label: 'Plombier',                patterns: ['%plomb%', '%chauffag%'] },
   electricien: { label: 'Électricien',             patterns: ['%lectric%'] },
   macon:       { label: 'Maçon',                   patterns: ['%maçon%', '%macon%'] },
